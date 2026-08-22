@@ -1,4 +1,4 @@
-# Onderdelen en werkvolgorde
+# Onderdelen en opzetten
 
 Aanvulling op `README.md`.
 
@@ -6,54 +6,72 @@ Aanvulling op `README.md`.
 
 | Bestand | Rol |
 |---|---|
-| `extensions/price-test/src/run.js` | Discount Function: geeft de controlegroep het verschil terug |
-| `extensions/price-test/src/run.graphql` | input-query; leest cohort uit cart-attributen |
-| `web/app/lib/priceTest.server.ts` | prijzen per markt zetten en terugdraaien, config naar het metafield |
-| `web/app/routes/app.price-test.tsx` | instelpagina: product, markten, bedragen, split, starten/stoppen |
-| `web/app/routes/app.price-test-results.tsx` | resultaten per groep en per markt |
+| `theme/price-test.liquid` | cohorttoewijzing, prijsweergave en variant-omwisseling |
+| `web/app/routes/dashboard.tsx` | dashboard-omhulsel: navigatie en toegang |
+| `web/app/routes/dashboard._index.tsx` | analytics: tegels, grafiek, tabellen |
+| `web/app/routes/dashboard.tests.tsx` | tests aanmaken, starten, stoppen |
+| `web/app/routes/dashboard_.login.tsx` | wachtwoordscherm |
+| `web/app/lib/dashboardAuth.server.ts` | sessie en toegang tot het dashboard |
+| `web/app/lib/priceTest.server.ts` | producten opzoeken, varianten koppelen |
 | `web/app/routes/api.price-test.tsx` | publieke config voor het thema |
 | `web/app/routes/api.price-test-event.tsx` | meetpunt voor view en add-to-cart |
 | `web/app/routes/webhooks.orders.create.tsx` | omzet per groep, idempotent per order |
-| `theme/price-test.liquid` | cohorttoewijzing + cart-attributen |
 | `web/supabase/migrations/0001_price_tests.sql` | datamodel |
 
-## Volgorde bij starten en stoppen
+Er is bewust **geen** Shopify Function meer. De vorige versie had er een om de
+controlegroep korting te geven; met twee echte producten is dat overbodig.
 
-Die volgorde is bewust en staat zo in de code:
+## Waarom de variant-omwisseling op het netwerkverzoek zit
 
-**Starten** — eerst de kortingconfig schrijven, dan pas de prijs omhoog.
-Andersom ontstaat een venster waarin de prijs verhoogd is terwijl de
-controlegroep zijn teruggave nog niet krijgt; dan betaalt iedereen te veel.
+Het thema zet het verborgen `id`-veld bij elke variantwissel opnieuw, dus een
+eenmalige aanpassing van het formulier houdt geen stand. Het verzoek naar
+`/cart/add` is het enige punt waar het id sowieso langskomt, ongeacht welke knop
+of welk script de aanroep doet. Bundel-properties en `selling_plan` blijven daar
+onaangeroerd.
 
-**Stoppen** — eerst de prijzen terug, dan pas de korting weghalen. Andersom
-betaalt de controlegroep even de testprijs zonder teruggave.
+Mislukt die omwisseling toch, dan koopt de bezoeker het originele product: te
+weinig marge, maar nooit een cart die afwijkt van wat hij zag.
 
-Lukt het zetten van de prijs in één markt niet, dan draait de code de al
-gezette markten terug. Half doorgevoerd is erger dan niet doorgevoerd.
+## Grafiekkleuren
 
-## Nog te doen voordat dit kan draaien
+Blauw voor de controlegroep, oranje voor de test — slot 1 en 2 uit het
+gevalideerde categorische palet. Beide modi zijn door de kleurenblindheids- en
+contrastchecks gehaald (worst-pair CVD ΔE 24,7 licht / 26,8 donker). Verander je
+ze, draai dan de validator opnieuw in plaats van op het oog te kiezen.
 
-1. `shopify app config link` — registreert de app, vult `client_id` en `handle`
-2. Vercel-project voor `web/`, env-variabelen zetten
-3. Migratie draaien in Supabase
-4. `shopify app deploy` — publiceert de Function
-5. In Shopify een **automatische korting** aanmaken met deze Function, met
-   `combinesWith.productDiscounts = true` zodat hij naast de bundelkorting mag
-   bestaan
-6. De id van die korting in `PRICE_TEST_DISCOUNT_NODE_ID` zetten
-7. `theme/price-test.liquid` in het thema plaatsen en `app_base` invullen
+## Opzetten
 
-Stap 5 en 6 zijn niet optioneel. Zonder gekoppelde korting weigert de
-instelpagina een test te starten — dan zou de controlegroep de testprijs
-betalen zonder teruggave.
+Wat al gedaan is:
 
-## Wat ik niet heb kunnen testen
+- [x] Shopify-app **Price Test** aangemaakt, client-id `e0127103f68c3a5e74136d4f68fcf9ad`
+- [x] `shopify.app.toml` gekoppeld
+- [x] migratie gedraaid op het Supabase-project `email-popup`
 
-Niets hiervan heeft gedraaid. De app bestaat nog niet bij Shopify, er is geen
-Vercel-deploy en de Supabase-connector was in deze sessie niet bereikbaar. Dit
-is dus code die volgens de bestaande patronen van de Email Pop up-app is
-geschreven en logisch klopt, maar nog geen enkele keer is uitgevoerd.
+Wat nog moet:
 
-Reken op een testronde per onderdeel: eerst de Function met een testcart, dan
-het starten/stoppen op één markt met een klein bedrag, en pas daarna een echte
-test.
+1. **Vercel-project** voor `web/` — root directory op `web`
+2. **Omgevingsvariabelen** zetten (zie `README.md`)
+3. `application_url` en `redirect_urls` in `shopify.app.toml` op de echte
+   Vercel-URL zetten
+4. `shopify app deploy` — publiceert de webhook-configuratie
+5. App installeren op de winkel
+6. In Shopify een **duplicaat** maken van het testproduct, de prijs erop zetten,
+   en bundel + selling plan + reviews eraan koppelen
+7. `theme/price-test.liquid` in het thema plaatsen, `app_base` invullen en
+   renderen op de productpagina
+8. Test aanmaken op `/dashboard/tests` en starten
+
+## Wat nog niet getest is
+
+Er is nog geen echte cart doorheen gelopen. Build en typecheck zijn schoon, het
+dashboard is met nepdata op een draaiende server bekeken (geen botsende labels,
+geen overflow, donkere modus klopt), maar de thema-kant — prijsweergave en
+variant-omwisseling — heeft alleen op papier gedraaid.
+
+Doe voor de eerste echte test in elk geval dit:
+
+- koop als testgroep één stuk en controleer dat de checkout hetzelfde bedrag
+  toont als de productpagina
+- controleer dat het gratis stuk uit de bundel er nog bij zit
+- controleer of je op het duplicaat een abonnement kunt afsluiten
+- wissel op de productpagina van variant en kijk of de prijs meebeweegt

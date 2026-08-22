@@ -1,78 +1,90 @@
 # Herbies Price Test
 
-Prijs-A/B-tests per product en per markt, als **aparte** Shopify-app naast
-Email Pop up.
+Prijs-A/B-tests per product, als **aparte** Shopify-app naast Email Pop up, met
+een eigen dashboard op Vercel.
 
 ## Waarom apart van de bestaande app
 
 **Deploy-koppeling.** `shopify app deploy` hercompileert en herreleaset alle
 extensies van een app tegelijk. De Email Pop up-app bevat `bundle-bxgy`, de
-Discount Function achter je bundels. Tijdens één middag popup-werk zag ik die
-function vier keer meegereleased worden (versies 91, 93, 95, 96) zonder dat er
-een regel aan veranderd was. Prijstesten daar toevoegen zou dat aantal deploys
-flink verhogen, met je bundelkorting als stille passagier.
+Discount Function achter de bundels. Tijdens één middag popup-werk zag ik die
+function vier keer meegereleased worden zonder dat er een regel aan veranderd
+was. Prijstesten daar toevoegen zou dat aantal deploys verhogen, met de
+bundelkorting als stille passagier.
 
-**Scope.** Prijzen wijzigen vraagt `write_products`. Die scope aan de bestaande
-app toevoegen betekent dat óók een bug in de popup- of bundelcode productprijzen
-kan overschrijven. Hier staat die bevoegdheid geïsoleerd.
+**Scope.** Deze app leest producten en orders. Die rechten horen niet bij de
+popup-app thuis.
 
-## Hoe de prijstest werkt
+## Hoe de test werkt
 
-Shopify laat de prijs niet per bezoeker verhogen — kortingen gaan alleen omlaag.
-Daarom werkt het omgekeerd:
+Shopify kent één prijs per variant en kan die niet per bezoeker verhogen.
+Daarom draait de test op **twee echte producten**:
 
-1. De echte productprijs wordt de **hoogste** variant die je wilt testen
-2. De **controlegroep** krijgt via een Discount Function het verschil terug
-3. De **testgroep** krijgt niets en betaalt dus de nieuwe prijs
+| | Product | Prijs |
+|---|---|---|
+| Controlegroep | het origineel | huidige prijs |
+| Testgroep | een duplicaat | de prijs die je wilt testen |
 
-Voor de klant is dat geen zichtbare korting: de kortingsregel blijft naamloos en
-het thema toont meteen de juiste prijs.
+De bezoeker komt binnen op de URL van het origineel en blijft daar. Het thema
+bepaalt in welke groep hij zit en vervangt voor de testgroep twee dingen: de
+getoonde prijs, en de variant die in de cart belandt.
 
-### Raakt dit de bundels?
+### Deze app wijzigt geen prijzen
 
-Nee, en dat is op twee manieren geborgd:
+Dat is met opzet. De prijs van het duplicaat zet je zelf in Shopify — per markt
+zoals je wilt — en het thema leest hem live uit `/products/<handle>.js`. Daardoor
+staat er nergens een prijs opgeslagen die kan gaan afwijken van wat de kassa
+rekent, en krijgt elke markt vanzelf de juiste valuta.
 
-1. De bestaande bundelkorting staat op `combinesWith.productDiscounts = true`
-   (gecontroleerd op de live shop), dus een tweede automatische productkorting
-   mag ernaast bestaan in plaats van hem te verdringen.
-2. De prijstest-Function kort **alleen de gewone betaalde regel**. Regels met
-   `_bundle_free` of `_bundle_gift` slaat hij over. De twee functions raken
-   daardoor nooit dezelfde cartregel.
+### Wat er gebeurt als iets misgaat
 
-Het gratis stuk uit de bundel blijft dus gratis, ongeacht de testprijs.
+Is de app onbereikbaar, ontbreekt het duplicaat, of is een variant niet
+gekoppeld, dan doet het thema **niets** en ziet de bezoeker het originele
+product tegen de originele prijs. Er is geen pad waarin iemand een prijs ziet
+die de kassa niet rekent.
 
-### Het risico dat wél blijft
+Eerdere opzet, ter waarschuwing: die verhoogde de echte prijs en gaf de
+controlegroep het verschil terug via een Discount Function. Daar viel de fout de
+verkeerde kant op — bij uitval betaalde *iedereen* te veel — en bovendien zag
+ook de controlegroep de hoge prijs op de productpagina, waardoor de test iets
+anders mat dan de bedoeling.
 
-Zolang een test loopt staat de echte prijs in Shopify hoog. Valt de Discount
-Function uit, dan betaalt iedereen die hoge prijs — ook de controlegroep. Dat is
-inherent aan het mechanisme: Shopify kent geen toeslag, alleen korting. Daarom
-bewaart `price_tests.markets[].baseline_amount` per markt de oorspronkelijke
-prijs, zodat terugzetten één actie is en niet van iemands geheugen afhangt.
+## Wat je zelf aan het duplicaat moet koppelen
 
-## Opzetten
+Een duplicaat krijgt een nieuw product-id, en daar hangt van alles aan:
 
-De app is nog niet geregistreerd bij Shopify — dat vraagt een interactieve
-sessie. Stappen:
+- **de bundelconfig** — die keyt op product-id, dus het duplicaat staat er niet
+  automatisch in
+- **het selling plan** — anders kan de testgroep geen abonnement afsluiten
+- **reviews**, als je die per product toont
 
-```bash
-cd price-test-app
-shopify app config link
-```
+Vergeet je er een, dan meet je dát verschil in plaats van de prijs.
 
-Kies je Partner-organisatie en maak een nieuwe app aan. Dat vult `client_id` en
-`handle` in `shopify.app.toml`.
+## Dashboard
 
-Daarna een Vercel-project voor `web/` en deze env-variabelen zetten
-(dezelfde Supabase als de Email Pop up-app — de tabellen staan naast elkaar):
+Instellen en cijfers staan op `/dashboard` van de eigen deploy, niet in de
+Shopify-admin. Achter een wachtwoord (`DASHBOARD_PASSWORD`); staat dat niet
+ingesteld, dan komt niemand binnen.
+
+Op de analyticspagina staat **omzet per bezoeker** vooraan en conversie
+ernaast. Conversie alleen misleidt bij een prijstest: een hogere prijs drukt de
+conversie bijna altijd, terwijl de omzet kan stijgen.
+
+## Omgevingsvariabelen
 
 ```
 SHOPIFY_API_KEY
 SHOPIFY_API_SECRET
-SCOPES=read_products,write_products,read_orders,write_discounts
-SUPABASE_URL
-SUPABASE_SERVICE_ROLE_KEY
+SHOPIFY_APP_URL           de URL van de Vercel-deploy
+SCOPES=read_products,read_orders
+SUPABASE_URL              https://qeozjlrswqummkcasewb.supabase.co
+SUPABASE_SERVICE_ROLE_KEY dezelfde als de Email Pop up-app
+DASHBOARD_PASSWORD        toegang tot /dashboard
+SESSION_SECRET            optioneel; valt anders terug op SHOPIFY_API_SECRET
+SHOP_DOMAIN               optioneel; anders afgeleid uit de opgeslagen sessie
 ```
 
-Zet `application_url` in de toml op de Vercel-URL en draai de migratie in
-`web/supabase/migrations/0001_price_tests.sql`.
-
+De database is gedeeld met de popup-app, maar de sessies niet: die staan in een
+eigen tabel `price_test_sessions`. Shopify geeft elke offline sessie het id
+`offline_<shop>`, identiek voor alle apps — dezelfde tabel delen zou bij
+installatie het access token van de popup-app overschrijven.

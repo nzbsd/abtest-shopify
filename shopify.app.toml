@@ -25,7 +25,7 @@ api_version = "2026-07"
 # write_products is nodig om vaste prijzen in een price list te zetten.
 # write_discounts om het metafield van de automatische korting te schrijven.
 # read_orders voor de omzet per testgroep.
-scopes = "read_products,write_products,read_orders,write_discounts"
+scopes = "read_products,read_orders"
 optional_scopes = [ ]
 use_legacy_install_flow = false
 
