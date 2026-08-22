@@ -3,6 +3,7 @@ import { Form, useActionData, useLoaderData, useSearchParams, useNavigation } fr
 import styles from "~/styles/dashboard.css?url";
 import { Banner } from "~/components/ui";
 import { isIngelogd, maakSessie, wachtwoordKlopt } from "~/lib/dashboardAuth.server";
+import { ipVan, magNog, tellingVan, wisSleutel } from "~/lib/rateLimit.server";
 
 export const links: LinksFunction = () => [{ rel: "stylesheet", href: styles }];
 export const meta = () => [{ title: "Sign in · Price Test" }];
@@ -15,14 +16,40 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return json({ ingesteld: Boolean(process.env.DASHBOARD_PASSWORD) });
 };
 
+/* One password on a public URL is only as good as the number of guesses
+   allowed. Ten failures per quarter hour is far more than anyone typing by
+   hand needs, and it turns a short password from guessable into impractical. */
+const MAX_POGINGEN = 10;
+const VENSTER_MS = 15 * 60 * 1000;
+
 export const action = async ({ request }: ActionFunctionArgs) => {
   const form = await request.formData();
   const wachtwoord = String(form.get("wachtwoord") || "");
   const next = String(form.get("next") || "/dashboard");
 
+  const sleutel = "login:" + ipVan(request);
+
+  if (tellingVan(sleutel, VENSTER_MS) >= MAX_POGINGEN) {
+    return json(
+      { fout: "Too many attempts. Try again in fifteen minutes." },
+      { status: 429 },
+    );
+  }
+
   if (!wachtwoordKlopt(wachtwoord)) {
+    magNog(sleutel, MAX_POGINGEN, VENSTER_MS);   // count this failure
+
+    // A deliberate pause on every wrong answer. It costs a person nothing and
+    // caps an automated guesser at a couple of tries a second even before the
+    // lockout kicks in.
+    await new Promise((r) => setTimeout(r, 700));
+
     return json({ fout: "Incorrect password." }, { status: 401 });
   }
+
+  // A correct password clears the counter, so a forgetful evening does not
+  // lock you out for the rest of the quarter hour.
+  wisSleutel(sleutel);
   // Alleen paden binnen deze app, zodat een geknutselde next-parameter je na
   // het inloggen niet naar een vreemde site kan sturen.
   const veilig = next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
