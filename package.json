@@ -1,0 +1,12 @@
+{
+  "name": "price-test",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Shopify app: prijs-A/B-tests met een duplicaat-product, eigen dashboard op Vercel.",
+  "scripts": {
+    "dev": "shopify app dev",
+    "deploy": "shopify app deploy",
+    "config:link": "shopify app config link",
+    "info": "shopify app info"
+  }
+}

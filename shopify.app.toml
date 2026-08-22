@@ -2,7 +2,7 @@
 
 client_id = "e0127103f68c3a5e74136d4f68fcf9ad"
 name = "Price Test"
-handle = "price-test-1"
+handle = "herbies-price-test"
 
 application_url = "https://abtest-shopify.vercel.app"
 embedded = true
