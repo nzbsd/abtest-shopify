@@ -1,21 +1,43 @@
-import { json, type LoaderFunctionArgs, type HeadersFunction } from "@remix-run/node";
-import { Outlet, useRouteError } from "@remix-run/react";
+import { json, type LoaderFunctionArgs, type HeadersFunction, type LinksFunction } from "@remix-run/node";
+import { Outlet, useLoaderData, useRouteError } from "@remix-run/react";
 import { boundary } from "@shopify/shopify-app-remix/server";
+import styles from "~/styles/dashboard.css?url";
+import { Shell } from "~/components/shell";
 import { authenticate } from "~/shopify.server";
+import { maakSsoToken } from "~/lib/dashboardAuth.server";
 
-/*
- * De ingebedde kant van de app is bewust minimaal. Het instellen en de cijfers
- * staan op ons eigen dashboard (/dashboard); deze route bestaat alleen zodat
- * Shopify de app kan installeren en er een geldige offline sessie ontstaat.
- * Die sessie is wat het dashboard gebruikt om de Admin API te bevragen.
- */
+export const links: LinksFunction = () => [{ rel: "stylesheet", href: styles }];
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  await authenticate.admin(request);
-  return json({ ok: true });
+  const { session } = await authenticate.admin(request);
+  const basis = (process.env.SHOPIFY_APP_URL || "").replace(/\/+$/, "");
+  // Kortlevend kaartje om hetzelfde dashboard in een eigen venster te openen,
+  // zonder daar opnieuw een wachtwoord te hoeven intypen.
+  return json({ shop: session.shop, losseUrl: basis + "/dashboard/sso?t=" + maakSsoToken(session.shop) });
 };
 
-export default function App() {
-  return <Outlet />;
+export default function EmbeddedLayout() {
+  const { shop, losseUrl } = useLoaderData<typeof loader>();
+  return (
+    <>
+      {/* App Bridge levert het menu in de admin-balk. Een custom element en geen
+          React-component: dat scheelt de Polaris-afhankelijkheid, die alleen
+          voor dit menu ruim 400 kB CSS zou meebrengen. */}
+      <ui-nav-menu>
+        <a href="/app" rel="home">Overzicht</a>
+        <a href="/app/analytics">Analytics</a>
+        <a href="/app/tests">Tests</a>
+      </ui-nav-menu>
+      <Shell basis="/app" embedded shop={shop}>
+        <div style={{ display: "flex", justifyContent: "flex-end", padding: "14px 20px 0" }}>
+          <a className="btn btn--sm" href={losseUrl} target="_blank" rel="noreferrer">
+            Openen in eigen venster
+          </a>
+        </div>
+        <Outlet />
+      </Shell>
+    </>
+  );
 }
 
 export function ErrorBoundary() {

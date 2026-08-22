@@ -1,15 +1,13 @@
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
-import { OverviewView } from "~/views/overview";
+import { AnalyticsView } from "~/views/analytics";
 import { Banner } from "~/components/ui";
-import { vereisLogin, winkelDomein } from "~/lib/dashboardAuth.server";
-import { overzichtData } from "~/lib/pageData.server";
-
-export const meta = () => [{ title: "Overzicht · Price Test" }];
+import { authenticate } from "~/shopify.server";
+import { analyticsData } from "~/lib/pageData.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  await vereisLogin(request);
-  return json(await overzichtData(await winkelDomein()));
+  const { session } = await authenticate.admin(request);
+  return json(await analyticsData(session.shop));
 };
 
 export default function Route() {
@@ -17,7 +15,7 @@ export default function Route() {
   if (d.fout) {
     return (
       <main className="page">
-        <h1 className="page__title" style={{ marginBottom: 20 }}>Overzicht</h1>
+        <h1 className="page__title" style={{ marginBottom: 20 }}>Analytics</h1>
         <Banner tone="error">
           <strong>Configuratie niet compleet.</strong>
           <div style={{ marginTop: 6 }}><code>{d.fout}</code></div>
@@ -25,5 +23,5 @@ export default function Route() {
       </main>
     );
   }
-  return <OverviewView tests={d.tests} stats={d.stats} basis="/dashboard" />;
+  return <AnalyticsView tests={d.tests} stats={d.stats} daily={d.daily} />;
 }
