@@ -114,20 +114,22 @@ export function looptDagen(start: string | null | undefined): number | null {
   return ms > 0 ? Math.floor(ms / 864e5) : 0;
 }
 
-/* ── opmaak ─────────────────────────────────────────────────────────────── */
+/* ── formatting ─────────────────────────────────────────────────────────── */
 
+/* en-US throughout: this store prices in USD and the interface is English, so
+   1,234.56 rather than 1.234,56. */
 export const geld = (v: number) =>
-  v.toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export const heel = (v: number) => Math.round(v).toLocaleString("nl-NL");
+export const heel = (v: number) => Math.round(v).toLocaleString("en-US");
 
 export const procent = (v: number, decimalen = 2) =>
-  v.toLocaleString("nl-NL", { minimumFractionDigits: decimalen, maximumFractionDigits: decimalen }) + "%";
+  v.toLocaleString("en-US", { minimumFractionDigits: decimalen, maximumFractionDigits: decimalen }) + "%";
 
 export const ondertekend = (v: number, decimalen = 1) =>
   (v >= 0 ? "+" : "") +
-  v.toLocaleString("nl-NL", { minimumFractionDigits: decimalen, maximumFractionDigits: decimalen }) + "%";
+  v.toLocaleString("en-US", { minimumFractionDigits: decimalen, maximumFractionDigits: decimalen }) + "%";
 
 export function korteDatum(d: string) {
-  return new Date(d).toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
+  return new Date(d).toLocaleDateString("en-US", { day: "numeric", month: "short" });
 }

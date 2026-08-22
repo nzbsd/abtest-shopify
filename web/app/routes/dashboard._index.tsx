@@ -5,7 +5,7 @@ import { Banner } from "~/components/ui";
 import { vereisLogin, winkelDomein } from "~/lib/dashboardAuth.server";
 import { overzichtData } from "~/lib/pageData.server";
 
-export const meta = () => [{ title: "Overzicht · Price Test" }];
+export const meta = () => [{ title: "Overview · Price Test" }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await vereisLogin(request);
@@ -17,9 +17,9 @@ export default function Route() {
   if (d.fout) {
     return (
       <main className="page">
-        <h1 className="page__title" style={{ marginBottom: 20 }}>Overzicht</h1>
+        <h1 className="page__title" style={{ marginBottom: 20 }}>Overview</h1>
         <Banner tone="error">
-          <strong>Configuratie niet compleet.</strong>
+          <strong>Configuration incomplete.</strong>
           <div style={{ marginTop: 6 }}><code>{d.fout}</code></div>
         </Banner>
       </main>

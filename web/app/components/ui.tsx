@@ -72,7 +72,7 @@ export function Kpi({
  */
 export function Delta({ waarde, goedAls = "up" }: { waarde: number; goedAls?: "up" | "down" | "geen" }) {
   const tekst = (waarde >= 0 ? "+" : "") +
-    waarde.toLocaleString("nl-NL", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
+    waarde.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
 
   if (goedAls === "geen" || Math.abs(waarde) < 0.05) {
     return <span className="delta delta--flat num">{tekst}</span>;
@@ -128,7 +128,7 @@ export function Banner({
 }
 
 export function Badge({ status }: { status: string }) {
-  const label = status === "running" ? "loopt" : status === "stopped" ? "gestopt" : "concept";
+  const label = status === "running" ? "running" : status === "stopped" ? "stopped" : "draft";
   return (
     <span className={"badge badge--" + status}>
       {status === "running" && <span className="dot" />}
@@ -140,7 +140,7 @@ export function Badge({ status }: { status: string }) {
 export function Legend() {
   return (
     <div className="legend">
-      <span className="legend__item"><span className="swatch swatch--control" />Controle</span>
+      <span className="legend__item"><span className="swatch swatch--control" />Control</span>
       <span className="legend__item"><span className="swatch swatch--test" />Test</span>
     </div>
   );

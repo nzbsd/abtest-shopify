@@ -1,52 +1,110 @@
 import { useFetcher } from "@remix-run/react";
 import { useMemo, useState } from "react";
 import { PageHead } from "~/components/shell";
-import {
-  Badge, Banner, Card, CardHead, Delta, IconAlert, IconCheck, Leeg,
-} from "~/components/ui";
+import { Badge, Banner, Card, CardHead, Delta, Leeg } from "~/components/ui";
 import { geld, heel, looptDagen } from "~/lib/analytics";
 import { matchVariants, prijsVergelijking, type ProductInfo } from "~/lib/variants";
 import type { PriceTest } from "~/lib/priceTest.server";
 
-/* ── productkiezer ──────────────────────────────────────────────────────── */
+/* ── product picker ─────────────────────────────────────────────────────── */
 
-function Kiezer({
-  label, hint, producten, gekozen, onKies, uitsluiten,
+/**
+ * Status pill.
+ *
+ * Worth showing: this store has several products sharing a title, and the
+ * status is often the only thing that tells them apart. Unlisted is also
+ * exactly what a duplicate should be — reachable by URL, invisible in search
+ * and collections — so seeing it here is a check, not just a label.
+ */
+function StatusPill({ status }: { status?: string }) {
+  if (!status) return null;
+  const s = status.toLowerCase();
+  return <span className={"pill pill--" + s}>{s}</span>;
+}
+
+function ProductRow({
+  p, onPick, picked,
+}: {
+  p: ProductInfo;
+  onPick?: () => void;
+  picked?: boolean;
+}) {
+  const lowest = Math.min(...p.variants.map((v) => parseFloat(v.price) || 0));
+
+  const body = (
+    <>
+      {p.image ? <img className="picker__img" src={p.image} alt="" /> : <span className="picker__img" />}
+      <span className="picker__body">
+        <span className="picker__title">{p.title}</span>
+        <span className="picker__meta">
+          <StatusPill status={p.status} />
+          <code>{p.handle}</code>
+          <span className="num">
+            {p.variants.length} variant{p.variants.length === 1 ? "" : "s"} · from {geld(lowest)}
+          </span>
+        </span>
+      </span>
+    </>
+  );
+
+  if (picked) {
+    return (
+      <div className="picker__item" aria-pressed="true" style={{ cursor: "default" }}>
+        {body}
+        <span style={{ display: "flex", gap: 8, flex: "none" }}>
+          {p.url && (
+            <a className="btn btn--sm" href={p.url} target="_blank" rel="noreferrer">
+              Preview
+            </a>
+          )}
+          <button type="button" className="btn btn--sm" onClick={onPick}>Change</button>
+        </span>
+      </div>
+    );
+  }
+
+  // The preview link sits beside the choose button rather than inside it:
+  // a link nested in a button is invalid markup and makes the whole row
+  // unpredictable to click.
+  return (
+    <div className="picker__row">
+      <button type="button" className="picker__item" onClick={onPick}>
+        {body}
+      </button>
+      {p.url && (
+        <a className="btn btn--sm" href={p.url} target="_blank" rel="noreferrer">
+          Preview
+        </a>
+      )}
+    </div>
+  );
+}
+
+function Picker({
+  label, hint, products, picked, onPick, exclude,
 }: {
   label: string;
   hint: string;
-  producten: ProductInfo[];
-  gekozen: ProductInfo | null;
-  onKies: (p: ProductInfo | null) => void;
-  uitsluiten?: string;
+  products: ProductInfo[];
+  picked: ProductInfo | null;
+  onPick: (p: ProductInfo | null) => void;
+  exclude?: string;
 }) {
-  const [zoek, setZoek] = useState("");
+  const [q, setQ] = useState("");
 
-  const zichtbaar = useMemo(() => {
-    const q = zoek.trim().toLowerCase();
-    return producten
-      .filter((p) => p.id !== uitsluiten)
-      .filter((p) => !q || p.title.toLowerCase().includes(q) || p.handle.includes(q))
+  const visible = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return products
+      .filter((p) => p.id !== exclude)
+      .filter((p) => !needle || p.title.toLowerCase().includes(needle) || p.handle.includes(needle))
       .slice(0, 40);
-  }, [producten, zoek, uitsluiten]);
+  }, [products, q, exclude]);
 
-  if (gekozen) {
-    const laagste = Math.min(...gekozen.variants.map((v) => parseFloat(v.price) || 0));
+  if (picked) {
     return (
       <div className="field">
         <span className="field__label">{label}</span>
-        <div className="picker__item" aria-pressed="true" style={{ cursor: "default" }}>
-          {gekozen.image
-            ? <img className="picker__img" src={gekozen.image} alt="" />
-            : <span className="picker__img" />}
-          <span className="picker__body">
-            <span className="picker__title">{gekozen.title}</span>
-            <span className="picker__meta num">
-              {gekozen.variants.length} variant(en) · vanaf {geld(laagste)}
-            </span>
-          </span>
-          <button type="button" className="btn btn--sm" onClick={() => onKies(null)}>Wijzig</button>
-        </div>
+        <ProductRow p={picked} picked onPick={() => onPick(null)} />
       </div>
     );
   }
@@ -56,34 +114,23 @@ function Kiezer({
       <span className="field__label">{label}</span>
       <input
         type="search"
-        placeholder="Zoek op naam of handle"
-        value={zoek}
-        onChange={(e) => setZoek(e.target.value)}
+        placeholder="Search by name or handle"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
         style={{ marginBottom: 10 }}
       />
       <div className="picker">
-        {!zichtbaar.length && <p className="small muted" style={{ padding: 8 }}>Geen product gevonden.</p>}
-        {zichtbaar.map((p) => {
-          const laagste = Math.min(...p.variants.map((v) => parseFloat(v.price) || 0));
-          return (
-            <button key={p.id} type="button" className="picker__item" onClick={() => onKies(p)}>
-              {p.image ? <img className="picker__img" src={p.image} alt="" /> : <span className="picker__img" />}
-              <span className="picker__body">
-                <span className="picker__title">{p.title}</span>
-                <span className="picker__meta num">
-                  {p.variants.length} variant(en) · vanaf {geld(laagste)}
-                </span>
-              </span>
-            </button>
-          );
-        })}
+        {!visible.length && <p className="small muted" style={{ padding: 8 }}>No products found.</p>}
+        {visible.map((p) => (
+          <ProductRow key={p.id} p={p} onPick={() => onPick(p)} />
+        ))}
       </div>
       <span className="field__hint">{hint}</span>
     </div>
   );
 }
 
-/* ── scherm ─────────────────────────────────────────────────────────────── */
+/* ── screen ─────────────────────────────────────────────────────────────── */
 
 export function TestsView({
   tests, producten, fout,
@@ -93,23 +140,23 @@ export function TestsView({
   fout: string | null;
 }) {
   const fetcher = useFetcher<{ ok: boolean; bericht: string }>();
-  const bezig = fetcher.state !== "idle";
+  const busy = fetcher.state !== "idle";
 
   const [open, setOpen] = useState(false);
   const [control, setControl] = useState<ProductInfo | null>(null);
   const [test, setTest] = useState<ProductInfo | null>(null);
   const [split, setSplit] = useState("50");
 
-  // Koppeling en prijsverschil live berekenen met exact dezelfde functie die de
-  // server straks gebruikt, zodat wat je ziet ook is wat er wordt opgeslagen.
-  const koppeling = control && test ? matchVariants(control, test) : null;
-  const vergelijking = control && test && koppeling
-    ? prijsVergelijking(control, test, koppeling.pairs)
+  // Matching and price comparison computed live with the exact same function
+  // the server will use, so what you see is what gets saved.
+  const matched = control && test ? matchVariants(control, test) : null;
+  const comparison = control && test && matched
+    ? prijsVergelijking(control, test, matched.pairs)
     : [];
 
-  const gelijkePrijs = vergelijking.length > 0 && vergelijking.every((v) => Math.abs(v.verschil) < 0.005);
+  const samePrice = comparison.length > 0 && comparison.every((v) => Math.abs(v.verschil) < 0.005);
 
-  const opslaan = () => {
+  const save = () => {
     if (!control || !test) return;
     const fd = new FormData();
     fd.set("intent", "save");
@@ -122,7 +169,7 @@ export function TestsView({
     setTest(null);
   };
 
-  const actie = (id: number, intent: "start" | "stop" | "delete") => {
+  const act = (id: number, intent: "start" | "stop" | "delete") => {
     const fd = new FormData();
     fd.set("intent", intent);
     fd.set("id", String(id));
@@ -133,10 +180,10 @@ export function TestsView({
     <main className="page">
       <PageHead
         titel="Tests"
-        sub="Welk product tegen welk duplicaat, en hoe het verkeer verdeeld wordt."
+        sub="Which product runs against which duplicate, and how traffic is split."
         actie={
           <button className={"btn " + (open ? "" : "btn--iris")} onClick={() => setOpen((v) => !v)}>
-            {open ? "Annuleren" : "Nieuwe test"}
+            {open ? "Cancel" : "New test"}
           </button>
         }
       />
@@ -144,7 +191,7 @@ export function TestsView({
       <div className="stack">
         {fout && (
           <Banner tone="error">
-            <strong>Configuratie niet compleet.</strong>
+            <strong>Configuration incomplete.</strong>
             <div style={{ marginTop: 6 }}><code>{fout}</code></div>
           </Banner>
         )}
@@ -156,53 +203,55 @@ export function TestsView({
         {open && (
           <Card>
             <CardHead
-              title="Nieuwe test"
-              sub="Het origineel is de controlegroep, het duplicaat de testgroep."
+              title="New test"
+              sub="The original is the control group, the duplicate is the test group."
             />
             <div className="card__body">
               <Banner tone="warn">
-                Maak eerst in Shopify een duplicaat van het product en zet daar de nieuwe prijs op —
-                per markt zoals je wilt. Koppel er ook je <strong>bundel, selling plan en reviews</strong> aan;
-                vergeet je er een, dan meet je dát verschil in plaats van de prijs.
+                First duplicate the product in Shopify and set the new price on it — per market if
+                you want. Attach your <strong>bundle, selling plan and reviews</strong> to it as
+                well; miss one and you will be measuring that difference instead of the price.
+                Keep the duplicate <strong>unlisted</strong> so it stays out of search and
+                collections.
               </Banner>
 
               <div className="row" style={{ marginTop: 20 }}>
-                <Kiezer
-                  label="Origineel — controlegroep"
-                  hint="Het product waar bezoekers nu op binnenkomen."
-                  producten={producten}
-                  gekozen={control}
-                  onKies={setControl}
-                  uitsluiten={test?.id}
+                <Picker
+                  label="Original — control group"
+                  hint="The product visitors currently land on."
+                  products={producten}
+                  picked={control}
+                  onPick={setControl}
+                  exclude={test?.id}
                 />
-                <Kiezer
-                  label="Duplicaat — testgroep"
-                  hint="Hetzelfde product met de prijs die je wilt testen."
-                  producten={producten}
-                  gekozen={test}
-                  onKies={setTest}
-                  uitsluiten={control?.id}
+                <Picker
+                  label="Duplicate — test group"
+                  hint="The same product at the price you want to test."
+                  products={producten}
+                  picked={test}
+                  onPick={setTest}
+                  exclude={control?.id}
                 />
               </div>
 
-              {koppeling && (
+              {matched && (
                 <div style={{ marginTop: 24 }}>
-                  <span className="field__label">Wat er gekoppeld wordt</span>
+                  <span className="field__label">What gets matched</span>
 
-                  {gelijkePrijs && (
+                  {samePrice && (
                     <div style={{ marginBottom: 12 }}>
                       <Banner tone="warn">
-                        Beide producten hebben dezelfde prijs. Zo meet je niets — zet eerst de
-                        nieuwe prijs op het duplicaat.
+                        Both products have the same price. There is nothing to measure — set the
+                        new price on the duplicate first.
                       </Banner>
                     </div>
                   )}
 
-                  {koppeling.unmatched.length > 0 && (
+                  {matched.unmatched.length > 0 && (
                     <div style={{ marginBottom: 12 }}>
                       <Banner tone="error">
-                        <strong>Niet gekoppeld:</strong> {koppeling.unmatched.join(", ")}. Die
-                        varianten vallen buiten de test en houden gewoon hun eigen prijs.
+                        <strong>Not matched:</strong> {matched.unmatched.join(", ")}. Those variants
+                        fall outside the test and keep their own price.
                       </Banner>
                     </div>
                   )}
@@ -210,17 +259,17 @@ export function TestsView({
                   <div className="table-scroll card" style={{ boxShadow: "none", border: "1px solid var(--line)" }}>
                     <table>
                       <thead>
-                        <tr><th>Variant</th><th>Nu</th><th>Test</th><th>Verschil</th></tr>
+                        <tr><th>Variant</th><th>Now</th><th>Test</th><th>Difference</th></tr>
                       </thead>
                       <tbody>
-                        {vergelijking.map((v) => (
+                        {comparison.map((v) => (
                           <tr key={v.titel}>
                             <td>{v.titel}</td>
                             <td className="num">{geld(v.oud)}</td>
                             <td className="num"><strong>{geld(v.nieuw)}</strong></td>
                             <td>
                               {Math.abs(v.verschil) < 0.005
-                                ? <span className="muted">gelijk</span>
+                                ? <span className="muted">same</span>
                                 : <Delta waarde={v.procent} goedAls="geen" />}
                             </td>
                           </tr>
@@ -232,29 +281,29 @@ export function TestsView({
               )}
 
               <div className="field" style={{ maxWidth: 280, marginTop: 22 }}>
-                <span className="field__label">Percentage in de testgroep</span>
+                <span className="field__label">Percentage in the test group</span>
                 <input type="number" min={1} max={99} value={split}
                        onChange={(e) => setSplit(e.target.value)} />
-                <span className="field__hint">De rest is de controlegroep. 50 is bijna altijd het beste.</span>
+                <span className="field__hint">The rest is the control group. 50 is almost always best.</span>
               </div>
 
               <div style={{ marginTop: 22, display: "flex", gap: 10 }}>
-                <button className="btn btn--iris" onClick={opslaan}
-                        disabled={!control || !test || !koppeling?.pairs.length || bezig}>
-                  {bezig ? "Bezig…" : "Test opslaan"}
+                <button className="btn btn--iris" onClick={save}
+                        disabled={!control || !test || !matched?.pairs.length || busy}>
+                  {busy ? "Working…" : "Save test"}
                 </button>
-                <button className="btn" onClick={() => setOpen(false)}>Annuleren</button>
+                <button className="btn" onClick={() => setOpen(false)}>Cancel</button>
               </div>
             </div>
           </Card>
         )}
 
         <Card>
-          <CardHead title="Alle tests" />
+          <CardHead title="All tests" />
           <div className="card__body card__body--flush">
-            {!tests.length && <Leeg>Nog geen tests aangemaakt.</Leeg>}
+            {!tests.length && <Leeg>No tests yet.</Leeg>}
             {tests.map((t) => {
-              const dagen = looptDagen(t.started_at);
+              const days = looptDagen(t.started_at);
               return (
                 <div className="test-row" key={t.id}>
                   <div style={{ minWidth: 0 }}>
@@ -263,37 +312,37 @@ export function TestsView({
                       <Badge status={t.status} />
                     </div>
                     <div className="pair">
-                      <span className="legend__item"><span className="swatch swatch--control" />origineel</span>
+                      <span className="legend__item"><span className="swatch swatch--control" />original</span>
                       <span>→</span>
                       <span className="legend__item">
                         <span className="swatch swatch--test" /><code>{t.test_product_handle}</code>
                       </span>
                     </div>
                     <p className="small muted" style={{ marginTop: 6 }}>
-                      {t.split_pct}% in de testgroep · {heel((t.variant_map || []).length)} variant(en) gekoppeld
-                      {dagen !== null && t.status === "running" ? " · loopt " + dagen + " dagen" : ""}
+                      {t.split_pct}% in the test group · {heel((t.variant_map || []).length)} variant(s) matched
+                      {days !== null && t.status === "running" ? " · running for " + days + " days" : ""}
                     </p>
                   </div>
 
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {t.status === "running" ? (
-                      <button className="btn btn--danger" disabled={bezig} onClick={() => actie(t.id, "stop")}>
-                        Stoppen
+                      <button className="btn btn--danger" disabled={busy} onClick={() => act(t.id, "stop")}>
+                        Stop
                       </button>
                     ) : (
-                      <button className="btn btn--iris" disabled={bezig} onClick={() => actie(t.id, "start")}>
-                        Starten
+                      <button className="btn btn--iris" disabled={busy} onClick={() => act(t.id, "start")}>
+                        Start
                       </button>
                     )}
                     {t.status !== "running" && (
                       <button
                         className="btn"
-                        disabled={bezig}
+                        disabled={busy}
                         onClick={() => {
-                          if (confirm("Test en alle gemeten cijfers verwijderen?")) actie(t.id, "delete");
+                          if (confirm("Delete this test and everything measured for it?")) act(t.id, "delete");
                         }}
                       >
-                        Verwijderen
+                        Delete
                       </button>
                     )}
                   </div>
@@ -304,9 +353,9 @@ export function TestsView({
         </Card>
 
         <Banner tone="info">
-          <strong>Starten verandert niets aan je producten.</strong> Beide blijven staan zoals ze
-          zijn; alleen het thema gaat een deel van de bezoekers het duplicaat tonen. Stoppen zet
-          dat direct terug.
+          <strong>Starting changes nothing about your products.</strong> Both stay exactly as they
+          are; the theme simply sends part of the traffic to the duplicate's URL instead. Stopping
+          reverses that immediately.
         </Banner>
       </div>
     </main>

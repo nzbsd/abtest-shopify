@@ -43,7 +43,7 @@ export async function overzichtData(shop: string | null): Promise<BasisData> {
     ]);
     return { shop, fout: null, tests, stats: (stats.data || []) as StatRij[] };
   } catch (e: any) {
-    return { shop, fout: e?.message ?? "Databasefout", tests: [], stats: [] };
+    return { shop, fout: e?.message ?? "Database error", tests: [], stats: [] };
   }
 }
 
@@ -65,7 +65,7 @@ export async function analyticsData(shop: string | null): Promise<BasisData & { 
       daily: (daily.data || []) as DagRij[],
     };
   } catch (e: any) {
-    return { shop, fout: e?.message ?? "Databasefout", tests: [], stats: [], daily: [] };
+    return { shop, fout: e?.message ?? "Database error", tests: [], stats: [], daily: [] };
   }
 }
 
@@ -86,7 +86,7 @@ export async function testsData(
     ]);
     return { shop, fout: null, tests, producten };
   } catch (e: any) {
-    return { shop, fout: e?.message ?? "Databasefout", tests: [], producten: [] };
+    return { shop, fout: e?.message ?? "Database error", tests: [], producten: [] };
   }
 }
 
@@ -96,26 +96,26 @@ export async function testsAction(
   shop: string | null,
   form: FormData,
 ): Promise<{ ok: boolean; bericht: string }> {
-  if (!shop) return { ok: false, bericht: "Geen winkel gekoppeld." };
+  if (!shop) return { ok: false, bericht: "No store connected." };
   const intent = String(form.get("intent") || "");
 
   try {
     if (intent === "save") {
       const control = await resolveProduct(admin, String(form.get("control") || ""));
-      if (!control) throw new Error("Origineel product niet gevonden.");
+      if (!control) throw new Error("Original product not found.");
       const test = await resolveProduct(admin, String(form.get("test") || ""));
-      if (!test) throw new Error("Duplicaat niet gevonden.");
-      if (control.id === test.id) throw new Error("Origineel en duplicaat zijn hetzelfde product.");
+      if (!test) throw new Error("Duplicate not found.");
+      if (control.id === test.id) throw new Error("Original and duplicate are the same product.");
 
       // Opnieuw koppelen op de server, met exact dezelfde functie als het
       // scherm gebruikte. Wat de browser stuurde vertrouwen we niet; wat we
       // opslaan moet uit de echte productgegevens komen.
       const { pairs, unmatched } = matchVariants(control, test);
-      if (!pairs.length) throw new Error("Geen enkele variant kon gekoppeld worden.");
+      if (!pairs.length) throw new Error("No variant could be matched.");
 
       const split = parseInt(String(form.get("split") || "50"), 10);
       if (!Number.isFinite(split) || split < 1 || split > 99) {
-        throw new Error("Percentage moet tussen 1 en 99 liggen.");
+        throw new Error("Percentage must be between 1 and 99.");
       }
 
       const { error } = await supabase.from("price_tests").insert({
@@ -130,8 +130,8 @@ export async function testsAction(
       });
       if (error) throw new Error(error.message);
 
-      let bericht = "Test opgeslagen: " + pairs.length + " variant(en) gekoppeld.";
-      if (unmatched.length) bericht += " Buiten de test: " + unmatched.join(", ") + ".";
+      let bericht = "Test saved: " + pairs.length + " variant(s) matched.";
+      if (unmatched.length) bericht += " Outside the test: " + unmatched.join(", ") + ".";
       return { ok: true, bericht };
     }
 
@@ -145,8 +145,8 @@ export async function testsAction(
       return {
         ok: true,
         bericht: intent === "start"
-          ? "Test gestart. De testgroep krijgt vanaf nu het duplicaat te zien."
-          : "Test gestopt. Iedereen ziet weer het origineel.",
+          ? "Test started. The test group is now sent to the duplicate."
+          : "Test stopped. Everyone sees the original again.",
       };
     }
 
@@ -154,11 +154,11 @@ export async function testsAction(
       const id = Number(form.get("id"));
       const { error } = await supabase.from("price_tests").delete().eq("id", id).eq("shop", shop);
       if (error) throw new Error(error.message);
-      return { ok: true, bericht: "Test verwijderd." };
+      return { ok: true, bericht: "Test deleted." };
     }
 
-    return { ok: false, bericht: "Onbekende actie." };
+    return { ok: false, bericht: "Unknown action." };
   } catch (e: any) {
-    return { ok: false, bericht: e?.message ?? "Er ging iets mis." };
+    return { ok: false, bericht: e?.message ?? "Something went wrong." };
   }
 }

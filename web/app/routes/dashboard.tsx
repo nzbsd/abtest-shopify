@@ -38,16 +38,16 @@ export function ErrorBoundary() {
     <>
       <link rel="stylesheet" href={styles} />
       <main className="page">
-        <h1 className="page__title" style={{ marginBottom: 20 }}>Er ging iets mis</h1>
+        <h1 className="page__title" style={{ marginBottom: 20 }}>Something went wrong</h1>
         <Banner tone="error">
           <div><code>{bericht}</code></div>
           <div style={{ marginTop: 10 }}>
-            Gaat dit over een ontbrekende variabele, kijk dan in Vercel onder Settings &rarr;
-            Environment Variables. Anders staat de volledige melding in de runtime-logs.
+            If this mentions a missing variable, check Vercel under Settings &rarr; Environment
+            Variables. Otherwise the full message is in the deployment runtime logs.
           </div>
         </Banner>
         <div style={{ marginTop: 18 }}>
-          <a className="btn" href="/dashboard">Terug naar het overzicht</a>
+          <a className="btn" href="/dashboard">Back to the overview</a>
         </div>
       </main>
     </>

@@ -5,7 +5,7 @@ import { Banner } from "~/components/ui";
 import { isIngelogd, maakSessie, wachtwoordKlopt } from "~/lib/dashboardAuth.server";
 
 export const links: LinksFunction = () => [{ rel: "stylesheet", href: styles }];
-export const meta = () => [{ title: "Inloggen · Price Test" }];
+export const meta = () => [{ title: "Sign in · Price Test" }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   if (await isIngelogd(request)) throw redirect("/dashboard");
@@ -21,7 +21,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const next = String(form.get("next") || "/dashboard");
 
   if (!wachtwoordKlopt(wachtwoord)) {
-    return json({ fout: "Onjuist wachtwoord." }, { status: 401 });
+    return json({ fout: "Incorrect password." }, { status: 401 });
   }
   // Alleen paden binnen deze app, zodat een geknutselde next-parameter je na
   // het inloggen niet naar een vreemde site kan sturen.
@@ -47,8 +47,8 @@ export default function Login() {
         {!ingesteld && (
           <div style={{ marginBottom: 16 }}>
             <Banner tone="warn">
-              <strong>Nog geen wachtwoord ingesteld.</strong> Zet <code>DASHBOARD_PASSWORD</code> in
-              de omgeving; tot die tijd komt niemand binnen.
+              <strong>No password set yet.</strong> Set <code>DASHBOARD_PASSWORD</code> in the
+              environment; until then nobody gets in.
             </Banner>
           </div>
         )}
@@ -62,17 +62,17 @@ export default function Login() {
         <Form method="post">
           <input type="hidden" name="next" value={params.get("next") || "/dashboard"} />
           <div className="field" style={{ marginBottom: 16 }}>
-            <span className="field__label">Wachtwoord</span>
+            <span className="field__label">Password</span>
             <input name="wachtwoord" type="password" autoFocus autoComplete="current-password" />
           </div>
           <button className="btn btn--iris" type="submit" disabled={bezig}
                   style={{ width: "100%", justifyContent: "center" }}>
-            {bezig ? "Bezig…" : "Inloggen"}
+            {bezig ? "Working…" : "Sign in"}
           </button>
         </Form>
 
         <p className="small muted" style={{ marginTop: 18 }}>
-          Open je de app vanuit Shopify, dan hoef je hier niets in te vullen.
+          Opening the app from Shopify signs you in automatically — no password needed there.
         </p>
       </div>
     </main>

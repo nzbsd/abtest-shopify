@@ -39,7 +39,9 @@ function numOf(gid: string): number {
 }
 
 const PRODUCT_VELDEN = `
-  id handle title
+  id handle title status
+  onlineStoreUrl
+  onlineStorePreviewUrl
   featuredImage { url }
   variants(first: 100) { nodes { id title price } }
 `;
@@ -50,6 +52,8 @@ function naarProductInfo(p: any): ProductInfo {
     handle: p.handle,
     title: p.title,
     image: p.featuredImage?.url ?? null,
+    status: p.status,
+    url: p.onlineStoreUrl || p.onlineStorePreviewUrl || null,
     variants: (p.variants?.nodes || []).map((v: any) => ({
       id: v.id,
       num: numOf(v.id),

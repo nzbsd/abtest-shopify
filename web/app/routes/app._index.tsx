@@ -15,9 +15,9 @@ export default function Route() {
   if (d.fout) {
     return (
       <main className="page">
-        <h1 className="page__title" style={{ marginBottom: 20 }}>Overzicht</h1>
+        <h1 className="page__title" style={{ marginBottom: 20 }}>Overview</h1>
         <Banner tone="error">
-          <strong>Configuratie niet compleet.</strong>
+          <strong>Configuration incomplete.</strong>
           <div style={{ marginTop: 6 }}><code>{d.fout}</code></div>
         </Banner>
       </main>

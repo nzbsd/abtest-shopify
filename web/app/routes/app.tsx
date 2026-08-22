@@ -24,14 +24,14 @@ export default function EmbeddedLayout() {
           React-component: dat scheelt de Polaris-afhankelijkheid, die alleen
           voor dit menu ruim 400 kB CSS zou meebrengen. */}
       <ui-nav-menu>
-        <a href="/app" rel="home">Overzicht</a>
+        <a href="/app" rel="home">Overview</a>
         <a href="/app/analytics">Analytics</a>
         <a href="/app/tests">Tests</a>
       </ui-nav-menu>
       <Shell basis="/app" embedded shop={shop}>
         <div style={{ display: "flex", justifyContent: "flex-end", padding: "14px 20px 0" }}>
           <a className="btn btn--sm" href={losseUrl} target="_blank" rel="noreferrer">
-            Openen in eigen venster
+            Open in its own window
           </a>
         </div>
         <Outlet />

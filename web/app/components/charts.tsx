@@ -21,7 +21,7 @@ export function Lijn({
   const [hover, setHover] = useState<number | null>(null);
 
   if (punten.length < 2) {
-    return <Leeg>Nog te weinig dagen om een verloop te tonen.<br />Er is minstens twee dagen aan gegevens nodig.</Leeg>;
+    return <Leeg>Not enough days to show a trend yet.<br />At least two days of data are needed.</Leeg>;
   }
 
   const W = 900;
@@ -48,7 +48,7 @@ export function Lijn({
         viewBox={"0 0 " + W + " " + H}
         style={{ maxHeight: hoogte }}
         role="img"
-        aria-label="Verloop per dag, controlegroep tegenover testgroep"
+        aria-label="Daily trend, control group versus test group"
         onMouseLeave={() => setHover(null)}
         onMouseMove={(e) => {
           const r = e.currentTarget.getBoundingClientRect();
@@ -97,7 +97,7 @@ export function Lijn({
         >
           <div className="tooltip__head">{korteDatum(punten[hover].dag)}</div>
           <div className="legend__item" style={{ marginBottom: 4 }}>
-            <span className="swatch swatch--control" />Controle&nbsp;
+            <span className="swatch swatch--control" />Control&nbsp;
             <strong className="num">{formatteer(punten[hover].control)}</strong>
           </div>
           <div className="legend__item">
@@ -123,7 +123,7 @@ export function Trechter({
   stappen: { label: string; control: number; test: number }[];
 }) {
   const max = Math.max(...stappen.flatMap((s) => [s.control, s.test]), 1);
-  const heel = (v: number) => Math.round(v).toLocaleString("nl-NL");
+  const heel = (v: number) => Math.round(v).toLocaleString("en-US");
 
   return (
     <div className="funnel">
@@ -144,7 +144,7 @@ export function Trechter({
               </div>
             </div>
             <span className="small muted num" style={{ minWidth: 96, textAlign: "right" }}>
-              {behoudC === null ? "—" : behoudC.toFixed(1).replace(".", ",") + "% / " + (behoudT ?? 0).toFixed(1).replace(".", ",") + "%"}
+              {behoudC === null ? "—" : behoudC.toFixed(1) + "% / " + (behoudT ?? 0).toFixed(1) + "%"}
             </span>
           </div>
         );

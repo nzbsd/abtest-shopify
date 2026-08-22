@@ -21,6 +21,12 @@ export type ProductInfo = {
   handle: string;
   title: string;
   image?: string | null;
+  /** ACTIVE, DRAFT or UNLISTED - shown in the picker so two products with the
+      same title can be told apart. */
+  status?: string;
+  /** Storefront URL. Unlisted and draft products have a preview URL instead of
+      a public one, so both are asked for and whichever exists is used. */
+  url?: string | null;
   variants: VariantInfo[];
 };
 

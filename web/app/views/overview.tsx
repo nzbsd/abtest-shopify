@@ -33,22 +33,22 @@ export function OverviewView({
   return (
     <main className="page">
       <PageHead
-        titel="Overzicht"
-        sub="Welke prijstests draaien er, en hoe staan ze ervoor."
-        actie={<Link className="btn btn--iris" to={basis + "/tests"}>Nieuwe test</Link>}
+        titel="Overview"
+        sub="Which price tests are running, and how they are doing."
+        actie={<Link className="btn btn--iris" to={basis + "/tests"}>New test</Link>}
       />
 
       <div className="stack">
         <div className="grid grid--4">
-          <Kpi icon={<IconFlask />} tone="control" label="Lopende tests"
+          <Kpi icon={<IconFlask />} tone="control" label="Running tests"
                value={heel(lopend.length)}
-               note={tests.length ? heel(tests.length) + " in totaal" : "nog geen aangemaakt"} />
-          <Kpi icon={<IconUsers />} tone="neutral" label="Bezoekers gemeten"
-               value={heel(alleBezoekers)} note="over alle tests" />
+               note={tests.length ? heel(tests.length) + " in total" : "none created yet"} />
+          <Kpi icon={<IconUsers />} tone="neutral" label="Visitors measured"
+               value={heel(alleBezoekers)} note="across all tests" />
           <Kpi icon={<IconCoins />} tone="neutral" label="Orders"
-               value={heel(alleOrders)} note="toegewezen aan een groep" />
-          <Kpi icon={<IconCoins />} tone="test" label="Omzet"
-               value={geld(alleOmzet / 100)} note="binnen de tests" />
+               value={heel(alleOrders)} note="assigned to a group" />
+          <Kpi icon={<IconCoins />} tone="test" label="Revenue"
+               value={geld(alleOmzet / 100)} note="within the tests" />
         </div>
 
         {!tests.length && (
@@ -56,13 +56,12 @@ export function OverviewView({
             <Leeg>
               <div style={{ maxWidth: 380 }}>
                 <strong style={{ display: "block", marginBottom: 8, color: "var(--ink)" }}>
-                  Nog geen tests
+                  No tests yet
                 </strong>
-                Maak eerst in Shopify een duplicaat van het product met de prijs die je wilt
-                testen, en koppel er je bundel, selling plan en reviews aan. Daarna maak je hier
-                de test aan.
+                First duplicate the product in Shopify with the price you want to test, and attach
+                your bundle, selling plan and reviews to it. Then create the test here.
                 <div style={{ marginTop: 16 }}>
-                  <Link className="btn btn--iris" to={basis + "/tests"}>Naar Tests</Link>
+                  <Link className="btn btn--iris" to={basis + "/tests"}>Go to Tests</Link>
                 </div>
               </div>
             </Leeg>
@@ -83,8 +82,8 @@ export function OverviewView({
               <CardHead
                 title={t.control_title || t.control_product_id}
                 sub={
-                  (dagen !== null ? "loopt " + dagen + " dag" + (dagen === 1 ? "" : "en") : "gestart") +
-                  " · " + t.split_pct + "% in de testgroep · duplicaat " + t.test_product_handle
+                  (dagen !== null ? "running for " + dagen + " day" + (dagen === 1 ? "" : "s") : "started") +
+                  " · " + t.split_pct + "% in the test group · duplicate " + t.test_product_handle
                 }
                 action={
                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -96,21 +95,21 @@ export function OverviewView({
               <div className="card__body">
                 <div style={{ display: "flex", gap: 28, flexWrap: "wrap", alignItems: "baseline", marginBottom: 16 }}>
                   <div>
-                    <p className="small muted">Omzet per bezoeker</p>
+                    <p className="small muted">Revenue per visitor</p>
                     <p className="num" style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-.03em", marginTop: 2 }}>
                       {ondertekend(toets.lift)}
                     </p>
                   </div>
                   <div>
-                    <p className="small muted">Controle</p>
+                    <p className="small muted">Control</p>
                     <p className="num" style={{ fontSize: 17, fontWeight: 600, marginTop: 4 }}>
-                      {geld(c.rpv)} <span className="muted small">· {procent(c.cr)} conversie</span>
+                      {geld(c.rpv)} <span className="muted small">· {procent(c.cr)} conversion</span>
                     </p>
                   </div>
                   <div>
                     <p className="small muted">Test</p>
                     <p className="num" style={{ fontSize: 17, fontWeight: 600, marginTop: 4 }}>
-                      {geld(te.rpv)} <span className="muted small">· {procent(te.cr)} conversie</span>
+                      {geld(te.rpv)} <span className="muted small">· {procent(te.cr)} conversion</span>
                     </p>
                   </div>
                   <div style={{ marginLeft: "auto" }}>
@@ -121,10 +120,10 @@ export function OverviewView({
                 <Track value={voortgang} color={toets.significant ? "var(--up)" : "var(--iris-lit)"} />
                 <p className="small muted" style={{ marginTop: 8 }}>
                   {toets.significant
-                    ? "Het verschil is aantoonbaar. Je kunt hierop besluiten."
+                    ? "The difference is statistically solid. You can act on this."
                     : kleinste < 300
-                      ? heel(kleinste) + " van de ~300 bezoekers per groep waarop een verschil zichtbaar wordt."
-                      : "Genoeg bezoekers, maar het verschil is nog niet aantoonbaar. Laat doorlopen of accepteer dat het effect klein is."}
+                      ? heel(kleinste) + " of the ~300 visitors per group at which a difference starts to show."
+                      : "Enough visitors, but the difference is not solid yet. Let it run, or accept that the effect is small."}
                 </p>
               </div>
             </Card>
@@ -133,7 +132,7 @@ export function OverviewView({
 
         {rest.length > 0 && (
           <Card>
-            <CardHead title="Niet actief" sub="Concepten en gestopte tests." />
+            <CardHead title="Not active" sub="Drafts and stopped tests." />
             <div className="card__body card__body--flush">
               {rest.map((t) => {
                 const eigen = stats.filter((r) => r.test_id === t.id);
@@ -146,13 +145,13 @@ export function OverviewView({
                         <Badge status={t.status} />
                       </div>
                       <div className="pair">
-                        duplicaat <code>{t.test_product_handle}</code> ·{" "}
-                        {(t.variant_map || []).length} variant(en) gekoppeld
+                        duplicate <code>{t.test_product_handle}</code> ·{" "}
+                        {(t.variant_map || []).length} variant(s) matched
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                       {t.status === "stopped" && <Delta waarde={toets.lift} />}
-                      <Link className="btn btn--sm" to={basis + "/tests"}>Beheren</Link>
+                      <Link className="btn btn--sm" to={basis + "/tests"}>Manage</Link>
                     </div>
                   </div>
                 );
@@ -162,9 +161,9 @@ export function OverviewView({
         )}
 
         <Banner tone="info">
-          <strong>Onthoud bij het lezen:</strong> omzet per bezoeker is de uitslag, conversie is
-          context. Een hogere prijs verlaagt de conversie bijna altijd — de vraag is of de hogere
-          marge dat goedmaakt.
+          <strong>When reading these:</strong> revenue per visitor is the verdict, conversion is
+          context. A higher price nearly always lowers conversion — the question is whether the
+          higher margin makes up for it.
         </Banner>
       </div>
     </main>

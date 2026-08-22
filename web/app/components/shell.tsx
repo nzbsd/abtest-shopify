@@ -24,7 +24,7 @@ export function Shell({
   children: ReactNode;
 }) {
   const nav = [
-    { to: basis, label: "Overzicht", Icon: IconGrid, end: true },
+    { to: basis, label: "Overview", Icon: IconGrid, end: true },
     { to: basis + "/analytics", label: "Analytics", Icon: IconChart, end: false },
     { to: basis + "/tests", label: "Tests", Icon: IconFlask, end: false },
   ];
@@ -54,7 +54,7 @@ export function Shell({
           {shop && <span className="rail__shop num">{shop}</span>}
           <Form method="post" action="/dashboard/logout" style={{ marginTop: 14 }}>
             <button className="btn btn--sm" type="submit" style={{ width: "100%", justifyContent: "center" }}>
-              Uitloggen
+              Sign out
             </button>
           </Form>
         </div>

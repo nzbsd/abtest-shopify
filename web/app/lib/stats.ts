@@ -180,8 +180,8 @@ export function benodigdeBezoekers(
 
 /** p-waarde leesbaar maken. */
 export function pTekst(p: number): string {
-  if (p < 0.001) return "p < 0,001";
-  return "p = " + p.toFixed(3).replace(".", ",");
+  if (p < 0.001) return "p < 0.001";
+  return "p = " + p.toFixed(3);
 }
 
 /**
@@ -193,19 +193,16 @@ export function pTekst(p: number): string {
  */
 export function uitslagTekst(toets: Toets, genoegBezoekers: boolean): string {
   if (!toets.bruikbaar || !genoegBezoekers) {
-    return "Nog te weinig gegevens om iets te kunnen zeggen. Laat de test doorlopen.";
+    return "Not enough data to say anything yet. Let the test keep running.";
   }
   if (!toets.significant) {
     return (
-      "Het verschil is nog niet aan te tonen; het kan toeval zijn. Dat betekent niet dat " +
-      "er geen effect is, alleen dat je het met deze aantallen nog niet ziet."
+      "The difference is not solid yet; it could be chance. That does not mean there is no " +
+      "effect, only that these numbers cannot show it."
     );
   }
+  const range = toets.onder.toFixed(1) + "% and " + toets.boven.toFixed(1) + "%";
   return toets.lift >= 0
-    ? "De testprijs levert aantoonbaar meer op. Het werkelijke verschil ligt vrijwel zeker tussen " +
-        toets.onder.toFixed(1).replace(".", ",") + "% en " +
-        toets.boven.toFixed(1).replace(".", ",") + "%."
-    : "De testprijs levert aantoonbaar minder op. Het werkelijke verschil ligt vrijwel zeker tussen " +
-        toets.onder.toFixed(1).replace(".", ",") + "% en " +
-        toets.boven.toFixed(1).replace(".", ",") + "%.";
+    ? "The test price earns measurably more. The real difference is almost certainly between " + range + "."
+    : "The test price earns measurably less. The real difference is almost certainly between " + range + ".";
 }
