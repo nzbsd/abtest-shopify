@@ -79,7 +79,18 @@ export async function fetchProduct(admin: any, productId: string): Promise<Produ
  * levert alleen verwarring op.
  */
 export async function lijstProducten(admin: any, zoek = ""): Promise<ProductInfo[]> {
-  const filter = ["status:active", zoek.trim() ? `title:*${zoek.trim()}*` : ""]
+  // Alleen gearchiveerde producten vallen af.
+  //
+  // Niet filteren op status:active, hoe verleidelijk dat ook is: unlisted
+  // producten hebben in Shopify de status UNLISTED, en die valt buiten
+  // "active" én buiten "draft". Op deze winkel staan de meeste producten op
+  // unlisted - inclusief bijna elke Oregano-variant - dus zo'n filter maakt de
+  // lijst vrijwel leeg. Gecontroleerd tegen de live winkel: "-status:archived"
+  // geeft ACTIVE en UNLISTED, "status:active" laat UNLISTED weg.
+  //
+  // Unlisted is bovendien precies wat een duplicaat hoort te zijn: bereikbaar
+  // via zijn URL, onzichtbaar in zoekresultaten en collecties.
+  const filter = ["-status:archived", zoek.trim() ? `title:*${zoek.trim()}*` : ""]
     .filter(Boolean)
     .join(" AND ");
 

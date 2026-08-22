@@ -47,7 +47,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     const { data, error } = await supabase
       .from("price_tests")
-      .select("id, control_product_id, test_product_handle, split_pct, variant_map")
+      .select("id, control_product_id, test_product_id, test_product_handle, split_pct, variant_map")
       .eq("shop", shop)
       .eq("status", "running");
     if (error) throw new Error(error.message);
@@ -55,8 +55,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const tests = (data || [])
       .map((row: any) => {
         const controlProductId = gidToNum(row.control_product_id);
-        if (!controlProductId || !row.test_product_handle) return null;
+        const testProductId = gidToNum(row.test_product_id);
+        if (!controlProductId || !testProductId || !row.test_product_handle) return null;
 
+        // De variantkoppeling is bij een doorverwijzing niet essentieel - de
+        // duplicaatpagina kiest zelf zijn variant. Hij wordt alleen gebruikt om
+        // een ?variant= in de URL mee te verhuizen; ontbreekt hij, dan valt die
+        // parameter weg in plaats van naar het verkeerde product te wijzen.
         const variantMap: Record<string, number> = {};
         for (const p of row.variant_map || []) {
           const c = Number(p?.control_num);
@@ -64,13 +69,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           if (!Number.isFinite(c) || !Number.isFinite(t)) continue;
           variantMap[String(c)] = t;
         }
-        // Geen koppeling betekent geen test: zonder map zou het thema niet
-        // weten welke variant het moet omwisselen.
-        if (!Object.keys(variantMap).length) return null;
 
         return {
           id: row.id,
           controlProductId,
+          testProductId,
           testHandle: String(row.test_product_handle),
           splitPct: Number(row.split_pct) || 50,
           variantMap,
