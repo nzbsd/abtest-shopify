@@ -1,5 +1,36 @@
-import { type ActionFunctionArgs } from "@remix-run/node";
+import { type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
 import supabase from "~/db.server";
+
+const CORS = {
+  "Content-Type": "application/json",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Max-Age": "86400",
+};
+
+/**
+ * The CORS preflight.
+ *
+ * This has to be a loader, not part of the action. Remix only routes
+ * POST/PUT/PATCH/DELETE to an action; an OPTIONS request is treated as a read
+ * and goes to the loader. With no loader exported it produced a 400, the
+ * preflight failed, and the browser silently dropped every beacon the theme
+ * sent — which is exactly what happened here: the endpoint answered POSTs
+ * perfectly while nothing ever arrived from the storefront.
+ *
+ * Answering the preflight properly means the theme can post application/json
+ * without needing any change on its side.
+ */
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS });
+  }
+  return new Response(JSON.stringify({ error: "Method not allowed" }), {
+    status: 405,
+    headers: CORS,
+  });
+};
 
 /**
  * Meetpunt voor het thema: view en add-to-cart.
@@ -11,14 +42,7 @@ import supabase from "~/db.server";
  * orders/create-webhook, die wél door Shopify is ondertekend.
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const headers = new Headers({
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-  });
-
-  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
+  const headers = new Headers(CORS);
   if (request.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers });
   }
