@@ -4,10 +4,7 @@ client_id = "e0127103f68c3a5e74136d4f68fcf9ad"
 name = "Price Test"
 handle = "price-test-1"
 
-# LET OP: pas dit aan zodra het Vercel-project bestaat. Heet het project daar
-# anders dan herbies-price-test, dan klopt deze URL niet en mislukt de
-# installatie met een redirect-fout.
-application_url = "https://herbies-price-test.vercel.app"
+application_url = "https://abtest-shopify.vercel.app"
 embedded = true
 
 [webhooks]
@@ -22,15 +19,16 @@ api_version = "2026-07"
   uri = "/webhooks/orders/create"
 
 [access_scopes]
-# write_products is nodig om vaste prijzen in een price list te zetten.
-# write_discounts om het metafield van de automatische korting te schrijven.
-# read_orders voor de omzet per testgroep.
+# Alleen lezen. De app wijzigt geen prijzen en schrijft geen kortingen: de
+# testprijs staat op het duplicaat, dat jij zelf in Shopify beheert.
+# read_products om producten en varianten te koppelen, read_orders voor de
+# omzet per testgroep.
 scopes = "read_products,read_orders"
 optional_scopes = [ ]
 use_legacy_install_flow = false
 
 [auth]
-redirect_urls = [ "https://herbies-price-test.vercel.app/auth/callback" ]
+redirect_urls = [ "https://abtest-shopify.vercel.app/auth/callback" ]
 
 [pos]
 embedded = false
