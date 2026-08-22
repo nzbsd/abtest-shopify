@@ -87,6 +87,18 @@
     return Math.abs(h) % 100;
   }
 
+  /**
+   * Report an event.
+   *
+   * text/plain, and it has to stay text/plain. application/json is not a
+   * CORS-safelisted content type, so it needs a preflight, and sendBeacon
+   * cannot do preflights — the browser returns true, queues the request, and
+   * then silently drops it. That is exactly what happened here: the beacon
+   * looked fine from the page and nothing ever reached the database.
+   *
+   * The server parses the body as JSON regardless of the declared type, so
+   * nothing is lost by declaring it as plain text.
+   */
   function report(testId, cohort, type) {
     try {
       navigator.sendBeacon(
@@ -94,7 +106,7 @@
         new Blob([JSON.stringify({
           shop: SHOP, testId: testId, cohort: cohort, eventType: type,
           productId: PRODUCT_ID, market: MARKET, currency: CURRENCY, visitorId: visitor
-        })], { type: "application/json" })
+        })], { type: "text/plain" })
       );
     } catch (e) { /* a failed measurement must never hold up the store */ }
   }
