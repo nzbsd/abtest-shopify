@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "@remix-run/react";
 import { PageHead } from "~/components/shell";
 import { Lijn, Trechter } from "~/components/charts";
 import {
@@ -24,7 +25,12 @@ export function AnalyticsView({
   stats: StatRij[];
   daily: DagRij[];
 }) {
-  const [testId, setTestId] = useState<number | null>(tests[0]?.id ?? null);
+  // ?test= in the URL so a link from the Tests screen opens the right one.
+  const [params, setParams] = useSearchParams();
+  const uitUrl = Number(params.get("test")) || null;
+  const [gekozen, setGekozen] = useState<number | null>(null);
+  const testId = gekozen ?? uitUrl ?? tests[0]?.id ?? null;
+  const setTestId = (id: number) => { setGekozen(id); setParams({ test: String(id) }, { replace: true }); };
   const [metric, setMetric] = useState<Metric>("rpv");
   const [range, setRange] = useState<Range>("14");
 

@@ -4,6 +4,7 @@ import {
   lijstProducten, loadTests, matchVariants, resolveProduct, type ProductInfo, type PriceTest,
 } from "./priceTest.server";
 import type { DagRij, StatRij } from "./analytics";
+import { bundleProductIds, preflight, type Bevinding } from "./preflight.server";
 
 /**
  * De gegevens achter de schermen, één keer.
@@ -69,24 +70,40 @@ export async function analyticsData(shop: string | null): Promise<BasisData & { 
   }
 }
 
+/**
+ * Het publieke domein van de winkel, voor previewlinks vanaf een opgeslagen
+ * test. Producten uit de kiezer dragen hun eigen URL bij zich, maar een test
+ * bewaart alleen handles - en die moeten ergens aan geplakt worden.
+ */
+async function winkelDomein(admin: any): Promise<string | null> {
+  if (!admin) return null;
+  const res: any = await admin.graphql(
+    `#graphql
+     query Winkel { shop { primaryDomain { url } } }`,
+  );
+  const j = await res.json();
+  return j?.data?.shop?.primaryDomain?.url ?? null;
+}
+
 export async function testsData(
   admin: any,
   shop: string | null,
-): Promise<{ shop: string | null; fout: string | null; tests: PriceTest[]; producten: ProductInfo[] }> {
+): Promise<{ shop: string | null; fout: string | null; tests: PriceTest[]; producten: ProductInfo[]; winkelUrl: string | null }> {
   const { fout } = await shopOfFout(shop);
-  if (fout || !shop) return { shop: null, fout, tests: [], producten: [] };
+  if (fout || !shop) return { shop: null, fout, tests: [], producten: [], winkelUrl: null };
 
   try {
     // De productenlijst mag falen zonder dat het scherm omvalt: zonder Shopify
     // kun je geen nieuwe test aanmaken, maar bestaande tests wél stoppen. Dat
     // is precies het moment waarop je die knop nodig hebt.
-    const [tests, producten] = await Promise.all([
+    const [tests, producten, winkelUrl] = await Promise.all([
       loadTests(shop),
       lijstProducten(admin).catch(() => [] as ProductInfo[]),
+      winkelDomein(admin).catch(() => null),
     ]);
-    return { shop, fout: null, tests, producten };
+    return { shop, fout: null, tests, producten, winkelUrl };
   } catch (e: any) {
-    return { shop, fout: e?.message ?? "Database error", tests: [], producten: [] };
+    return { shop, fout: e?.message ?? "Database error", tests: [], producten: [], winkelUrl: null };
   }
 }
 
@@ -95,7 +112,7 @@ export async function testsAction(
   admin: any,
   shop: string | null,
   form: FormData,
-): Promise<{ ok: boolean; bericht: string }> {
+): Promise<{ ok: boolean; bericht: string; bevindingen?: Bevinding[] }> {
   if (!shop) return { ok: false, bericht: "No store connected." };
   const intent = String(form.get("intent") || "");
 
@@ -121,6 +138,7 @@ export async function testsAction(
       const { error } = await supabase.from("price_tests").insert({
         shop,
         control_product_id: control.id,
+        control_product_handle: control.handle,
         control_title: control.title,
         test_product_id: test.id,
         test_product_handle: test.handle,
@@ -137,6 +155,61 @@ export async function testsAction(
 
     if (intent === "start" || intent === "stop") {
       const id = Number(form.get("id"));
+
+      // Starting splits live traffic, so the two products get checked against
+      // each other first. Stopping never gets blocked: if something is wrong,
+      // stopping is the fix.
+      if (intent === "start" && String(form.get("force") || "") !== "1") {
+        const { data: rij } = await supabase
+          .from("price_tests")
+          .select("control_product_id, test_product_id")
+          .eq("id", id).eq("shop", shop).maybeSingle();
+
+        if (rij) {
+          const [control, test, bundelIds] = await Promise.all([
+            resolveProduct(admin, rij.control_product_id),
+            resolveProduct(admin, rij.test_product_id),
+            bundleProductIds(),
+          ]);
+
+          if (control && test) {
+            const bevindingen = preflight({
+              control,
+              test,
+              controlSellingPlans: control.sellingPlanGroups ?? 0,
+              testSellingPlans: test.sellingPlanGroups ?? 0,
+              bundleProductIds: bundelIds,
+            });
+            const blokkerend = bevindingen.filter((b) => b.niveau === "block");
+            if (blokkerend.length) {
+              return {
+                ok: false,
+                bericht:
+                  "Not started — " + blokkerend.length + " problem(s) would make this test " +
+                  "meaningless or cost you money:\n\n" +
+                  blokkerend.map((b) => "• " + b.titel + ". " + b.uitleg).join("\n\n"),
+                bevindingen,
+              };
+            }
+            if (bevindingen.length) {
+              // Warnings do not block, but they do travel back so the screen
+              // can show them next to the started test.
+              const nieuw = {
+                status: "running", started_at: new Date().toISOString(), stopped_at: null,
+              };
+              const { error } = await supabase
+                .from("price_tests").update(nieuw).eq("id", id).eq("shop", shop);
+              if (error) throw new Error(error.message);
+              return {
+                ok: true,
+                bericht: "Test started, with " + bevindingen.length + " thing(s) worth checking.",
+                bevindingen,
+              };
+            }
+          }
+        }
+      }
+
       const nieuw = intent === "start"
         ? { status: "running", started_at: new Date().toISOString(), stopped_at: null }
         : { status: "stopped", stopped_at: new Date().toISOString() };

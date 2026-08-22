@@ -1,4 +1,4 @@
-import { useFetcher } from "@remix-run/react";
+import { Link, useFetcher } from "@remix-run/react";
 import { useMemo, useState } from "react";
 import { PageHead } from "~/components/shell";
 import { Badge, Banner, Card, CardHead, Delta, Leeg } from "~/components/ui";
@@ -133,12 +133,18 @@ function Picker({
 /* ── screen ─────────────────────────────────────────────────────────────── */
 
 export function TestsView({
-  tests, producten, fout,
+  tests, producten, fout, winkelUrl, basis,
 }: {
   tests: PriceTest[];
   producten: ProductInfo[];
   fout: string | null;
+  /** Public storefront URL, for preview links from a saved test. */
+  winkelUrl: string | null;
+  /** "/dashboard" or "/app" - where the results link points. */
+  basis: string;
 }) {
+  const productUrl = (handle: string | null | undefined) =>
+    winkelUrl && handle ? winkelUrl.replace(/\/+$/, "") + "/products/" + handle : null;
   const fetcher = useFetcher<{ ok: boolean; bericht: string }>();
   const busy = fetcher.state !== "idle";
 
@@ -196,8 +202,12 @@ export function TestsView({
           </Banner>
         )}
 
+        {/* pre-line: the pre-flight message lists its findings on separate
+            lines, and collapsing them into one paragraph makes it unreadable. */}
         {fetcher.data?.bericht && (
-          <Banner tone={fetcher.data.ok ? "ok" : "error"}>{fetcher.data.bericht}</Banner>
+          <Banner tone={fetcher.data.ok ? "ok" : "error"}>
+            <span style={{ whiteSpace: "pre-line" }}>{fetcher.data.bericht}</span>
+          </Banner>
         )}
 
         {open && (
@@ -312,10 +322,22 @@ export function TestsView({
                       <Badge status={t.status} />
                     </div>
                     <div className="pair">
-                      <span className="legend__item"><span className="swatch swatch--control" />original</span>
-                      <span>→</span>
                       <span className="legend__item">
-                        <span className="swatch swatch--test" /><code>{t.test_product_handle}</code>
+                        <span className="swatch swatch--control" />
+                        {productUrl(t.control_product_handle) ? (
+                          <a href={productUrl(t.control_product_handle)!} target="_blank" rel="noreferrer">
+                            <code>{t.control_product_handle}</code>
+                          </a>
+                        ) : <code>original</code>}
+                      </span>
+                      <span className="pair__arrow">→</span>
+                      <span className="legend__item">
+                        <span className="swatch swatch--test" />
+                        {productUrl(t.test_product_handle) ? (
+                          <a href={productUrl(t.test_product_handle)!} target="_blank" rel="noreferrer">
+                            <code>{t.test_product_handle}</code>
+                          </a>
+                        ) : <code>{t.test_product_handle}</code>}
                       </span>
                     </div>
                     <p className="small muted" style={{ marginTop: 6 }}>
@@ -325,6 +347,7 @@ export function TestsView({
                   </div>
 
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <Link className="btn" to={basis + "/analytics?test=" + t.id}>Results</Link>
                     {t.status === "running" ? (
                       <button className="btn btn--danger" disabled={busy} onClick={() => act(t.id, "stop")}>
                         Stop

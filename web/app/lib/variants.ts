@@ -27,6 +27,9 @@ export type ProductInfo = {
   /** Storefront URL. Unlisted and draft products have a preview URL instead of
       a public one, so both are asked for and whichever exists is used. */
   url?: string | null;
+  /** Number of selling plan groups. Used by the pre-flight check: a duplicate
+      without one means the test group cannot subscribe at all. */
+  sellingPlanGroups?: number;
   variants: VariantInfo[];
 };
 

@@ -22,6 +22,7 @@ export type PriceTest = {
   id: number;
   shop: string;
   control_product_id: string;
+  control_product_handle: string | null;
   control_title: string | null;
   test_product_id: string;
   test_product_handle: string;
@@ -40,6 +41,7 @@ function numOf(gid: string): number {
 
 const PRODUCT_VELDEN = `
   id handle title status
+  sellingPlanGroupCount
   onlineStoreUrl
   onlineStorePreviewUrl
   featuredImage { url }
@@ -54,6 +56,7 @@ function naarProductInfo(p: any): ProductInfo {
     image: p.featuredImage?.url ?? null,
     status: p.status,
     url: p.onlineStoreUrl || p.onlineStorePreviewUrl || null,
+    sellingPlanGroups: Number(p.sellingPlanGroupCount) || 0,
     variants: (p.variants?.nodes || []).map((v: any) => ({
       id: v.id,
       num: numOf(v.id),
