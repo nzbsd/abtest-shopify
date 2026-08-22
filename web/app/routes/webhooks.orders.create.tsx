@@ -5,66 +5,81 @@ import supabase from "~/db.server";
 /**
  * Omzet per testgroep.
  *
- * Het thema zet bij de cohorttoewijzing twee cart-attributen: _pt_cohort en
- * _pt_test. Die komen mee in de order (note_attributes), zodat we hier weten
- * in welke groep de koper zat zonder cookies of PII aan te raken.
+ * De groep leiden we af uit WELK PRODUCT er gekocht is, niet uit de
+ * cart-attributen. Het origineel is de controlegroep, het duplicaat de
+ * testgroep - dat staat vast in de order en kan niet meer verschuiven. Een
+ * cart-attribuut kan ontbreken als de bezoeker via een andere weg binnenkwam,
+ * of achterhaald zijn als de cart is hergebruikt; het product-id niet.
  *
- * Idempotent: price_test_events heeft een unieke index op (shop, order_id), en
- * we schrijven met upsert + ignoreDuplicates. Shopify levert webhooks soms
- * dubbel; zonder die borging zou de omzet van een groep te hoog uitvallen en
- * daarmee de uitslag van de test verkeerd doen lijken.
+ * De attributen gebruiken we nog wel voor context: markt en bezoeker.
+ *
+ * Idempotent: unieke index op (shop, order_id) plus ignoreDuplicates. Shopify
+ * levert webhooks soms dubbel, en dubbeltelling zou de omzet van een groep te
+ * hoog maken en daarmee de uitslag verkeerd doen lijken.
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { shop, payload, topic } = await authenticate.webhook(request);
   if (topic !== "ORDERS_CREATE") return new Response(null, { status: 200 });
 
   try {
-    const attrs: Record<string, string> = {};
-    for (const a of (payload as any)?.note_attributes || []) {
-      if (a?.name) attrs[String(a.name)] = String(a.value ?? "");
-    }
-
-    const cohort = (attrs["_pt_cohort"] || "").toLowerCase();
-    const testId = parseInt(attrs["_pt_test"] || "", 10);
-    if ((cohort !== "control" && cohort !== "test") || !Number.isFinite(testId)) {
-      // Geen prijstest-order — niets te doen.
-      return new Response(null, { status: 200 });
-    }
-
-    // Alleen de omzet van het geteste product telt, niet de hele order: een
-    // klant kan er andere producten bij leggen en die zeggen niets over de
-    // prijstest.
-    const { data: test } = await supabase
+    const { data: tests } = await supabase
       .from("price_tests")
-      .select("id, product_id")
-      .eq("id", testId)
+      .select("id, control_product_id, test_product_id")
       .eq("shop", shop)
-      .maybeSingle();
-    if (!test) return new Response(null, { status: 200 });
+      .in("status", ["running", "stopped"]);
 
-    const productNum = String(test.product_id).split("/").pop();
-    let cents = 0;
-    for (const li of (payload as any)?.line_items || []) {
-      if (String(li?.product_id) !== productNum) continue;
-      // Prijs na korting: dit is wat de klant echt betaalde, dus inclusief de
-      // teruggave die de controlegroep van de Function kreeg.
-      const bruto = Math.round(parseFloat(li?.price || "0") * 100) * (li?.quantity || 0);
-      const korting = ((li?.discount_allocations || []) as any[]).reduce(
-        (a, d) => a + Math.round(parseFloat(d?.amount || "0") * 100),
-        0,
-      );
-      cents += Math.max(0, bruto - korting);
-    }
+    if (!tests?.length) return new Response(null, { status: 200 });
 
-    await supabase
-      .from("price_test_events")
-      .upsert(
+    const num = (gid: string) => String(gid).split("/").pop();
+
+    // Per test: welke regels horen erbij, en in welke groep.
+    for (const t of tests) {
+      const controlNum = num(t.control_product_id);
+      const testNum = num(t.test_product_id);
+
+      let cents = 0;
+      let cohort: "control" | "test" | null = null;
+
+      for (const li of (payload as any)?.line_items || []) {
+        const pid = String(li?.product_id);
+        const isControl = pid === controlNum;
+        const isTest = pid === testNum;
+        if (!isControl && !isTest) continue;
+
+        // Een order met beide producten hoort in geen van beide groepen: dan
+        // is niet te zeggen welke prijs het gedrag stuurde. Overslaan is
+        // eerlijker dan gokken.
+        const dezeGroep = isTest ? "test" : "control";
+        if (cohort && cohort !== dezeGroep) {
+          cohort = null;
+          break;
+        }
+        cohort = dezeGroep;
+
+        // Wat de klant echt betaalde: prijs minus toegekende kortingen, dus
+        // inclusief het effect van de bundelkorting.
+        const bruto = Math.round(parseFloat(li?.price || "0") * 100) * (li?.quantity || 0);
+        const korting = ((li?.discount_allocations || []) as any[]).reduce(
+          (a, d) => a + Math.round(parseFloat(d?.amount || "0") * 100),
+          0,
+        );
+        cents += Math.max(0, bruto - korting);
+      }
+
+      if (!cohort) continue;
+
+      const attrs: Record<string, string> = {};
+      for (const a of (payload as any)?.note_attributes || []) {
+        if (a?.name) attrs[String(a.name)] = String(a.value ?? "");
+      }
+
+      await supabase.from("price_test_events").upsert(
         {
           shop,
-          test_id: testId,
+          test_id: t.id,
           cohort,
           event_type: "purchase",
-          product_id: test.product_id,
+          product_id: cohort === "test" ? t.test_product_id : t.control_product_id,
           market: attrs["_pt_market"] || null,
           currency: (payload as any)?.currency || null,
           visitor_id: attrs["_pt_visitor"] || null,
@@ -74,10 +89,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         },
         { onConflict: "shop,order_id", ignoreDuplicates: true },
       );
+    }
   } catch (_e) {
     // Nooit een niet-200 teruggeven: Shopify blijft dan opnieuw sturen en dat
-    // levert alleen maar meer dubbele rijen op. De fout is hier niet
-    // herstelbaar — de order is al geplaatst.
+    // levert alleen meer dubbele rijen op. De order is al geplaatst; hier valt
+    // niets meer te herstellen.
   }
 
   return new Response(null, { status: 200 });

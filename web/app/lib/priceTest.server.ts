@@ -1,178 +1,158 @@
 import supabase from "~/db.server";
 
 /**
- * Kern van de prijstest: prijzen per markt zetten en terugdraaien.
+ * Prijstest op basis van twee echte producten.
  *
- * MECHANIEK
- * Elke markt heeft in deze shop een eigen price list met adjustment 0%, dus de
- * marktprijzen zijn afgeleid van de basisprijs. Om in één markt een andere
- * prijs te testen zetten we daar een VASTE prijs in die price list. Stoppen is
- * dan het verwijderen van die vaste prijs: de markt valt automatisch terug op
- * de afgeleide prijs.
+ * Het origineel is de controlegroep, een duplicaat met een hogere prijs is de
+ * testgroep. Deze module wijzigt GEEN prijzen: dat doe je zelf in Shopify op
+ * het duplicaat. Hier wordt alleen vastgelegd welke twee producten bij elkaar
+ * horen en welke variant met welke correspondeert.
  *
- * Waarom niet de basisprijs verhogen: dat raakt alle markten tegelijk en
- * herstellen hangt dan af van een opgeslagen oude waarde. Met fixed prices is
- * terugdraaien een delete en blijft de basisprijs onaangeroerd.
- *
- * De controlegroep krijgt het verschil terug via de Discount Function; die
- * leest zijn config uit het metafield dat hier wordt geschreven.
+ * Dat het hier geen prijzen bijhoudt is opzet. Zou de app een prijs opslaan,
+ * dan kan die gaan afwijken van wat er in Shopify staat en toont het thema een
+ * bedrag dat de kassa niet rekent. Nu haalt het thema de prijs live op bij
+ * Shopify zelf, en klopt hij per definitie - ook per markt en per valuta.
  */
 
-export type MarketConfig = {
-  market: string;          // market handle, bv 'united-states'
-  price_list_id: string;   // gid://shopify/PriceList/...
-  currency: string;        // USD, GBP, ...
-  baseline_amount: number; // prijs zoals hij zonder test zou zijn
-  test_amount: number;     // prijs die de testgroep betaalt
-  control_discount: number; // test_amount - baseline_amount
+export type VariantPair = {
+  control_num: number; // numeriek variant-id van het origineel
+  test_num: number;    // numeriek variant-id van het duplicaat
+  title: string;       // variantnaam, puur voor het overzicht in de admin
 };
 
 export type PriceTest = {
   id: number;
   shop: string;
-  product_id: string;
-  product_title: string | null;
+  control_product_id: string;
+  control_title: string | null;
+  test_product_id: string;
+  test_product_handle: string;
+  test_title: string | null;
+  variant_map: VariantPair[];
   status: "draft" | "running" | "stopped";
   split_pct: number;
-  markets: MarketConfig[];
   started_at: string | null;
   stopped_at: string | null;
 };
 
-/** Variant-ids van een product; fixed prices gelden per variant. */
-export async function variantIds(admin: any, productId: string): Promise<string[]> {
+export type ProductInfo = {
+  id: string;
+  handle: string;
+  title: string;
+  variants: { id: string; num: number; title: string; price: string }[];
+};
+
+function numOf(gid: string): number {
+  return parseInt(String(gid).split("/").pop() || "", 10);
+}
+
+/** Product met varianten ophalen; gebruikt om de twee kanten te koppelen. */
+export async function fetchProduct(admin: any, productId: string): Promise<ProductInfo | null> {
   const res: any = await admin.graphql(
     `#graphql
-     query Variants($id: ID!) {
-       product(id: $id) { variants(first: 100) { nodes { id } } }
+     query Prod($id: ID!) {
+       product(id: $id) {
+         id handle title
+         variants(first: 100) { nodes { id title price } }
+       }
      }`,
     { variables: { id: productId } },
   );
   const j = await res.json();
-  return (j?.data?.product?.variants?.nodes || []).map((v: any) => v.id);
-}
-
-/**
- * Zet de testprijs in de price lists van de geselecteerde markten.
- * Faalt er één markt, dan draaien we de al gezette markten terug: half
- * doorgevoerd is erger dan niet doorgevoerd, want dan betaalt één markt de
- * testprijs zonder dat de test loopt.
- */
-export async function applyTestPrices(
-  admin: any,
-  productId: string,
-  markets: MarketConfig[],
-): Promise<{ ok: boolean; error?: string }> {
-  const ids = await variantIds(admin, productId);
-  if (!ids.length) return { ok: false, error: "Product heeft geen varianten" };
-
-  const gedaan: MarketConfig[] = [];
-  for (const m of markets) {
-    const res: any = await admin.graphql(
-      `#graphql
-       mutation SetPrices($priceListId: ID!, $prices: [PriceListPriceInput!]!) {
-         priceListFixedPricesAdd(priceListId: $priceListId, prices: $prices) {
-           userErrors { field message }
-         }
-       }`,
-      {
-        variables: {
-          priceListId: m.price_list_id,
-          prices: ids.map((variantId) => ({
-            variantId,
-            price: { amount: m.test_amount.toFixed(2), currencyCode: m.currency },
-          })),
-        },
-      },
-    );
-    const j = await res.json();
-    const errs = j?.data?.priceListFixedPricesAdd?.userErrors || [];
-    if (errs.length) {
-      await revertTestPrices(admin, productId, gedaan);
-      return { ok: false, error: `${m.market}: ${errs[0].message}` };
-    }
-    gedaan.push(m);
-  }
-  return { ok: true };
-}
-
-/** Vaste prijzen weghalen; de markt valt terug op de afgeleide prijs. */
-export async function revertTestPrices(
-  admin: any,
-  productId: string,
-  markets: MarketConfig[],
-): Promise<{ ok: boolean; error?: string }> {
-  const ids = await variantIds(admin, productId);
-  let laatsteFout: string | undefined;
-
-  for (const m of markets) {
-    const res: any = await admin.graphql(
-      `#graphql
-       mutation ClearPrices($priceListId: ID!, $variantIds: [ID!]!) {
-         priceListFixedPricesDelete(priceListId: $priceListId, variantIds: $variantIds) {
-           userErrors { field message }
-         }
-       }`,
-      { variables: { priceListId: m.price_list_id, variantIds: ids } },
-    );
-    const j = await res.json();
-    const errs = j?.data?.priceListFixedPricesDelete?.userErrors || [];
-    // Doorgaan bij een fout: elke markt die we WEL kunnen herstellen moet
-    // hersteld worden. Een blijvend hoge prijs is het ergste scenario.
-    if (errs.length) laatsteFout = `${m.market}: ${errs[0].message}`;
-  }
-  return laatsteFout ? { ok: false, error: laatsteFout } : { ok: true };
-}
-
-/**
- * Schrijft de config voor de Discount Function. Vorm bewust plat per valuta:
- * de function kent geen market-handles, alleen de valuta van de cartregel.
- */
-export function buildFunctionConfig(tests: PriceTest[]) {
+  const p = j?.data?.product;
+  if (!p) return null;
   return {
-    tests: tests
-      .filter((t) => t.status === "running")
-      .map((t) => ({
-        id: t.id,
-        productId: t.product_id,
-        markets: Object.fromEntries(
-          (t.markets || [])
-            .filter((m) => Number(m.control_discount) > 0)
-            .map((m) => [m.currency, { controlDiscount: Number(m.control_discount) }]),
-        ),
-      }))
-      .filter((t) => Object.keys(t.markets).length > 0),
+    id: p.id,
+    handle: p.handle,
+    title: p.title,
+    variants: (p.variants?.nodes || []).map((v: any) => ({
+      id: v.id,
+      num: numOf(v.id),
+      title: v.title,
+      price: v.price,
+    })),
   };
 }
 
-/** Config naar het metafield van de automatische korting. */
-export async function writeFunctionConfig(
-  admin: any,
-  discountNodeId: string,
-  config: unknown,
-): Promise<{ ok: boolean; error?: string }> {
+/**
+ * Product opzoeken op wat je ook maar invult: numeriek id, gid, handle of de
+ * volledige URL van de productpagina. Dat scheelt heen-en-weer met de admin om
+ * het juiste id te vinden, en een verkeerd overgetypt id is precies het soort
+ * fout dat je pas merkt als de test al draait.
+ */
+export async function resolveProduct(admin: any, invoer: string): Promise<ProductInfo | null> {
+  const s = invoer.trim();
+  if (!s) return null;
+
+  if (/^\d+$/.test(s)) return fetchProduct(admin, "gid://shopify/Product/" + s);
+  if (s.startsWith("gid://shopify/Product/")) return fetchProduct(admin, s);
+
+  // Handle uit een URL vissen: /products/<handle> met eventueel ?variant=...
+  const m = s.match(/\/products\/([^/?#]+)/);
+  const handle = (m ? m[1] : s).trim().toLowerCase();
+
   const res: any = await admin.graphql(
     `#graphql
-     mutation SetConfig($mf: [MetafieldsSetInput!]!) {
-       metafieldsSet(metafields: $mf) { userErrors { field message } }
+     query ByHandle($h: String!) {
+       products(first: 1, query: $h) {
+         nodes {
+           id handle title
+           variants(first: 100) { nodes { id title price } }
+         }
+       }
      }`,
-    {
-      variables: {
-        mf: [
-          {
-            ownerId: discountNodeId,
-            namespace: "$app:price-test",
-            key: "function-configuration",
-            type: "json",
-            value: JSON.stringify(config),
-          },
-        ],
-      },
-    },
+    { variables: { h: "handle:" + handle } },
   );
   const j = await res.json();
-  const errs = j?.data?.metafieldsSet?.userErrors || [];
-  return errs.length ? { ok: false, error: errs[0].message } : { ok: true };
+  const p = j?.data?.products?.nodes?.[0];
+  if (!p || p.handle !== handle) return null;
+  return {
+    id: p.id,
+    handle: p.handle,
+    title: p.title,
+    variants: (p.variants?.nodes || []).map((v: any) => ({
+      id: v.id,
+      num: numOf(v.id),
+      title: v.title,
+      price: v.price,
+    })),
+  };
+}
+
+/**
+ * Varianten van origineel en duplicaat aan elkaar knopen op varianttitel.
+ *
+ * Een duplicaat heeft dezelfde optienamen, dus titels matchen normaal
+ * één-op-één. Lukt een titel niet, dan valt hij terug op dezelfde POSITIE.
+ * Blijft er dan nog iets over, dan wordt die variant NIET gekoppeld: liever
+ * een variant die buiten de test valt dan een bezoeker die "6 flessen" kiest
+ * en "1 fles" in zijn cart krijgt.
+ */
+export function matchVariants(control: ProductInfo, test: ProductInfo): {
+  pairs: VariantPair[];
+  unmatched: string[];
+} {
+  const pairs: VariantPair[] = [];
+  const unmatched: string[] = [];
+  const gebruikt = new Set<number>();
+
+  control.variants.forEach((cv, i) => {
+    const opTitel = test.variants.find(
+      (tv) => tv.title.trim().toLowerCase() === cv.title.trim().toLowerCase() && !gebruikt.has(tv.num),
+    );
+    const kandidaat =
+      opTitel ||
+      (test.variants[i] && !gebruikt.has(test.variants[i].num) ? test.variants[i] : undefined);
+
+    if (!kandidaat) {
+      unmatched.push(cv.title);
+      return;
+    }
+    gebruikt.add(kandidaat.num);
+    pairs.push({ control_num: cv.num, test_num: kandidaat.num, title: cv.title });
+  });
+
+  return { pairs, unmatched };
 }
 
 export async function loadTests(shop: string): Promise<PriceTest[]> {

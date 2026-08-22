@@ -1,60 +1,75 @@
 {%- comment -%}
-  Prijstest — cohorttoewijzing en meting.
+  Prijstest: origineel tegenover duplicaat.
 
-  PLAATSING: als snippet in het thema, gerenderd op productpagina's.
-  Bijvoorbeeld met {% render 'price-test' %} in het product-template, of via
-  een app-embed block.
+  PLAATSING
+  Render dit op de productpagina, bijvoorbeeld onderaan main-product.liquid:
+      {% render 'price-test' %}
+  Vul hieronder app_base met de URL van de prijstest-app.
 
   WAT DIT DOET
-  1. Haalt de lopende tests op bij de app ({{ app_base }}/api/price-test)
-  2. Wijst de bezoeker één keer een groep toe en onthoudt dat in een cookie,
-     zodat hij bij terugkomst dezelfde prijs ziet. Een wisselende prijs is een
-     klachtenmagneet en maakt de meting waardeloos.
-  3. Zet _pt_cohort, _pt_test, _pt_market en _pt_visitor als cart-attributen.
-     Daar leest zowel de Discount Function als de orders-webhook uit.
-  4. Meldt een view en een add-to-cart bij de app.
+  1. Haalt de lopende tests op bij de app.
+  2. Wijst de bezoeker eenmalig een groep toe en onthoudt dat in een cookie.
+     Een wisselende prijs bij terugkomst is een klachtenmagneet en maakt de
+     meting waardeloos.
+  3. Voor de TESTGROEP: toont de prijs van het duplicaat en zorgt dat de
+     variant van het duplicaat in de cart belandt. De bezoeker blijft op de
+     URL van het origineel.
+  4. Meldt view en add-to-cart bij de app.
 
-  WAT DIT NIET DOET
-  Prijzen tonen of aanpassen. De prijs die je ziet komt uit Shopify zelf: voor
-  de testgroep de vaste prijs uit de price list, voor de controlegroep dezelfde
-  prijs met de teruggave van de Function in de cart. Zou dit script de
-  weergegeven prijs zelf verzinnen, dan kan hij afwijken van wat er wordt
-  afgerekend — en dat is precies het soort verschil waar klanten over mailen.
+  WAAR DE PRIJS VANDAAN KOMT
+  Niet uit deze app. Het thema haalt hem uit /products/<duplicaat>.js, dus
+  rechtstreeks bij Shopify, in de valuta van de bezoeker. Daardoor kan de
+  getoonde prijs niet afwijken van wat de kassa rekent, ook niet als jij de
+  prijs van het duplicaat later aanpast of per markt anders zet.
+
+  FAALGEDRAG
+  Gaat er iets mis - app onbereikbaar, duplicaat niet gevonden, variant niet
+  gekoppeld - dan gebeurt er NIETS en ziet de bezoeker gewoon het originele
+  product tegen de originele prijs. Er is geen pad waarin iemand een prijs
+  ziet die de kassa niet rekent.
 {%- endcomment -%}
 
+{%- assign app_base = 'https://REPLACE-MET-VERCEL-URL' -%}
+
+{%- if product -%}
 <script>
 (function () {
-  var APP = "{{ app_base | default: 'https://REPLACE-MET-VERCEL-URL' }}";
-  var SHOP = "{{ shop.permanent_domain }}";
-  var PRODUCT_ID = {{ product.id | default: 0 }};
-  var MARKET = "{{ localization.market.handle | default: '' }}";
-  var CURRENCY = "{{ cart.currency.iso_code | default: shop.currency }}";
+  var APP = {{ app_base | json }};
+  var SHOP = {{ shop.permanent_domain | json }};
+  var PRODUCT_ID = {{ product.id | json }};
+  var MARKET = {{ localization.market.handle | default: '' | json }};
+  var CURRENCY = {{ cart.currency.iso_code | default: shop.currency | json }};
   if (!PRODUCT_ID) return;
 
   var COOKIE = "_pt_v";
+
   function cookie(naam) {
     var m = document.cookie.match(new RegExp("(^| )" + naam + "=([^;]+)"));
     return m ? decodeURIComponent(m[2]) : null;
   }
   function zetCookie(naam, waarde, dagen) {
-    var d = new Date(); d.setTime(d.getTime() + dagen * 864e5);
-    document.cookie = naam + "=" + encodeURIComponent(waarde) + ";expires=" + d.toUTCString() + ";path=/;SameSite=Lax";
+    var d = new Date();
+    d.setTime(d.getTime() + dagen * 864e5);
+    document.cookie = naam + "=" + encodeURIComponent(waarde) +
+      ";expires=" + d.toUTCString() + ";path=/;SameSite=Lax";
   }
 
-  /* Bezoekers-id: puur een willekeurig getal om dezelfde bezoeker in dezelfde
-     groep te houden en views te kunnen ontdubbelen. Geen persoonsgegevens. */
+  /* Bezoekers-id: alleen om dezelfde bezoeker in dezelfde groep te houden en
+     views te kunnen ontdubbelen. Geen persoonsgegevens. */
   var visitor = cookie(COOKIE);
   if (!visitor) {
-    visitor = (Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+    visitor = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
     zetCookie(COOKIE, visitor, 180);
   }
 
   /* Stabiele toewijzing: uit visitor + test-id een getal 0-99 afleiden. Zelfde
-     bezoeker en zelfde test geeft altijd dezelfde uitkomst, ook zonder dat we
-     de keuze apart opslaan. */
+     bezoeker en zelfde test geeft altijd dezelfde uitkomst, zonder dat we de
+     keuze apart hoeven op te slaan. */
   function bucket(sleutel) {
     var h = 0;
-    for (var i = 0; i < sleutel.length; i++) { h = ((h << 5) - h + sleutel.charCodeAt(i)) | 0; }
+    for (var i = 0; i < sleutel.length; i++) {
+      h = ((h << 5) - h + sleutel.charCodeAt(i)) | 0;
+    }
     return Math.abs(h) % 100;
   }
 
@@ -70,19 +85,181 @@
     } catch (e) { /* meting mag de winkel nooit ophouden */ }
   }
 
+  /* ----------------------------------------------------------------------
+     Prijsweergave.
+
+     We herschrijven alleen het GETAL binnen de bestaande prijstekst en laten
+     valutasymbool, scheidingstekens en positie staan. Zo blijft "$35.93",
+     "35,93 EUR" en het pondteken allemaal kloppen zonder dat dit script iets
+     van valutaformaten hoeft te weten.
+     ---------------------------------------------------------------------- */
+  function formatAls(voorbeeld, cents) {
+    var m = voorbeeld.match(/\d[\d.,\s]*\d|\d/);
+    if (!m) return null;
+    var oud = m[0];
+    var decimaal = /,\d{2}$/.test(oud) ? "," : ".";
+    var duizend = decimaal === "," ? "." : ",";
+    var heel = Math.floor(cents / 100);
+    var rest = String(cents % 100);
+    while (rest.length < 2) rest = "0" + rest;
+    var heelStr = String(heel);
+    if (/[.,\s]/.test(oud.slice(0, -3))) {
+      heelStr = heelStr.replace(/\B(?=(\d{3})+(?!\d))/g, duizend);
+    }
+    return voorbeeld.replace(oud, heelStr + decimaal + rest);
+  }
+
+  var PRIJS_SELECTOR = [
+    ".price-item",
+    ".price__regular .price-item--regular",
+    ".price-item--sale",
+    ".product__price",
+    "[data-price]",
+    ".price .money",
+    ".product-price"
+  ].join(",");
+
+  function prijsWortels() {
+    /* Blijf binnen het productblok: prijzen van upsells, aanbevolen producten
+       of de cart mogen we niet aanraken - die horen bij andere producten. */
+    return document.querySelectorAll(
+      "product-info, .product__info-wrapper, .product__info-container, #MainProduct, .product-single__meta"
+    );
+  }
+
+  function main(test, testProduct) {
+    /* Numeriek variant-id van het duplicaat -> prijs in centen. */
+    var prijsPerTestVariant = {};
+    (testProduct.variants || []).forEach(function (v) {
+      prijsPerTestVariant[String(v.id)] = v.price;
+    });
+
+    function testVariantVoor(controlVariantId) {
+      var t = test.variantMap[String(controlVariantId)];
+      return t ? String(t) : null;
+    }
+
+    function huidigeControlVariant() {
+      var input = document.querySelector(
+        'form[action*="/cart/add"] input[name="id"], form[action*="/cart/add"] select[name="id"]'
+      );
+      if (input && input.value) return input.value;
+      return new URLSearchParams(window.location.search).get("variant");
+    }
+
+    var bezig = false;
+
+    function toonTestPrijs() {
+      if (bezig) return;
+      var cv = huidigeControlVariant();
+      if (!cv) return;
+      var tv = testVariantVoor(cv);
+      if (!tv) return;                     /* variant niet gekoppeld: niets doen */
+      var cents = prijsPerTestVariant[tv];
+      if (typeof cents !== "number") return;
+
+      bezig = true;
+      try {
+        Array.prototype.forEach.call(prijsWortels(), function (wortel) {
+          Array.prototype.forEach.call(wortel.querySelectorAll(PRIJS_SELECTOR), function (el) {
+            if (el.querySelector(PRIJS_SELECTOR)) return;   /* alleen bladeren */
+            var tekst = (el.textContent || "").trim();
+            if (!tekst || !/\d/.test(tekst)) return;
+            if (el.getAttribute("data-pt-done") === String(cents)) return;
+            var nieuw = formatAls(tekst, cents);
+            if (!nieuw || nieuw === tekst) return;
+            el.textContent = nieuw;
+            el.setAttribute("data-pt-done", String(cents));
+          });
+        });
+      } finally {
+        bezig = false;
+      }
+    }
+
+    /* Het thema hertekent het prijsblok bij een variantwissel. Daarom niet
+       eenmalig herschrijven maar blijven volgen. */
+    toonTestPrijs();
+    document.addEventListener("change", function () {
+      setTimeout(toonTestPrijs, 0);
+    }, true);
+
+    var obs = new MutationObserver(function () {
+      if (!bezig) setTimeout(toonTestPrijs, 0);
+    });
+    Array.prototype.forEach.call(prijsWortels(), function (w) {
+      obs.observe(w, { childList: true, subtree: true, characterData: true });
+    });
+
+    /* ------------------------------------------------------------------
+       De variant omwisselen op weg naar de cart.
+
+       We grijpen in op het netwerkverzoek en niet op het formulier, omdat het
+       thema het verborgen id-veld bij elke variantwissel opnieuw zet. Op dit
+       punt is er precies EEN plek waar het id langskomt, ongeacht welke knop
+       of welk script de aanroep deed. Alle overige velden - de
+       bundel-properties, selling_plan - blijven onaangeroerd.
+       ------------------------------------------------------------------ */
+    function wisselId(waarde) {
+      return testVariantVoor(String(waarde)) || waarde;
+    }
+
+    var origFetch = window.fetch;
+    window.fetch = function (input, init) {
+      try {
+        var url = typeof input === "string" ? input : (input && input.url) || "";
+        if (url.indexOf("/cart/add") !== -1 && init && init.body) {
+          if (typeof init.body === "string") {
+            if (init.body.trim().charAt(0) === "{") {
+              var data = JSON.parse(init.body);
+              if (data.id) data.id = wisselId(data.id);
+              if (Array.isArray(data.items)) {
+                data.items.forEach(function (it) {
+                  if (it.id) it.id = wisselId(it.id);
+                });
+              }
+              init = Object.assign({}, init, { body: JSON.stringify(data) });
+            } else {
+              var params = new URLSearchParams(init.body);
+              if (params.get("id")) {
+                params.set("id", wisselId(params.get("id")));
+                init = Object.assign({}, init, { body: params.toString() });
+              }
+            }
+          } else if (typeof FormData !== "undefined" && init.body instanceof FormData) {
+            if (init.body.get("id")) init.body.set("id", wisselId(init.body.get("id")));
+          }
+        }
+      } catch (e) {
+        /* Bij twijfel het verzoek ongemoeid laten: dan koopt de bezoeker het
+           originele product. Te weinig marge is beter dan een cart die niet
+           overeenkomt met wat hij zag. */
+      }
+      return origFetch.apply(this, [input, init]);
+    };
+
+    /* Zonder JS-cart valt het thema terug op een gewone formulierpost. */
+    document.addEventListener("submit", function (e) {
+      var f = e.target;
+      if (!f || !f.action || f.action.indexOf("/cart/add") === -1) return;
+      var input = f.querySelector('[name="id"]');
+      if (input && input.value) input.value = wisselId(input.value);
+    }, true);
+  }
+
   fetch(APP + "/api/price-test?shop=" + encodeURIComponent(SHOP))
     .then(function (r) { return r.ok ? r.json() : { tests: [] }; })
     .then(function (data) {
-      var test = (data.tests || []).filter(function (t) { return t.productId === PRODUCT_ID; })[0];
+      var test = (data.tests || []).filter(function (t) {
+        return t.controlProductId === PRODUCT_ID;
+      })[0];
       if (!test) return;
-      if (MARKET && test.markets && !test.markets[MARKET] && !test.markets[CURRENCY]) return;
 
       var cohort = bucket(visitor + ":" + test.id) < test.splitPct ? "test" : "control";
 
-      /* Cart-attributen zetten. Dit is wat de Discount Function leest; zonder
-         deze attributen krijgt niemand een teruggave en betaalt iedereen de
-         testprijs. Daarom bij ELKE pageview zetten, niet alleen bij de eerste:
-         een cart kan geleegd of vervangen zijn. */
+      /* Cart-attributen voor de meting. Voor de PRIJS doen ze niets - die zit
+         in de variant zelf. De omzet per groep bepaalt de webhook aan de hand
+         van welk product er gekocht is; dit is aanvullende context. */
       fetch("/cart/update.js", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -97,12 +274,22 @@
       }).catch(function () {});
 
       meld(test.id, cohort, "view");
-
       document.addEventListener("submit", function (e) {
         var f = e.target;
         if (f && f.action && f.action.indexOf("/cart/add") !== -1) meld(test.id, cohort, "atc");
       }, true);
+
+      if (cohort !== "test") return;   /* controlegroep: niets aanraken */
+
+      /* Prijzen van het duplicaat bij Shopify zelf ophalen. */
+      return fetch("/products/" + test.testHandle + ".js")
+        .then(function (r) {
+          if (!r.ok) throw new Error("duplicaat niet gevonden");
+          return r.json();
+        })
+        .then(function (testProduct) { main(test, testProduct); });
     })
     .catch(function () { /* geen test, geen gedoe */ });
 })();
 </script>
+{%- endif -%}

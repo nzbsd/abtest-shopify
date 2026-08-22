@@ -1,35 +1,25 @@
 import { json, type LoaderFunctionArgs, type HeadersFunction } from "@remix-run/node";
-import { Outlet, useLoaderData, useRouteError } from "@remix-run/react";
+import { Outlet, useRouteError } from "@remix-run/react";
 import { boundary } from "@shopify/shopify-app-remix/server";
-import { AppProvider } from "@shopify/shopify-app-remix/react";
-import { NavMenu } from "@shopify/app-bridge-react";
-import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import { authenticate } from "~/shopify.server";
 
-export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
-
+/*
+ * De ingebedde kant van de app is bewust minimaal. Het instellen en de cijfers
+ * staan op ons eigen dashboard (/dashboard); deze route bestaat alleen zodat
+ * Shopify de app kan installeren en er een geldige offline sessie ontstaat.
+ * Die sessie is wat het dashboard gebruikt om de Admin API te bevragen.
+ */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await authenticate.admin(request);
-  return json({ apiKey: process.env.SHOPIFY_API_KEY || "" });
+  return json({ ok: true });
 };
 
 export default function App() {
-  const { apiKey } = useLoaderData<typeof loader>();
-  return (
-    <AppProvider isEmbeddedApp apiKey={apiKey}>
-      <NavMenu>
-        <a href="/app/price-test" rel="home">Prijstest</a>
-        <a href="/app/price-test-results">Resultaten</a>
-      </NavMenu>
-      <Outlet />
-    </AppProvider>
-  );
+  return <Outlet />;
 }
 
 export function ErrorBoundary() {
   return boundary.error(useRouteError());
 }
 
-export const headers: HeadersFunction = (headersArgs) => {
-  return boundary.headers(headersArgs);
-};
+export const headers: HeadersFunction = (headersArgs) => boundary.headers(headersArgs);
