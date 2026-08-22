@@ -7,6 +7,7 @@ import {
   geld, heel, looptDagen, ondertekend, procent, telOp, type StatRij,
 } from "~/lib/analytics";
 import { toetsOmzetPerBezoeker } from "~/lib/stats";
+import { gezondheid } from "~/lib/health";
 import type { PriceTest } from "~/lib/priceTest.server";
 
 /**
@@ -74,6 +75,7 @@ export function OverviewView({
           const te = telOp(eigen, "test");
           const toets = toetsOmzetPerBezoeker(c, te);
           const dagen = looptDagen(t.started_at);
+          const gezond = gezondheid(t, stats);
           const kleinste = Math.min(c.visitors, te.visitors);
           const voortgang = Math.min(kleinste / 300, 1);
 
@@ -93,6 +95,18 @@ export function OverviewView({
                 }
               />
               <div className="card__body">
+                {gezond.status !== "ok" && (
+                  <div style={{ marginBottom: 16 }}>
+                    <Banner tone={gezond.status === "wachten" ? "info" : "error"}>
+                      <strong>
+                        {gezond.status === "wachten" ? "Waiting for the first visitors." :
+                         gezond.status === "stil" ? "Running, but nothing is being measured." :
+                         "Measurement has gone quiet."}
+                      </strong>{" "}
+                      {gezond.uitleg}
+                    </Banner>
+                  </div>
+                )}
                 <div style={{ display: "flex", gap: 28, flexWrap: "wrap", alignItems: "baseline", marginBottom: 16 }}>
                   <div>
                     <p className="small muted">Revenue per visitor</p>

@@ -267,14 +267,21 @@ export function AnalyticsView({
         </div>
 
         {/* ── subscriptions ────────────────────────────────────────────── */}
-        {heeftOrders && (
-          <div className="grid grid--2">
+        <div className="grid grid--2">
             <Card>
               <CardHead
                 title="Subscription versus one-off"
                 sub="At a higher price the first thing to give way is usually the commitment, not the purchase."
               />
               <div className="card__body">
+                {!heeftOrders && (
+                  <div style={{ marginBottom: 16 }}>
+                    <Banner tone="info">
+                      No orders yet. These numbers fill in from the orders webhook as soon as
+                      someone buys — no extra setup needed.
+                    </Banner>
+                  </div>
+                )}
                 <div className="grid grid--2" style={{ gap: 14 }}>
                   {([["control", "Control", oc], ["test", "Test", ot]] as const).map(([k, label, o]) => (
                     <div key={k}>
@@ -340,8 +347,7 @@ export function AnalyticsView({
                 </table>
               </div>
             </Card>
-          </div>
-        )}
+        </div>
 
         {/* ── tiers ────────────────────────────────────────────────────── */}
         {variantNamen.length > 0 && (
