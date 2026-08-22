@@ -1,0 +1,23 @@
+api_version = "2026-04"
+
+[[extensions]]
+name = "Price test"
+handle = "price-test"
+type = "function"
+description = "Geeft de controlegroep van een prijstest het prijsverschil terug"
+
+  # Zelfde target als de bundle-function in de andere app. Twee automatische
+  # productkortingen mogen naast elkaar bestaan zolang beide combinesWith
+  # productDiscounts = true hebben; dat staat al zo op de bundelkorting.
+  [[extensions.targeting]]
+  target = "cart.lines.discounts.generate.run"
+  input_query = "src/run.graphql"
+  export = "run"
+
+  [extensions.build]
+  command = ""
+  path = "dist/function.wasm"
+
+  [extensions.ui.paths]
+  create = "/"
+  details = "/"

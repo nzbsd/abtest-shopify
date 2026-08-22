@@ -1,0 +1,50 @@
+# Prijstest-app — apart van de Email Pop up-app.
+#
+# WAAROM APART:
+#  1. `shopify app deploy` hercompileert en herreleaset ALLE extensies van een
+#     app. In de Email Pop up-app zit de bundle-bxgy Discount Function; elke
+#     popup-tweak releaset die dus opnieuw. Prijstesten hier houden betekent
+#     dat je die money-critical function met rust laat.
+#  2. Prijzen wijzigen vraagt write_products. Die scope in de bestaande app
+#     zetten zou betekenen dat ook een bug in de popup- of bundelcode je
+#     productprijzen kan overschrijven.
+#
+# client_id en handle worden ingevuld door `shopify app config link` — zie
+# README.md voor de stappen.
+
+client_id = ""
+name = "Herbies Price Test"
+application_url = ""
+embedded = true
+handle = ""
+
+[build]
+automatically_update_urls_on_dev = true
+
+[webhooks]
+api_version = "2025-01"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+  # Omzet per testgroep. Server-side en idempotent per order (unieke index op
+  # shop+order_id in price_test_events), zodat een dubbele webhook niet dubbel
+  # telt. We lezen alleen line_items en de cart-attributen — geen klant-PII.
+  [[webhooks.subscriptions]]
+  topics = [ "orders/create" ]
+  uri = "/webhooks/orders/create"
+
+[access_scopes]
+# write_products: nodig om de basisprijs te verhogen bij het starten van een
+# test en — belangrijker — om hem bij het stoppen automatisch terug te zetten.
+# read_orders: omzet per groep koppelen.
+# write_discounts: de automatische korting aanmaken die de controlegroep de
+# oude prijs teruggeeft.
+scopes = "read_products,write_products,read_orders,write_discounts"
+
+[auth]
+redirect_urls = [ ]
+
+[pos]
+embedded = false

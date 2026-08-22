@@ -1,0 +1,6 @@
+{
+  "framework": "remix",
+  "buildCommand": "npm run vercel-build",
+  "installCommand": "npm install",
+  "regions": ["dub1"]
+}

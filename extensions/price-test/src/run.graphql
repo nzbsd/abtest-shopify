@@ -1,0 +1,47 @@
+query RunInput {
+  cart {
+    # De cohort staat als cart-attribuut, gezet door het thema bij de eerste
+    # pageview. Eén waarde voor de hele cart: een bezoeker zit in één groep.
+    priceTestCohort: attribute(key: "_pt_cohort") {
+      value
+    }
+    # Welke test hoort bij deze cohort-toewijzing. Voorkomt dat een oude
+    # cart-attribuut van een gestopte test een nieuwe test beïnvloedt.
+    priceTestId: attribute(key: "_pt_test") {
+      value
+    }
+    lines {
+      id
+      quantity
+      cost {
+        amountPerQuantity {
+          amount
+          currencyCode
+        }
+      }
+      # Bundelregels overslaan: die worden door de bundle-function afgehandeld.
+      # Zo raken de twee functions nooit dezelfde cartregel.
+      bundleFree: attribute(key: "_bundle_free") {
+        value
+      }
+      bundleGift: attribute(key: "_bundle_gift") {
+        value
+      }
+      merchandise {
+        __typename
+        ... on ProductVariant {
+          id
+          product {
+            id
+          }
+        }
+      }
+    }
+  }
+  discount {
+    discountClasses
+    metafield(namespace: "$app:price-test", key: "function-configuration") {
+      jsonValue
+    }
+  }
+}
