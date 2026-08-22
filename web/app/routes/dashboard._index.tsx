@@ -2,7 +2,7 @@ import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useSearchParams } from "@remix-run/react";
 import { useState } from "react";
 import supabase from "~/db.server";
-import { vereisLogin, winkelDomein } from "~/lib/dashboardAuth.server";
+import { configProbleem, vereisLogin, winkelDomein } from "~/lib/dashboardAuth.server";
 import { loadTests, type PriceTest } from "~/lib/priceTest.server";
 
 type StatRij = {
@@ -21,21 +21,32 @@ export const meta = () => [{ title: "Analytics · Price Test" }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await vereisLogin(request);
+
+  // Instelfouten als gegeven teruggeven in plaats van als uitzondering. Een
+  // ontbrekende variabele hoort een leesbare melding te worden; gooien levert
+  // een leeg foutscherm op waar niemand iets aan afleest.
+  const probleem = configProbleem();
+  if (probleem) return json({ shop: null, tests: [], stats: [], daily: [], fout: probleem });
+
   const shop = await winkelDomein();
-  if (!shop) return json({ shop: null, tests: [], stats: [], daily: [] });
+  if (!shop) return json({ shop: null, tests: [], stats: [], daily: [], fout: null });
 
-  const [tests, stats, daily] = await Promise.all([
-    loadTests(shop),
-    supabase.from("price_test_stats").select("*").eq("shop", shop),
-    supabase.from("price_test_daily").select("*").eq("shop", shop).order("dag"),
-  ]);
-
-  return json({
-    shop,
-    tests,
-    stats: (stats.data || []) as StatRij[],
-    daily: (daily.data || []) as DagRij[],
-  });
+  try {
+    const [tests, stats, daily] = await Promise.all([
+      loadTests(shop),
+      supabase.from("price_test_stats").select("*").eq("shop", shop),
+      supabase.from("price_test_daily").select("*").eq("shop", shop).order("dag"),
+    ]);
+    return json({
+      shop,
+      tests,
+      stats: (stats.data || []) as StatRij[],
+      daily: (daily.data || []) as DagRij[],
+      fout: null,
+    });
+  } catch (e: any) {
+    return json({ shop, tests: [], stats: [], daily: [], fout: e?.message ?? "Databasefout" });
+  }
 };
 
 /* --------------------------------------------------------------- helpers */
@@ -175,16 +186,28 @@ function Lijngrafiek({ punten }: { punten: Punt[] }) {
 /* ------------------------------------------------------------------ page */
 
 export default function Analytics() {
-  const { shop, tests, stats, daily } = useLoaderData<typeof loader>();
+  const { shop, tests, stats, daily, fout } = useLoaderData<typeof loader>();
   const [params, setParams] = useSearchParams();
 
-  if (!shop) {
+  if (fout || !shop) {
     return (
       <main className="page">
-        <div className="banner banner--warn">
-          <strong>Nog geen winkel gekoppeld.</strong> Installeer de app in Shopify; daarna
-          verschijnen hier de cijfers.
-        </div>
+        <h1>Analytics</h1>
+        {fout ? (
+          <div className="banner banner--error" style={{ marginTop: 16 }}>
+            <strong>Configuratie niet compleet.</strong>
+            <div style={{ marginTop: 6 }}><code>{fout}</code></div>
+            <div style={{ marginTop: 8 }}>
+              Zet deze in Vercel onder Settings → Environment Variables en deploy daarna
+              opnieuw — Vercel neemt nieuwe variabelen niet mee in een bestaande build.
+            </div>
+          </div>
+        ) : (
+          <div className="banner banner--warn" style={{ marginTop: 16 }}>
+            <strong>Nog geen winkel gekoppeld.</strong> Installeer de app in Shopify; daarna
+            verschijnen hier de cijfers.
+          </div>
+        )}
       </main>
     );
   }

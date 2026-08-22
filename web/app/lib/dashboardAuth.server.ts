@@ -46,6 +46,50 @@ export function wachtwoordKlopt(ingevoerd: string): boolean {
   return gelijk(ingevoerd, juist);
 }
 
+/*
+ * Inloggen vanuit de Shopify-admin.
+ *
+ * Wie de app in Shopify open heeft, is door Shopify al geïdentificeerd als
+ * beheerder van deze winkel. Die persoon nog een apart wachtwoord laten intypen
+ * voegt geen zekerheid toe - het maakt de toegang juist zwakker, want een
+ * wachtwoord wordt gedeeld en blijft geldig nadat iemand uit je Shopify-team is
+ * verwijderd. Daarom geeft de ingebedde app een kortlevend ondertekend kaartje
+ * mee waarmee het dashboard een sessie aanmaakt.
+ *
+ * Vijf minuten geldig: lang genoeg om erop te klikken, kort genoeg dat een
+ * gelekte URL uit je browsergeschiedenis niets meer waard is.
+ */
+const SSO_GELDIG_MS = 5 * 60 * 1000;
+
+function ondertekenen(payload: string): string {
+  return crypto.createHmac("sha256", SECRET || "insecure-dev-only").update(payload).digest("hex");
+}
+
+export function maakSsoToken(shop: string): string {
+  const payload = Buffer.from(
+    JSON.stringify({ shop, exp: Date.now() + SSO_GELDIG_MS }),
+  ).toString("base64url");
+  return payload + "." + ondertekenen(payload);
+}
+
+export function ssoTokenGeldig(token: string): boolean {
+  const [payload, handtekening] = String(token || "").split(".");
+  if (!payload || !handtekening) return false;
+
+  // Eerst de handtekening, dan pas de inhoud lezen: een ongeldig kaartje mag
+  // nooit door onze JSON-parser komen.
+  const verwacht = ondertekenen(payload);
+  if (handtekening.length !== verwacht.length) return false;
+  if (!crypto.timingSafeEqual(Buffer.from(handtekening), Buffer.from(verwacht))) return false;
+
+  try {
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString());
+    return typeof data?.exp === "number" && data.exp > Date.now();
+  } catch {
+    return false;
+  }
+}
+
 export async function isIngelogd(request: Request): Promise<boolean> {
   const s = await sessionStorage.getSession(request.headers.get("Cookie"));
   return s.get("ok") === true;
@@ -82,10 +126,32 @@ export async function verbreekSessie(request: Request) {
  */
 export async function winkelDomein(): Promise<string | null> {
   if (process.env.SHOP_DOMAIN) return process.env.SHOP_DOMAIN;
-  const { data } = await supabase
-    .from("price_test_sessions")
-    .select("shop")
-    .limit(1)
-    .maybeSingle();
-  return data?.shop ?? null;
+  try {
+    const { data } = await supabase
+      .from("price_test_sessions")
+      .select("shop")
+      .limit(1)
+      .maybeSingle();
+    return data?.shop ?? null;
+  } catch {
+    // Ontbreekt de databaseconfiguratie, dan is dat een instelprobleem dat de
+    // pagina zelf moet melden. Hier omvallen zou het hele dashboard op een leeg
+    // foutscherm zetten, zonder te vertellen wat eraan schort.
+    return null;
+  }
+}
+
+/** Wat er mis is met de configuratie, of null als alles er staat. */
+export function configProbleem(): string | null {
+  const mist = [
+    ["SUPABASE_URL", process.env.SUPABASE_URL],
+    ["SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY],
+    ["SHOPIFY_API_KEY", process.env.SHOPIFY_API_KEY],
+    ["SHOPIFY_API_SECRET", process.env.SHOPIFY_API_SECRET],
+    ["SHOPIFY_APP_URL", process.env.SHOPIFY_APP_URL],
+  ]
+    .filter(([, waarde]) => !waarde)
+    .map(([naam]) => naam as string);
+
+  return mist.length ? "Ontbrekende omgevingsvariabelen: " + mist.join(", ") : null;
 }

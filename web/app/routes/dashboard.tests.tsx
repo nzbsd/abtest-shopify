@@ -3,15 +3,25 @@ import { Form, useActionData, useLoaderData, useNavigation } from "@remix-run/re
 import { useState } from "react";
 import supabase from "~/db.server";
 import { unauthenticated } from "~/shopify.server";
-import { vereisLogin, winkelDomein } from "~/lib/dashboardAuth.server";
+import { configProbleem, vereisLogin, winkelDomein } from "~/lib/dashboardAuth.server";
 import { loadTests, matchVariants, resolveProduct, type PriceTest } from "~/lib/priceTest.server";
 
 export const meta = () => [{ title: "Tests · Price Test" }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await vereisLogin(request);
+
+  const probleem = configProbleem();
+  if (probleem) return json({ shop: null, tests: [], fout: probleem });
+
   const shop = await winkelDomein();
-  return json({ shop, tests: shop ? await loadTests(shop) : [] });
+  if (!shop) return json({ shop: null, tests: [], fout: null });
+
+  try {
+    return json({ shop, tests: await loadTests(shop), fout: null });
+  } catch (e: any) {
+    return json({ shop, tests: [], fout: e?.message ?? "Databasefout" });
+  }
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -101,7 +111,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function Tests() {
-  const { shop, tests } = useLoaderData<typeof loader>();
+  const { shop, tests, fout } = useLoaderData<typeof loader>();
   const data = useActionData<typeof action>();
   const nav = useNavigation();
   const bezig = nav.state !== "idle";
@@ -119,7 +129,14 @@ export default function Tests() {
         </button>
       </div>
 
-      {!shop && (
+      {fout && (
+        <div className="banner banner--error">
+          <strong>Configuratie niet compleet.</strong>
+          <div style={{ marginTop: 6 }}><code>{fout}</code></div>
+        </div>
+      )}
+
+      {!fout && !shop && (
         <div className="banner banner--warn">
           <strong>Nog geen winkel gekoppeld.</strong> Installeer de app in Shopify.
         </div>
