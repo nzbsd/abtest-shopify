@@ -41,9 +41,13 @@ function gelijk(a: string, b: string): boolean {
 }
 
 export function wachtwoordKlopt(ingevoerd: string): boolean {
-  const juist = process.env.DASHBOARD_PASSWORD || "";
+  // Aan beide kanten spaties en regeleinden weghalen. Een waarde die in een
+  // omgevingsvariabele wordt geplakt sleept vaak een newline mee, en dan klopt
+  // het wachtwoord wel maar werkt het niet - zonder dat iets uitlegt waarom.
+  // Voorloop- of naloopspaties in een wachtwoord bedoelt niemand.
+  const juist = (process.env.DASHBOARD_PASSWORD || "").trim();
   if (!juist) return false;
-  return gelijk(ingevoerd, juist);
+  return gelijk(ingevoerd.trim(), juist);
 }
 
 /*
