@@ -35,6 +35,28 @@ export type DagRij = {
   visitors: number;
 };
 
+export type OrderRij = {
+  test_id: number;
+  cohort: string;
+  orders: number;
+  sub_orders: number;
+  eenmalig_orders: number;
+  revenue_cents: number;
+  sub_revenue_cents: number;
+  units: number;
+  units_per_order: number;
+};
+
+export type VariantRij = {
+  test_id: number;
+  cohort: string;
+  variant_title: string;
+  orders: number;
+  units: number;
+  revenue_cents: number;
+  sub_orders: number;
+};
+
 export type Groep = CohortCijfers & {
   views: number;
   atc: number;

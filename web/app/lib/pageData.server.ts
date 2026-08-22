@@ -3,7 +3,7 @@ import { configProbleem } from "./dashboardAuth.server";
 import {
   lijstProducten, loadTests, matchVariants, resolveProduct, type ProductInfo, type PriceTest,
 } from "./priceTest.server";
-import type { DagRij, StatRij } from "./analytics";
+import type { DagRij, OrderRij, StatRij, VariantRij } from "./analytics";
 import { bundleProductIds, preflight, type Bevinding } from "./preflight.server";
 
 /**
@@ -48,15 +48,20 @@ export async function overzichtData(shop: string | null): Promise<BasisData> {
   }
 }
 
-export async function analyticsData(shop: string | null): Promise<BasisData & { daily: DagRij[] }> {
+export async function analyticsData(
+  shop: string | null,
+): Promise<BasisData & { daily: DagRij[]; orders: OrderRij[]; varianten: VariantRij[] }> {
+  const leeg = { tests: [], stats: [], daily: [], orders: [], varianten: [] };
   const { fout } = await shopOfFout(shop);
-  if (fout || !shop) return { shop: null, fout, tests: [], stats: [], daily: [] };
+  if (fout || !shop) return { shop: null, fout, ...leeg };
 
   try {
-    const [tests, stats, daily] = await Promise.all([
+    const [tests, stats, daily, orders, varianten] = await Promise.all([
       loadTests(shop),
       supabase.from("price_test_stats").select("*").eq("shop", shop),
       supabase.from("price_test_daily").select("*").eq("shop", shop).order("dag"),
+      supabase.from("price_test_orders").select("*").eq("shop", shop),
+      supabase.from("price_test_variants").select("*").eq("shop", shop),
     ]);
     return {
       shop,
@@ -64,9 +69,11 @@ export async function analyticsData(shop: string | null): Promise<BasisData & { 
       tests,
       stats: (stats.data || []) as StatRij[],
       daily: (daily.data || []) as DagRij[],
+      orders: (orders.data || []) as OrderRij[],
+      varianten: (varianten.data || []) as VariantRij[],
     };
   } catch (e: any) {
-    return { shop, fout: e?.message ?? "Database error", tests: [], stats: [], daily: [] };
+    return { shop, fout: e?.message ?? "Database error", ...leeg };
   }
 }
 

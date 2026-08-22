@@ -23,5 +23,5 @@ export default function Route() {
       </main>
     );
   }
-  return <AnalyticsView tests={d.tests} stats={d.stats} daily={d.daily} />;
+  return <AnalyticsView tests={d.tests} stats={d.stats} daily={d.daily} orders={d.orders} varianten={d.varianten} />;
 }

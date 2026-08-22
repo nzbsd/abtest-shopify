@@ -3,19 +3,24 @@ import { authenticate } from "~/shopify.server";
 import supabase from "~/db.server";
 
 /**
- * Omzet per testgroep.
+ * Revenue and order composition per test group.
  *
- * De groep leiden we af uit WELK PRODUCT er gekocht is, niet uit de
- * cart-attributen. Het origineel is de controlegroep, het duplicaat de
- * testgroep - dat staat vast in de order en kan niet meer verschuiven. Een
- * cart-attribuut kan ontbreken als de bezoeker via een andere weg binnenkwam,
- * of achterhaald zijn als de cart is hergebruikt; het product-id niet.
+ * The group is derived from WHICH PRODUCT was bought, not from the cart
+ * attributes. The original is the control, the duplicate is the test, and that
+ * is fixed in the order and cannot drift. A cart attribute can be missing if
+ * the visitor arrived another way, or stale if the cart was reused; a product
+ * id cannot.
  *
- * De attributen gebruiken we nog wel voor context: markt en bezoeker.
+ * The attributes are still used for context: market and visitor.
  *
- * Idempotent: unieke index op (shop, order_id) plus ignoreDuplicates. Shopify
- * levert webhooks soms dubbel, en dubbeltelling zou de omzet van een groep te
- * hoog maken en daarmee de uitslag verkeerd doen lijken.
+ * Beyond the amount we now also record how the order was composed —
+ * subscription or one-off, how many units, which variant. For a price test
+ * that is often the more useful half: revenue going down tells you something
+ * changed, the composition tells you what.
+ *
+ * Idempotent: unique index on (shop, order_id) plus ignoreDuplicates. Shopify
+ * delivers webhooks twice sometimes, and double counting would inflate one
+ * group's revenue and flip the verdict.
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { shop, payload, topic } = await authenticate.webhook(request);
@@ -31,39 +36,60 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     if (!tests?.length) return new Response(null, { status: 200 });
 
     const num = (gid: string) => String(gid).split("/").pop();
+    const lineItems: any[] = (payload as any)?.line_items || [];
 
-    // Per test: welke regels horen erbij, en in welke groep.
     for (const t of tests) {
       const controlNum = num(t.control_product_id);
       const testNum = num(t.test_product_id);
 
       let cents = 0;
+      let units = 0;
+      let lines = 0;
+      let subscription = false;
+      let variantId: string | null = null;
+      let variantTitle: string | null = null;
       let cohort: "control" | "test" | null = null;
 
-      for (const li of (payload as any)?.line_items || []) {
+      for (const li of lineItems) {
         const pid = String(li?.product_id);
         const isControl = pid === controlNum;
         const isTest = pid === testNum;
         if (!isControl && !isTest) continue;
 
-        // Een order met beide producten hoort in geen van beide groepen: dan
-        // is niet te zeggen welke prijs het gedrag stuurde. Overslaan is
-        // eerlijker dan gokken.
-        const dezeGroep = isTest ? "test" : "control";
-        if (cohort && cohort !== dezeGroep) {
+        // An order containing both products belongs to neither group: there is
+        // no telling which price drove the behaviour. Skipping is more honest
+        // than guessing.
+        const thisGroup = isTest ? "test" : "control";
+        if (cohort && cohort !== thisGroup) {
           cohort = null;
           break;
         }
-        cohort = dezeGroep;
+        cohort = thisGroup;
 
-        // Wat de klant echt betaalde: prijs minus toegekende kortingen, dus
-        // inclusief het effect van de bundelkorting.
-        const bruto = Math.round(parseFloat(li?.price || "0") * 100) * (li?.quantity || 0);
-        const korting = ((li?.discount_allocations || []) as any[]).reduce(
+        const qty = Number(li?.quantity) || 0;
+
+        // What the customer actually paid: price minus allocated discounts, so
+        // the bundle discount is already reflected.
+        const gross = Math.round(parseFloat(li?.price || "0") * 100) * qty;
+        const discount = ((li?.discount_allocations || []) as any[]).reduce(
           (a, d) => a + Math.round(parseFloat(d?.amount || "0") * 100),
           0,
         );
-        cents += Math.max(0, bruto - korting);
+        cents += Math.max(0, gross - discount);
+        units += qty;
+        lines += 1;
+
+        // A selling plan on any line makes this a subscription order. Shopify
+        // puts it on the line, not the order, because a cart can mix both.
+        if (li?.selling_plan_allocation?.selling_plan?.id) subscription = true;
+
+        // First matching line decides the variant shown in the breakdown.
+        // Multiple lines of the same product are rare here and would only
+        // muddy that column.
+        if (!variantId) {
+          variantId = li?.variant_id ? String(li.variant_id) : null;
+          variantTitle = li?.variant_title || li?.title || null;
+        }
       }
 
       if (!cohort) continue;
@@ -86,14 +112,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           cart_token: (payload as any)?.cart_token || null,
           order_id: String((payload as any)?.id ?? ""),
           revenue_cents: cents,
+          is_subscription: subscription,
+          units,
+          line_count: lines,
+          variant_id: variantId,
+          variant_title: variantTitle,
         },
         { onConflict: "shop,order_id", ignoreDuplicates: true },
       );
     }
   } catch (_e) {
-    // Nooit een niet-200 teruggeven: Shopify blijft dan opnieuw sturen en dat
-    // levert alleen meer dubbele rijen op. De order is al geplaatst; hier valt
-    // niets meer te herstellen.
+    // Never return a non-200: Shopify would keep retrying and that only
+    // produces more duplicate rows. The order is placed; nothing here is
+    // recoverable.
   }
 
   return new Response(null, { status: 200 });

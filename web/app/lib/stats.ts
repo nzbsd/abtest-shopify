@@ -206,3 +206,41 @@ export function uitslagTekst(toets: Toets, genoegBezoekers: boolean): string {
     ? "The test price earns measurably more. The real difference is almost certainly between " + range + "."
     : "The test price earns measurably less. The real difference is almost certainly between " + range + ".";
 }
+
+/**
+ * Twee aandelen vergelijken, bijvoorbeeld het abonnementsaandeel van de orders.
+ *
+ * Zelfde wiskunde als toetsConversie maar met een vrij te kiezen noemer: daar
+ * is de noemer het aantal bezoekers, hier het aantal orders. Losse functie in
+ * plaats van een parameter erbij, omdat de twee verschillende drempels nodig
+ * hebben - bij orders zijn er altijd veel minder waarnemingen.
+ */
+export function toetsAandeel(
+  aTeller: number, aNoemer: number,
+  bTeller: number, bNoemer: number,
+): Toets {
+  const pa = aNoemer ? aTeller / aNoemer : 0;
+  const pb = bNoemer ? bTeller / bNoemer : 0;
+
+  const bruikbaar = aNoemer >= 20 && bNoemer >= 20 && aTeller + bTeller >= 5;
+  if (!bruikbaar) {
+    return { lift: pa > 0 ? ((pb - pa) / pa) * 100 : 0, onder: 0, boven: 0, p: 1, significant: false, bruikbaar: false };
+  }
+
+  const pool = (aTeller + bTeller) / (aNoemer + bNoemer);
+  const sePool = Math.sqrt(pool * (1 - pool) * (1 / aNoemer + 1 / bNoemer));
+  const p = sePool > 0 ? tweezijdigeP((pb - pa) / sePool) : 1;
+
+  const se = Math.sqrt((pa * (1 - pa)) / aNoemer + (pb * (1 - pb)) / bNoemer);
+  const marge = Z95 * se;
+  const basis = pa || 1;
+
+  return {
+    lift: ((pb - pa) / basis) * 100,
+    onder: ((pb - pa - marge) / basis) * 100,
+    boven: ((pb - pa + marge) / basis) * 100,
+    p,
+    significant: p < 0.05,
+    bruikbaar: true,
+  };
+}

@@ -8,10 +8,10 @@ import {
 } from "~/components/ui";
 import {
   beperkTotDagen, dagReeks, geld, heel, looptDagen, ondertekend, procent,
-  telOp, type DagRij, type StatRij,
+  telOp, type DagRij, type OrderRij, type StatRij, type VariantRij,
 } from "~/lib/analytics";
 import {
-  benodigdeBezoekers, pTekst, toetsConversie, toetsOmzetPerBezoeker, uitslagTekst,
+  benodigdeBezoekers, pTekst, toetsAandeel, toetsConversie, toetsOmzetPerBezoeker, uitslagTekst,
 } from "~/lib/stats";
 import type { PriceTest } from "~/lib/priceTest.server";
 
@@ -19,11 +19,13 @@ type Metric = "rpv" | "cr" | "orders" | "visitors";
 type Range = "7" | "14" | "30" | "0";
 
 export function AnalyticsView({
-  tests, stats, daily,
+  tests, stats, daily, orders = [], varianten = [],
 }: {
   tests: PriceTest[];
   stats: StatRij[];
   daily: DagRij[];
+  orders?: OrderRij[];
+  varianten?: VariantRij[];
 }) {
   // ?test= in the URL so a link from the Tests screen opens the right one.
   const [params, setParams] = useSearchParams();
@@ -73,6 +75,24 @@ export function AnalyticsView({
   };
 
   const markets = Array.from(new Set(ownStats.map((r) => r.market || "—"))).sort();
+
+  /* Order composition: subscription share, units, tiers. */
+  const ord = (co: string): OrderRij =>
+    orders.find((r) => r.test_id === test.id && r.cohort === co) ?? {
+      test_id: test.id, cohort: co, orders: 0, sub_orders: 0, eenmalig_orders: 0,
+      revenue_cents: 0, sub_revenue_cents: 0, units: 0, units_per_order: 0,
+    };
+  const oc = ord("control");
+  const ot = ord("test");
+
+  const subToets = toetsAandeel(oc.sub_orders, oc.orders, ot.sub_orders, ot.orders);
+  const subAandeel = (o: OrderRij) => (o.orders ? (o.sub_orders / o.orders) * 100 : 0);
+  const subOmzetAandeel = (o: OrderRij) =>
+    o.revenue_cents ? (o.sub_revenue_cents / o.revenue_cents) * 100 : 0;
+
+  const eigenVarianten = varianten.filter((r) => r.test_id === test.id);
+  const variantNamen = Array.from(new Set(eigenVarianten.map((r) => r.variant_title))).sort();
+  const heeftOrders = oc.orders + ot.orders > 0;
 
   return (
     <main className="page">
@@ -245,6 +265,121 @@ export function AnalyticsView({
             </div>
           </Card>
         </div>
+
+        {/* ── subscriptions ────────────────────────────────────────────── */}
+        {heeftOrders && (
+          <div className="grid grid--2">
+            <Card>
+              <CardHead
+                title="Subscription versus one-off"
+                sub="At a higher price the first thing to give way is usually the commitment, not the purchase."
+              />
+              <div className="card__body">
+                <div className="grid grid--2" style={{ gap: 14 }}>
+                  {([["control", "Control", oc], ["test", "Test", ot]] as const).map(([k, label, o]) => (
+                    <div key={k}>
+                      <div className="legend__item" style={{ marginBottom: 8 }}>
+                        <span className={"swatch swatch--" + k} />{label}
+                      </div>
+                      <p className="num" style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-.03em" }}>
+                        {procent(subAandeel(o), 1)}
+                      </p>
+                      <p className="small muted" style={{ marginTop: 4 }}>
+                        {heel(o.sub_orders)} of {heel(o.orders)} orders
+                      </p>
+                      <div style={{ marginTop: 10 }}>
+                        <Track
+                          value={subAandeel(o) / 100}
+                          color={k === "control" ? "var(--control)" : "var(--test)"}
+                        />
+                      </div>
+                      <p className="small muted" style={{ marginTop: 8 }}>
+                        {procent(subOmzetAandeel(o), 0)} of revenue
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <hr className="rule" style={{ margin: "18px 0 14px" }} />
+
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <Delta waarde={subToets.lift} />
+                  <span className="small muted">
+                    {subToets.bruikbaar
+                      ? subToets.significant
+                        ? "Solid — " + pTekst(subToets.p) + ". The test price genuinely shifts the mix."
+                        : "Not solid yet — " + pTekst(subToets.p) + ". Could be chance."
+                      : "Too few orders to compare yet."}
+                  </span>
+                </div>
+              </div>
+            </Card>
+
+            <Card>
+              <CardHead title="What an order looks like" sub="Same money can mean fewer units or a smaller bundle." />
+              <div className="card__body card__body--flush table-scroll">
+                <table>
+                  <thead>
+                    <tr><th>Group</th><th>Orders</th><th>Units</th><th>Units / order</th><th>Order value</th></tr>
+                  </thead>
+                  <tbody>
+                    {([["control", "Control", oc, c], ["test", "Test", ot, t]] as const).map(
+                      ([k, label, o, g]) => (
+                        <tr key={k}>
+                          <td>
+                            <span className="cell-series"><span className={"swatch swatch--" + k} />{label}</span>
+                          </td>
+                          <td>{heel(o.orders)}</td>
+                          <td>{heel(o.units)}</td>
+                          <td>{Number(o.units_per_order || 0).toFixed(2)}</td>
+                          <td><strong>{geld(g.aov)}</strong></td>
+                        </tr>
+                      ),
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* ── tiers ────────────────────────────────────────────────────── */}
+        {variantNamen.length > 0 && (
+          <Card>
+            <CardHead
+              title="Which option they picked"
+              sub="A tier priced the same in both groups is not part of the test — its orders add noise, not signal. This is where you see how much volume goes there."
+            />
+            <div className="card__body card__body--flush table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Option</th><th>Orders control</th><th>Share</th>
+                    <th>Orders test</th><th>Share</th><th>Revenue test</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {variantNamen.map((naam) => {
+                    const rij = (co: string) =>
+                      eigenVarianten.find((r) => r.variant_title === naam && r.cohort === co);
+                    const rc = rij("control"), rt = rij("test");
+                    const oc2 = Number(rc?.orders || 0), ot2 = Number(rt?.orders || 0);
+                    return (
+                      <tr key={naam}>
+                        <td>{naam}</td>
+                        <td>{heel(oc2)}</td>
+                        <td>{oc.orders ? procent((oc2 / oc.orders) * 100, 0) : "—"}</td>
+                        <td>{heel(ot2)}</td>
+                        <td>{ot.orders ? procent((ot2 / ot.orders) * 100, 0) : "—"}</td>
+                        <td>{geld(Number(rt?.revenue_cents || 0) / 100)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
 
         {/* ── per market ───────────────────────────────────────────────── */}
         {markets.length > 0 && (
