@@ -14,7 +14,22 @@ import type { PriceTest } from "./priceTest.server";
  * Cached briefly, and the query is filtered down to the two products in the
  * test, so it stays small.
  *
- * REBILLS ARE EXCLUDED, and this is the single most important line in the file.
+ * ORDERS ARE ATTRIBUTED BY COHORT TAG, NOT BY PRODUCT. This is the thing to
+ * understand before changing anything here.
+ *
+ * The obvious approach - control product means control group - is wrong on a
+ * real store, and badly so. The original is sold through ads, email, upsells
+ * and a quiz; the duplicate is only ever reached through the redirect. Counting
+ * by product put every one of those funnels in the control group while their
+ * visitors were never counted, and produced a "conversion rate" of 13.9%
+ * against 2.4% - more orders than measured visitors on one side.
+ *
+ * The theme writes _pt_cohort and _pt_test into the cart, so the order says
+ * which group the buyer was in. An order without those tags came from someone
+ * who never passed the tested page and is skipped: counting a purchase whose
+ * visit was never counted is what broke the ratio in the first place.
+ *
+ * REBILLS ARE EXCLUDED, and this is the second most important line in the file.
  * A subscription renewal carries sourceName "subscription_contract_checkout_one"
  * and has nothing to do with the price being tested — it was agreed months ago.
  * The original product carries an existing subscriber base and the duplicate is
@@ -54,6 +69,8 @@ export type OrderResultaat = {
   perValuta: Record<string, { control: OrderCijfers; test: OrderCijfers }>;
   /** Renewals seen and skipped; shown so the exclusion is visible rather than silent. */
   rebillsOvergeslagen: number;
+  /** Orders without a cohort tag: bought without passing the tested page. */
+  ongetagd: number;
   /** True when the page cap was hit and numbers are therefore incomplete. */
   afgekapt: boolean;
 };
@@ -74,6 +91,7 @@ const QUERY = `#graphql
       pageInfo { hasNextPage endCursor }
       nodes {
         id createdAt sourceName presentmentCurrencyCode
+        customAttributes { key value }
         lineItems(first: 25) {
           nodes {
             quantity title variantTitle
@@ -99,7 +117,7 @@ export async function orderCijfers(
 
   const uit: OrderResultaat = {
     control: leeg(), test: leeg(), perVariant: {}, perDag: {}, perValuta: {},
-    rebillsOvergeslagen: 0, afgekapt: false,
+    rebillsOvergeslagen: 0, ongetagd: 0, afgekapt: false,
   };
 
   // Only from the moment the test started. Orders before that belong to no
@@ -124,24 +142,26 @@ export async function orderCijfers(
         continue;
       }
 
-      let cohort: "control" | "test" | null = null;
+      // The cohort comes from the cart tag, not from the product.
+      const attrs: Record<string, string> = {};
+      for (const a of order?.customAttributes || []) {
+        if (a?.key) attrs[String(a.key)] = String(a.value ?? "");
+      }
+      if (String(attrs["_pt_test"] || "") !== String(test.id)) { uit.ongetagd += 1; continue; }
+      const getagd = attrs["_pt_cohort"];
+      if (getagd !== "control" && getagd !== "test") { uit.ongetagd += 1; continue; }
+      const cohort: "control" | "test" = getagd;
+
       let cents = 0;
       let units = 0;
       let sub = false;
       let variantNaam = "(default)";
-      let gemengd = false;
 
       for (const li of order?.lineItems?.nodes || []) {
         const pid = numOf(li?.product?.id || "");
         const isControl = pid === controlNum;
         const isTest = pid === testNum;
         if (!isControl && !isTest) continue;
-
-        const groep = isTest ? "test" : "control";
-        // An order holding both products belongs to neither: there is no telling
-        // which price drove it.
-        if (cohort && cohort !== groep) { gemengd = true; break; }
-        cohort = groep;
 
         const qty = Number(li?.quantity) || 0;
         cents += Math.round(parseFloat(li?.discountedTotalSet?.shopMoney?.amount || "0") * 100);
@@ -151,7 +171,9 @@ export async function orderCijfers(
         else if (li?.title) variantNaam = String(li.title);
       }
 
-      if (gemengd || !cohort) continue;
+      // Nothing of the tested product in this order - the tag was set on an
+      // earlier visit but they bought something else.
+      if (cents === 0 && units === 0) continue;
 
       const tel = (g: OrderCijfers) => {
         g.orders += 1;

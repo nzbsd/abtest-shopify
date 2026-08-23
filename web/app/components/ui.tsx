@@ -149,3 +149,43 @@ export function Legend() {
 export function Leeg({ children }: { children: ReactNode }) {
   return <div className="empty">{children}</div>;
 }
+
+/**
+ * One metric, both groups, side by side.
+ *
+ * A single big number with the other group in small print underneath reads as
+ * "the answer" — and half the time it is the wrong half. In an A/B test every
+ * figure only means something as a pair, so both are shown at the same weight
+ * with their own colour, and the difference sits beside them rather than
+ * replacing them.
+ */
+export function Vergelijk({
+  label, control, test, delta, noot, goedAls = "up",
+}: {
+  label: string;
+  control: string;
+  test: string;
+  delta?: number;
+  noot?: string;
+  goedAls?: "up" | "down" | "geen";
+}) {
+  return (
+    <article className="card compare">
+      <p className="compare__label">{label}</p>
+      <div className="compare__row">
+        <div className="compare__side">
+          <span className="legend__item"><span className="swatch swatch--control" />Control</span>
+          <p className="compare__value num">{control}</p>
+        </div>
+        <div className="compare__side">
+          <span className="legend__item"><span className="swatch swatch--test" />Test</span>
+          <p className="compare__value num">{test}</p>
+        </div>
+        {delta !== undefined && (
+          <div className="compare__delta"><Delta waarde={delta} goedAls={goedAls} /></div>
+        )}
+      </div>
+      {noot && <p className="compare__note">{noot}</p>}
+    </article>
+  );
+}

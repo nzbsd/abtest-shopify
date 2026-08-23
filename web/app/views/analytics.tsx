@@ -4,7 +4,7 @@ import { PageHead } from "~/components/shell";
 import { Lijn, Trechter } from "~/components/charts";
 import {
   Badge, Banner, Card, CardHead, Delta, IconCart, IconCheck, IconCoins,
-  Kpi, Leeg, Legend, Segmented, Track,
+  Kpi, Leeg, Legend, Segmented, Track, Vergelijk,
 } from "~/components/ui";
 import {
   beperkTotDagen, combineer, dagReeks, geld, heel, korteDatum, looptDagen, ondertekend, procent,
@@ -77,8 +77,9 @@ export function AnalyticsView({
   /* Days come from two places: visitors from our own events, orders and money
      from Shopify. Merged here so one chart can switch between them. */
   const points = (() => {
-    const bezoekersReeks = dagReeks(ownDaily, metric === "rpv" || metric === "orders" ? "visitors" : metric);
-    if (metric !== "rpv" && metric !== "orders") return bezoekersReeks;
+    const geldMaat = metric === "rpv" || metric === "orders" || metric === "cr";
+    const bezoekersReeks = dagReeks(ownDaily, geldMaat ? "visitors" : metric);
+    if (!geldMaat) return bezoekersReeks;
 
     const dagen = Array.from(new Set([
       ...bezoekersReeks.map((p) => p.dag),
@@ -93,6 +94,7 @@ export function AnalyticsView({
         if (!g) return 0;
         if (metric === "orders") return g.orders;
         const v = co === "control" ? bez?.control ?? 0 : bez?.test ?? 0;
+        if (metric === "cr") return v ? (g.orders / v) * 100 : 0;
         return v ? g.revenueCents / 100 / v : 0;
       };
       return { dag, control: waarde("control"), test: waarde("test") };
@@ -197,17 +199,25 @@ export function AnalyticsView({
             note={heel(t.visitors) + " visitors · " + heel(t.orders) + " orders"}
             delta={<Delta waarde={revenueTest.lift} />}
           />
-          <Kpi
-            icon={<IconCheck />} tone="neutral" label="Conversion"
-            value={procent(t.cr)}
-            note={"control " + procent(c.cr) + " · " + (convTest.bruikbaar ? pTekst(convTest.p) : "too few orders")}
-            delta={<Delta waarde={convTest.lift} goedAls="geen" />}
+        </div>
+
+        <div className="grid grid--2">
+          <Vergelijk
+            label="Conversion"
+            control={procent(c.cr)}
+            test={procent(t.cr)}
+            delta={convTest.lift}
+            goedAls="geen"
+            noot={convTest.bruikbaar
+              ? pTekst(convTest.p) + " · a higher price nearly always lowers this; the question is whether revenue follows"
+              : "Too few orders to compare yet."}
           />
-          <Kpi
-            icon={<IconCart />} tone="neutral" label="Average order value"
-            value={geld(t.aov)}
-            note={"control " + geld(c.aov)}
-            delta={<Delta waarde={c.aov ? ((t.aov - c.aov) / c.aov) * 100 : 0} />}
+          <Vergelijk
+            label="Average order value"
+            control={geld(c.aov)}
+            test={geld(t.aov)}
+            delta={c.aov ? ((t.aov - c.aov) / c.aov) * 100 : 0}
+            noot={heel(c.orders) + " versus " + heel(t.orders) + " orders"}
           />
         </div>
 
@@ -427,14 +437,18 @@ export function AnalyticsView({
           <Card>
             <CardHead
               title="Per currency"
-              sub="Each market prices in its own currency, so this is the market split. Far fewer visitors each, so read it as direction rather than verdict."
+              sub="Each market prices in its own currency, so this is the market split."
             />
             <div className="card__body card__body--flush table-scroll">
               <table>
                 <thead>
                   <tr>
-                    <th>Currency</th><th>Orders control</th><th>Revenue control</th>
-                    <th>Orders test</th><th>Revenue test</th><th>Avg order value</th>
+                    <th>Currency</th>
+                    <th>Orders <span className="muted">control</span></th>
+                    <th>Orders <span className="muted">test</span></th>
+                    <th>Order value <span className="muted">control</span></th>
+                    <th>Order value <span className="muted">test</span></th>
+                    <th>Difference</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -444,15 +458,19 @@ export function AnalyticsView({
                     const gt = paar?.test ?? GEEN;
                     const aovC = gc.orders ? gc.revenueCents / 100 / gc.orders : 0;
                     const aovT = gt.orders ? gt.revenueCents / 100 / gt.orders : 0;
+                    // Under ten orders a percentage is theatre, so it is not shown.
+                    const genoeg = gc.orders >= 10 && gt.orders >= 10;
                     return (
                       <tr key={v}>
                         <td>{v}</td>
                         <td>{heel(gc.orders)}</td>
-                        <td>{geld(gc.revenueCents / 100)}</td>
                         <td>{heel(gt.orders)}</td>
-                        <td>{geld(gt.revenueCents / 100)}</td>
+                        <td>{gc.orders ? geld(aovC) : "—"}</td>
+                        <td>{gt.orders ? geld(aovT) : "—"}</td>
                         <td>
-                          {aovC > 0 ? <Delta waarde={((aovT - aovC) / aovC) * 100} /> : <span className="muted">—</span>}
+                          {genoeg && aovC > 0
+                            ? <Delta waarde={((aovT - aovC) / aovC) * 100} />
+                            : <span className="muted small">too few orders</span>}
                         </td>
                       </tr>
                     );
@@ -462,7 +480,6 @@ export function AnalyticsView({
             </div>
           </Card>
         )}
-
         {/* Visitors still come from our own measurement, and those do carry a
            market handle. Kept separate rather than merged, because mixing a
            market-based count with a currency-based one in one table invites
@@ -495,7 +512,7 @@ export function AnalyticsView({
           </Card>
         )}
 
-        {ord && (ord.rebillsOvergeslagen > 0 || ord.afgekapt) && (
+        {ord && (ord.rebillsOvergeslagen > 0 || ord.ongetagd > 0 || ord.afgekapt) && (
           <Banner tone="info">
             {ord.rebillsOvergeslagen > 0 && (
               <>
@@ -503,6 +520,13 @@ export function AnalyticsView({
                 A renewal was agreed months ago and says nothing about the price being tested. The
                 original has an existing subscriber base and the duplicate does not, so counting
                 them would hand the control group orders the test group can never have.
+              </>
+            )}
+            {ord.ongetagd > 0 && (
+              <>
+                {" "}<strong>{heel(ord.ongetagd)} orders without a group tag</strong> were left out: they
+                were placed without passing the tested product page, so there is no visit to
+                compare them against.
               </>
             )}
             {ord.afgekapt && " Order history was truncated at the page limit, so these numbers are incomplete."}

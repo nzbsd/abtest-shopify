@@ -602,3 +602,18 @@ code {
 /* Inlogscherm */
 .login { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
 .login__card { width: 100%; max-width: 360px; padding: 28px; }
+
+/* Vergelijkingskaart: twee groepen even zwaar in beeld. */
+.compare { padding: 18px 20px; }
+.compare__label { font-size: 13px; font-weight: 600; color: var(--ink-2); margin-bottom: 14px; }
+.compare__row { display: flex; align-items: flex-end; gap: 24px; flex-wrap: wrap; }
+.compare__side { min-width: 92px; }
+.compare__value {
+  margin-top: 6px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -.025em;
+  line-height: 1.1;
+}
+.compare__delta { margin-left: auto; padding-bottom: 4px; }
+.compare__note { margin-top: 12px; font-size: 12px; color: var(--ink-3); }
