@@ -175,11 +175,11 @@ export function AnalyticsView({
           />
           <div className="card__body">
             <div style={{ display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap", marginBottom: 14 }}>
-              <span className="num" style={{ fontSize: 44, fontWeight: 700, letterSpacing: "-.035em" }}>
+              <span className="num" style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-.035em" }}>
                 {ondertekend(revenueTest.lift)}
               </span>
               {c.rpv > 0 && (
-                <span className="num" style={{ fontSize: 17, fontWeight: 600, color: "var(--ink-2)" }}>
+                <span className="num" style={{ fontSize: 14.5, fontWeight: 600, color: "var(--ink-2)" }}>
                   {bedragVerschil(t.rpv - c.rpv)} per visitor
                 </span>
               )}
@@ -388,7 +388,7 @@ export function AnalyticsView({
                       <div className="legend__item" style={{ marginBottom: 8 }}>
                         <span className={"swatch swatch--" + k} />{label}
                       </div>
-                      <p className="num" style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-.03em" }}>
+                      <p className="num" style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-.03em" }}>
                         {procent(subAandeel(o), 1)}
                       </p>
                       <p className="small muted" style={{ marginTop: 4 }}>

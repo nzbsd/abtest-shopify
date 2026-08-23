@@ -65,10 +65,10 @@ export function ForecastView({
         />
         <div className="card__body">
           <div style={{ display: "flex", alignItems: "baseline", gap: 18, flexWrap: "wrap", marginBottom: 16 }}>
-            <span className="num" style={{ fontSize: 44, fontWeight: 700, letterSpacing: "-.035em" }}>
+            <span className="num" style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-.035em" }}>
               {ondertekend(f.verschilPct)}
             </span>
-            <span className="num" style={{ fontSize: 17, fontWeight: 600, color: "var(--ink-2)" }}>
+            <span className="num" style={{ fontSize: 14.5, fontWeight: 600, color: "var(--ink-2)" }}>
               {bedragVerschil(f.verschilPerBezoeker)} per visitor
             </span>
           </div>
@@ -108,14 +108,14 @@ export function ForecastView({
               <div style={{ display: "flex", gap: 32, flexWrap: "wrap", marginBottom: 18 }}>
                 <div>
                   <p className="small muted">Break-even lifetime</p>
-                  <p className="num" style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-.03em", marginTop: 4 }}>
+                  <p className="num" style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-.03em", marginTop: 4 }}>
                     {f.omslagCycles.toFixed(1)}
                   </p>
                   <p className="small muted" style={{ marginTop: 4 }}>cycles</p>
                 </div>
                 <div>
                   <p className="small muted">You assume</p>
-                  <p className="num" style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-.03em", marginTop: 4 }}>
+                  <p className="num" style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-.03em", marginTop: 4 }}>
                     {cycles.toFixed(1)}
                   </p>
                   <p className="small muted" style={{ marginTop: 4 }}>cycles</p>
@@ -134,7 +134,7 @@ export function ForecastView({
                 <Track value={Math.min(f.margeOpRetentie / 100, 1)} color="var(--up)" />
               )}
 
-              <p style={{ marginTop: 14, fontSize: 13.5, color: "var(--ink-2)" }}>
+              <p style={{ marginTop: 14, fontSize: 13, color: "var(--ink-2)" }}>
                 {forecastTekst(f, cycles)}
               </p>
             </>

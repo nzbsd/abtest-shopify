@@ -119,19 +119,19 @@ export function OverviewView({
                 <div style={{ display: "flex", gap: 28, flexWrap: "wrap", alignItems: "baseline", marginBottom: 16 }}>
                   <div>
                     <p className="small muted">Revenue per visitor</p>
-                    <p className="num" style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-.03em", marginTop: 2 }}>
+                    <p className="num" style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-.03em", marginTop: 2 }}>
                       {ondertekend(toets.lift)}
                     </p>
                   </div>
                   <div>
                     <p className="small muted">Control</p>
-                    <p className="num" style={{ fontSize: 17, fontWeight: 600, marginTop: 4 }}>
+                    <p className="num" style={{ fontSize: 14.5, fontWeight: 600, marginTop: 4 }}>
                       {geld(c.rpv)} <span className="muted small">· {procent(c.cr)} conversion</span>
                     </p>
                   </div>
                   <div>
                     <p className="small muted">Test</p>
-                    <p className="num" style={{ fontSize: 17, fontWeight: 600, marginTop: 4 }}>
+                    <p className="num" style={{ fontSize: 14.5, fontWeight: 600, marginTop: 4 }}>
                       {geld(te.rpv)} <span className="muted small">· {procent(te.cr)} conversion</span>
                     </p>
                   </div>
