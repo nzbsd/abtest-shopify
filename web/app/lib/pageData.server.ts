@@ -399,9 +399,26 @@ export async function testsAction(
         }
       }
 
+      // Het besluit hoort bij het stoppen: dat is het enige moment waarop
+      // iemand het antwoord nog paraat heeft. Leeg mag - een test zonder
+      // besluit is beter dan iemand tegenhouden die alleen wil stoppen.
+      const besluit = String(form.get("besluit") || "").trim();
+      const notitie = String(form.get("besluitNotitie") || "").trim();
+      const geldig = ["uitrollen", "verwerpen", "onbeslist", "opnieuw"].includes(besluit);
+
       const nieuw = intent === "start"
-        ? { status: "running", started_at: new Date().toISOString(), stopped_at: null }
-        : { status: "stopped", stopped_at: new Date().toISOString() };
+        ? {
+            status: "running", started_at: new Date().toISOString(), stopped_at: null,
+            // Opnieuw starten wist het vorige besluit: dat sloeg op de vorige
+            // ronde, en laten staan zou het aan nieuwe cijfers plakken.
+            besluit: null, besluit_notitie: null, besluit_at: null,
+          }
+        : {
+            status: "stopped", stopped_at: new Date().toISOString(),
+            ...(geldig
+              ? { besluit, besluit_notitie: notitie || null, besluit_at: new Date().toISOString() }
+              : {}),
+          };
       const { error } = await supabase.from("price_tests").update(nieuw).eq("id", id).eq("shop", shop);
       if (error) throw new Error(error.message);
       return {

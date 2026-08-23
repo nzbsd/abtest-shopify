@@ -7,6 +7,7 @@ import { matchVariants, prijsVergelijking, type ProductInfo } from "~/lib/varian
 import type { PriceTest } from "~/lib/priceTest.server";
 import { typeInfo, watOntbreekt } from "~/lib/testTypes";
 import { Wizard } from "./wizard";
+import { BesluitModal, besluitNaam } from "./besluit";
 import type { ThemaInfo, TemplateInfo } from "~/lib/themes.server";
 
 /* ── product picker ─────────────────────────────────────────────────────── */
@@ -251,10 +252,15 @@ export function TestsView({
     fetcher.submit(fd, { method: "post" });
   };
 
-  const act = (id: number, intent: "start" | "stop" | "delete") => {
+  // Welke test op het punt staat gestopt te worden, zodat de vraag naar het
+  // besluit op dat moment komt en niet als los veld achteraf.
+  const [stopt, setStopt] = useState<PriceTest | null>(null);
+
+  const act = (id: number, intent: "start" | "stop" | "delete", extra?: Record<string, string>) => {
     const fd = new FormData();
     fd.set("intent", intent);
     fd.set("id", String(id));
+    for (const [k, v] of Object.entries(extra ?? {})) fd.set(k, v);
     fetcher.submit(fd, { method: "post" });
   };
 
@@ -351,6 +357,17 @@ export function TestsView({
                         {watOntbreekt(t)}
                       </p>
                     )}
+                    {/* Een besluit dat je vastlegt maar nergens terugziet is
+                        een formulier, geen logboek. */}
+                    {t.besluit && (
+                      <p className="besluitregel">
+                        <span className="besluitregel__label">{besluitNaam(t.besluit)}</span>
+                        {t.besluit_notitie && <span>{t.besluit_notitie}</span>}
+                        {t.besluit_at && (
+                          <span className="muted">{String(t.besluit_at).slice(0, 10)}</span>
+                        )}
+                      </p>
+                    )}
                     <p className="small muted" style={{ marginTop: 6 }}>
                       {t.split_pct}% in the test group · {heel((t.variant_map || []).length)} variant(s) matched
                       {days !== null && t.status === "running" ? " · running for " + days + " days" : ""}
@@ -361,7 +378,7 @@ export function TestsView({
                     <LtvInstelling t={t} onSave={bewaarLtv} busy={busy} />
                     <Link className="btn" to={basis + "/analytics?test=" + t.id}>Results</Link>
                     {t.status === "running" ? (
-                      <button className="btn btn--danger" disabled={busy} onClick={() => act(t.id, "stop")}>
+                      <button className="btn btn--danger" disabled={busy} onClick={() => setStopt(t)}>
                         Stop
                       </button>
                     ) : (
@@ -388,11 +405,23 @@ export function TestsView({
         </Card>
 
         <Banner tone="info">
-          <strong>Starting changes nothing about your products.</strong> Both stay exactly as they
-          are; the theme simply sends part of the traffic to the duplicate's URL instead. Stopping
-          reverses that immediately.
+          <strong>Starting changes nothing about your products or pages.</strong> Everything stays
+          exactly as it is; the theme simply sends part of the traffic to the other version.
+          Stopping reverses that immediately.
         </Banner>
       </div>
+
+      {stopt && (
+        <BesluitModal
+          test={stopt}
+          bezig={busy}
+          onSluit={() => setStopt(null)}
+          onStop={(besluit, notitie) => {
+            act(stopt.id, "stop", { besluit, besluitNotitie: notitie });
+            setStopt(null);
+          }}
+        />
+      )}
     </main>
   );
 }

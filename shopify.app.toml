@@ -14,6 +14,13 @@ api_version = "2026-07"
   topics = [ "app/uninstalled" ]
   uri = "/webhooks/app/uninstalled"
 
+  # Zonder deze blijft de opgeslagen sessie de oude scopes dragen nadat je er
+  # een hebt toegevoegd en gedeployd - de app werkt dan met een verouderd beeld
+  # van wat hij mag, en dat is van buiten niet te zien.
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
+
   [[webhooks.subscriptions]]
   topics = [ "orders/create" ]
   uri = "/webhooks/orders/create"

@@ -1554,3 +1554,22 @@ tbody tr:hover { background: var(--wash); }
   flex: none;
 }
 .stip--let-op { background: var(--test); }
+
+/* Het besluit bij een gestopte test. Rustig: het is geschiedenis, geen
+   waarschuwing - maar wel het eerste wat je wilt lezen bij een oude test. */
+.besluitregel {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: var(--r-sm);
+  background: var(--wash);
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+.besluitregel__label {
+  font-weight: 700;
+  color: var(--ink);
+}
