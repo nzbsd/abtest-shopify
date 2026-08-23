@@ -381,24 +381,6 @@
     if (gemeten.length) { tagCart(); watchAddToCart(gemeten); }
   }
 
-  /* Cached config first, so a returning visitor is handled without waiting for
-     the network. */
-  try {
-    var raw = sessionStorage.getItem(CACHE);
-    if (raw) {
-      var c = JSON.parse(raw);
-      if (c && c.at && Date.now() - c.at < CACHE_MS) { handle(c.data); return; }
-    }
-  } catch (e) { /* private mode, no storage - just fetch */ }
-
-  fetch(APP + "/api/price-test?shop=" + encodeURIComponent(SHOP))
-    .then(function (r) { return r.ok ? r.json() : { tests: [] }; })
-    .then(function (data) {
-      try { sessionStorage.setItem(CACHE, JSON.stringify({ at: Date.now(), data: data })); } catch (e) {}
-      handle(data);
-    })
-    .catch(function () { /* no config, no test: the visitor sees the normal page */ });
-
   /* ═══════════════════════════════════════════ site-wide analytics ═══════
    *
    * Runs on every page, for every visitor, whether or not a test is active.
@@ -573,5 +555,37 @@
       if (document.visibilityState === "hidden") vertrek();
     });
   })();
+
+  /**
+   * Cached config first, so a returning visitor is handled without waiting for
+   * the network.
+   *
+   * NOTE THE RETURN BELOW. Anything that has to run on every page view must
+   * sit ABOVE this block — the site-wide analytics does, and that is not a
+   * matter of taste.
+   *
+   * It was below at first, and the effect was invisible until the numbers came
+   * in: the very first page of a session has no cached config, so analytics
+   * fired; every page after it within the two-minute window hit the cache,
+   * returned here, and was never counted. Fourteen sessions, fourteen page
+   * views, exactly 1.00 pages per session. A store where nobody ever clicks
+   * twice is not a plausible reading, which is the only reason it was caught.
+   */
+  try {
+    var raw = sessionStorage.getItem(CACHE);
+    if (raw) {
+      var c = JSON.parse(raw);
+      if (c && c.at && Date.now() - c.at < CACHE_MS) { handle(c.data); return; }
+    }
+  } catch (e) { /* private mode, no storage - just fetch */ }
+
+  fetch(APP + "/api/price-test?shop=" + encodeURIComponent(SHOP))
+    .then(function (r) { return r.ok ? r.json() : { tests: [] }; })
+    .then(function (data) {
+      try { sessionStorage.setItem(CACHE, JSON.stringify({ at: Date.now(), data: data })); } catch (e) {}
+      handle(data);
+    })
+    .catch(function () { /* no config, no test: the visitor sees the normal page */ });
+
 })();
 </script>
