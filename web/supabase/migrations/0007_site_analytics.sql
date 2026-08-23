@@ -26,3 +26,26 @@
 -- De volledige DDL staat in de Supabase-migraties site_analytics,
 -- site_analytics_opnieuw, site_analytics_oprollen, site_analytics_techniek en
 -- site_pageview_techniek. Dit bestand legt vast waarom.
+
+-- BEWAARTERMIJN: DERTIG DAGEN, VAST
+--
+-- Weg na dertig dagen: de sessierijen. Dat is het detail per bezoek - welke
+-- route iemand liep, waar hij binnenkwam en vertrok, hoe lang, hoe ver
+-- gescrold, met welke browser.
+--
+-- Blijft voor altijd: alle dagtotalen. Bezoekers, sessies, pageviews, bounces,
+-- tijd, trechterstappen, en de lijsten per pagina, bron, land, device,
+-- browser, besturingssysteem, taal en schermbreedte.
+--
+-- Geen enkele grafiek of lijst verdwijnt dus. Wat je verliest is het vermogen
+-- om ná dertig dagen nog één specifiek bezoek terug te zoeken. Nagemeten met
+-- een sessie van 45 dagen en een van 5: de oude verdween, beide dagen bleven
+-- in de totalen staan, en het pageviewtotaal klopte nog.
+--
+-- Een vast getal en geen parameter: een bewaartermijn die je per aanroep kunt
+-- meegeven is er een die een keer verkeerd wordt meegegeven, en dan is er data
+-- weg die er hoort te zijn.
+--
+-- pg_cron draait site_opruimen() elke nacht om 03:15 UTC. Het scherm rolt bij
+-- elk bezoek vandaag en gisteren opnieuw op, zodat je niet op die nacht hoeft
+-- te wachten; de taak is het vangnet voor als er dagenlang niemand kijkt.

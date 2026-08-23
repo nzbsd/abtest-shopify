@@ -107,6 +107,20 @@ export async function siteData(shop: string, bereik: SiteBereik): Promise<SiteDa
   const vanaf = dagenGeleden(dagen - 1);
   const vorigeVanaf = dagenGeleden(dagen * 2 - 1);
 
+  /**
+   * Vandaag en gisteren opnieuw oprollen bij het laden.
+   *
+   * De nachtelijke taak is het vangnet, niet de bron: wie 's middags kijkt wil
+   * niet naar cijfers van vannacht staren. Oprollen is idempotent en raakt
+   * alleen deze twee dagen, dus het is goedkoop genoeg om elke keer te doen.
+   *
+   * Mag falen zonder het scherm mee te nemen - dan zie je de dagtotalen van
+   * de laatste nachtelijke ronde, en het scherm vult vandaag alsnog aan uit
+   * de sessietabel zelf.
+   */
+  await supabase.rpc("site_oprollen", { vanaf: dagenGeleden(1).toISOString().slice(0, 10) })
+    .then(() => undefined, () => undefined);
+
   const [sessies, vorigeSessies, dagRijen, padRijen, bronRijen, geoRijen, techRijen, nuRij, oudste] =
     await Promise.all([
       supabase.from("site_sessies").select("*").eq("shop", shop)

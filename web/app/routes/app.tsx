@@ -23,10 +23,15 @@ export default function EmbeddedLayout() {
       {/* App Bridge levert het menu in de admin-balk. Een custom element en geen
           React-component: dat scheelt de Polaris-afhankelijkheid, die alleen
           voor dit menu ruim 400 kB CSS zou meebrengen. */}
+      {/* Zelfde volgorde als de eigen rail: kijken wat er loopt, wie er komt,
+          iets opzetten, de uitslag lezen. Dit menu staat los van die rail en
+          werd bij het toevoegen van Visitors vergeten - in de admin ontbrak het
+          tabblad daardoor terwijl de pagina wel bestond. */}
       <ui-nav-menu>
         <a href="/app" rel="home">Overview</a>
-        <a href="/app/analytics">Analytics</a>
+        <a href="/app/visitors">Visitors</a>
         <a href="/app/tests">Tests</a>
+        <a href="/app/analytics">Analytics</a>
       </ui-nav-menu>
       <Shell basis="/app" embedded shop={shop}>
         <div style={{ display: "flex", justifyContent: "flex-end", padding: "14px 20px 0" }}>
