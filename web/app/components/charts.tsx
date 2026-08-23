@@ -12,7 +12,7 @@ import { Leeg } from "./ui";
 export function Lijn({
   punten,
   formatteer,
-  hoogte = 260,
+  hoogte = 190,
 }: {
   punten: Punt[];
   formatteer: (v: number) => string;
@@ -26,7 +26,7 @@ export function Lijn({
 
   const W = 900;
   const H = hoogte;
-  const pad = { top: 18, right: 20, bottom: 30, left: 62 };
+  const pad = { top: 14, right: 18, bottom: 26, left: 56 };
   const iw = W - pad.left - pad.right;
   const ih = H - pad.top - pad.bottom;
 
@@ -39,7 +39,13 @@ export function Lijn({
 
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * max);
   const stap = Math.ceil(punten.length / 8);
-  const rechts = hover !== null && hover > punten.length / 2;
+
+  /* Flip the tooltip on POSITION, not on which point it is. With only a few
+     points the midpoint test never trips on the last one, so the box ran off
+     the right edge and became unreadable — which is exactly where you look
+     most, because the newest day sits there. */
+  const fractie = hover !== null ? x(hover) / W : 0;
+  const rechts = fractie > 0.62;
 
   return (
     <div style={{ position: "relative" }}>
@@ -90,8 +96,12 @@ export function Lijn({
         <div
           className="tooltip"
           style={{
-            left: "calc(" + ((x(hover) / W) * 100).toFixed(2) + "% + " + (rechts ? "-14px" : "14px") + ")",
-            top: 6,
+            // Clamped as well as flipped: on a narrow screen even the flipped
+            // box can reach the other edge.
+            left: "calc(" + (Math.min(Math.max(fractie, 0.02), 0.98) * 100).toFixed(2) +
+              "% + " + (rechts ? "-12px" : "12px") + ")",
+            top: 4,
+            maxWidth: "min(220px, 60%)",
             transform: rechts ? "translateX(-100%)" : undefined,
           }}
         >
