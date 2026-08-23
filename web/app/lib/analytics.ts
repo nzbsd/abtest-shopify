@@ -24,6 +24,19 @@ export type StatRij = {
   last_event_at: string | null;
 };
 
+/** Eén rij per test, groep en device uit de view price_test_devices. */
+export type DeviceRij = {
+  test_id: number;
+  cohort: string;
+  device: string;
+  views: number;
+  add_to_carts: number;
+  orders: number;
+  revenue_cents: number;
+  revenue_sq_cents: number;
+  visitors: number;
+};
+
 export type DagRij = {
   test_id: number;
   cohort: string;

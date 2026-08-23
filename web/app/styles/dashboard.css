@@ -1542,3 +1542,15 @@ tbody tr:hover { background: var(--wash); }
   color: var(--ink-3);
   font-style: italic;
 }
+
+/* Een segment dat de andere kant op wijst dan het geheel. Geen rood: het is
+   geen fout, het is een reden om beter te kijken voordat je uitrolt. */
+.rij--tegendraads { background: var(--test-pale); }
+.rij--tegendraads:hover { background: var(--test-pale); }
+.stip {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 999px;
+  flex: none;
+}
+.stip--let-op { background: var(--test); }

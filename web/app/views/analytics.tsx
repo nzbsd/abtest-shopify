@@ -8,7 +8,7 @@ import {
 } from "~/components/ui";
 import {
   bedragVerschil, beperkTotDagen, combineer, dagReeks, geld, heel, korteDatum, looptDagen, ondertekend, procent,
-  telOp, type DagRij, type StatRij,
+  telOp, type DagRij, type DeviceRij, type StatRij,
 } from "~/lib/analytics";
 import type { OrderCijfers, OrderResultaat } from "~/lib/orders.server";
 import {
@@ -16,6 +16,9 @@ import {
   toetsOmzetPerBezoeker, toetsVerdeling, uitslagTekst,
 } from "~/lib/stats";
 import { benodigd, metricInfo, noemer, noemerNaam } from "~/lib/metrics";
+import {
+  DIMENSIES, LEEG, bouwSegmenten, dimensieKan, telSamen, waaromNiet, type SegmentDimensie,
+} from "~/lib/segments";
 import type { PriceTest } from "~/lib/priceTest.server";
 import { ForecastView } from "./forecast";
 
@@ -43,11 +46,13 @@ function Verschil(controle: number, test: number, goedAls: "up" | "geen" = "up")
 }
 
 export function AnalyticsView({
-  tests, stats, daily, orders = {},
+  tests, stats, daily, devices = [], orders = {},
 }: {
   tests: PriceTest[];
   stats: StatRij[];
   daily: DagRij[];
+  /** Bezoekers en orders per device, uit onze eigen meting. */
+  devices?: DeviceRij[];
   /** Per test-id de ordercijfers zoals ze bij Shopify staan. */
   orders?: Record<number, OrderResultaat>;
 }) {
@@ -60,6 +65,7 @@ export function AnalyticsView({
   type Tab = "verdict" | "orders" | "segments" | "forecast";
   const [tab, setTab] = useState<Tab>("verdict");
   const [metric, setMetric] = useState<Metric>("rpv");
+  const [dim, setDim] = useState<SegmentDimensie>("device");
   const [range, setRange] = useState<Range>("14");
 
   const test = tests.find((t) => t.id === testId) ?? tests[0];
@@ -141,6 +147,62 @@ export function AnalyticsView({
   const srm = toetsVerdeling(c.visitors, t.visitors, test.split_pct);
 
   /**
+   * De segmenten, in dezelfde metriek als de uitslag.
+   *
+   * Drie dimensies uit drie bronnen, en die bronnen verschillen wezenlijk:
+   * device en markt komen uit onze eigen meting op de storefront (dus met
+   * bezoekers), valuta komt uit de orders bij Shopify (dus zonder). Vandaar
+   * dat de bezoekersvelden bij valuta leeg blijven in plaats van geraden -
+   * een verzonnen noemer geeft een conversie die nergens op slaat.
+   */
+  const segmentBron = (() => {
+    const uit: Record<string, { control: typeof LEEG; test: typeof LEEG }> = {};
+    const zet = (naam: string, cohort: string, waarden: Partial<typeof LEEG>) => {
+      if (!naam) return;
+      uit[naam] ||= { control: { ...LEEG }, test: { ...LEEG } };
+      const kant = cohort === "test" ? "test" : "control";
+      uit[naam][kant] = telSamen(uit[naam][kant], { ...LEEG, ...waarden });
+    };
+
+    if (dim === "device") {
+      for (const r of devices.filter((d) => d.test_id === test.id)) {
+        zet(r.device, r.cohort, {
+          visitors: Number(r.visitors) || 0,
+          atc: Number(r.add_to_carts) || 0,
+          orders: Number(r.orders) || 0,
+          revenueCents: Number(r.revenue_cents) || 0,
+          revenueSqCents: Number(r.revenue_sq_cents) || 0,
+        });
+      }
+    } else if (dim === "market") {
+      for (const r of ownStats) {
+        zet(r.market || "—", r.cohort, {
+          visitors: Number(r.visitors) || 0,
+          atc: Number(r.add_to_carts) || 0,
+          orders: Number(r.orders) || 0,
+          revenueCents: Number(r.revenue_cents) || 0,
+          revenueSqCents: Number(r.revenue_sq_cents) || 0,
+        });
+      }
+    } else {
+      for (const [valuta, paar] of Object.entries(ord?.perValuta ?? {})) {
+        for (const kant of ["control", "test"] as const) {
+          const g = paar[kant];
+          zet(valuta, kant, {
+            orders: g.orders,
+            revenueCents: g.revenueCents,
+            revenueSqCents: g.revenueSqCents,
+            subOrders: g.subOrders,
+          });
+        }
+      }
+    }
+    return uit;
+  })();
+
+  const segmenten = bouwSegmenten(segmentBron, doel.key, betrouwbaarheid, doelToets.lift);
+
+  /**
    * Het doelaantal, uit de opzet en niet uit wat er toevallig gemeten is.
    *
    * Dit stond eerder op de waargenomen lift, en dat is precies verkeerd om:
@@ -188,15 +250,12 @@ export function AnalyticsView({
     visitors: heel,
   };
 
-  const markets = Array.from(new Set(ownStats.map((r) => r.market || "—"))).sort();
-
-  const subToets = toetsAandeel(oc.subOrders, oc.orders, ot.subOrders, ot.orders);
+  const subToets = toetsAandeel(oc.subOrders, oc.orders, ot.subOrders, ot.orders, betrouwbaarheid);
   const subAandeel = (o: OrderCijfers) => (o.orders ? (o.subOrders / o.orders) * 100 : 0);
   const subOmzetAandeel = (o: OrderCijfers) =>
     o.revenueCents ? (o.subRevenueCents / o.revenueCents) * 100 : 0;
 
   const variantNamen = Object.keys(ord?.perVariant ?? {}).sort();
-  const valutas = Object.keys(ord?.perValuta ?? {}).sort();
   const heeftOrders = oc.orders + ot.orders > 0;
 
   return (
@@ -651,85 +710,87 @@ export function AnalyticsView({
         </>)}
 
         {tab === "segments" && (<>
-        {/* ── per currency ─────────────────────────────────────────────── */}
-        {valutas.length > 0 && (
-          <Card>
-            <CardHead
-              title="Per currency"
-              sub="Each market prices in its own currency, so this is the market split."
-            />
-            <div className="card__body card__body--flush table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Currency</th>
-                    <th>Orders <span className="muted">control</span></th>
-                    <th>Orders <span className="muted">test</span></th>
-                    <th>Order value <span className="muted">control</span></th>
-                    <th>Order value <span className="muted">test</span></th>
-                    <th>Difference</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {valutas.map((v) => {
-                    const paar = ord?.perValuta?.[v];
-                    const gc = paar?.control ?? GEEN;
-                    const gt = paar?.test ?? GEEN;
-                    const aovC = gc.orders ? gc.revenueCents / 100 / gc.orders : 0;
-                    const aovT = gt.orders ? gt.revenueCents / 100 / gt.orders : 0;
-                    // Under ten orders a percentage is theatre, so it is not shown.
-                    const genoeg = gc.orders >= 10 && gt.orders >= 10;
-                    return (
-                      <tr key={v}>
-                        <td>{v}</td>
-                        <td>{heel(gc.orders)}</td>
-                        <td>{heel(gt.orders)}</td>
-                        <td>{gc.orders ? geld(aovC) : "—"}</td>
-                        <td>{gt.orders ? geld(aovT) : "—"}</td>
-                        <td>
-                          {genoeg && aovC > 0
-                            ? <Delta waarde={((aovT - aovC) / aovC) * 100} />
-                            : <span className="muted small">too few orders</span>}
-                        </td>
+        {/* ── wint het overal? ─────────────────────────────────────────── */}
+        <Card>
+          <CardHead
+            title="Does it win everywhere?"
+            sub={"The same measure as the verdict — " + doel.naam.toLowerCase() +
+                 " — split by segment. A variant that wins overall but loses where most of your traffic is, is not a winner."}
+            action={
+              <Segmented
+                value={dim}
+                options={DIMENSIES.map((d) => ({ key: d.key, label: d.label }))}
+                onChange={setDim}
+              />
+            }
+          />
+          <div className="card__body card__body--flush">
+            {!dimensieKan(dim, doel.key) ? (
+              <Leeg>{waaromNiet(dim, doel.key)}</Leeg>
+            ) : !segmenten.length ? (
+              <Leeg>{DIMENSIES.find((d) => d.key === dim)?.leeg}</Leeg>
+            ) : (
+              <>
+                {segmenten.some((s) => s.tegendraads) && (
+                  <div style={{ padding: "0 18px 12px" }}>
+                    <Banner tone="warn">
+                      <strong>
+                        {segmenten.filter((s) => s.tegendraads).map((s) => s.naam).join(" and ")}{" "}
+                        {segmenten.filter((s) => s.tegendraads).length === 1 ? "goes" : "go"} the
+                        other way.
+                      </strong>{" "}
+                      Worth understanding before you roll this out — but not a result on its own.
+                      Slicing into segments is the same trap as watching five metrics: check four
+                      segments at {betrouwbaarheid}% and roughly one in five tests throws up a false
+                      alarm somewhere.
+                    </Banner>
+                  </div>
+                )}
+                <div className="table-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>{DIMENSIES.find((d) => d.key === dim)?.label}</th>
+                        <th>{noemerNaam(doel.key)} <span className="muted">control</span></th>
+                        <th>{noemerNaam(doel.key)} <span className="muted">test</span></th>
+                        <th>{doel.naam} <span className="muted">control</span></th>
+                        <th>{doel.naam} <span className="muted">test</span></th>
+                        <th>Difference</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        )}
-        {/* Visitors still come from our own measurement, and those do carry a
-           market handle. Kept separate rather than merged, because mixing a
-           market-based count with a currency-based one in one table invites
-           exactly the wrong comparison. */}
-        {markets.length > 0 && (
-          <Card>
-            <CardHead title="Visitors per market" sub="From our own measurement on the storefront." />
-            <div className="card__body card__body--flush table-scroll">
-              <table>
-                <thead><tr><th>Market</th><th>Control</th><th>Test</th><th>Split</th></tr></thead>
-                <tbody>
-                  {markets.map((m) => {
-                    const rows = (co: string) =>
-                      ownStats.filter((r) => (r.market || "—") === m && r.cohort === co);
-                    const gc = telOp(rows("control"), "control");
-                    const gt = telOp(rows("test"), "test");
-                    const tot = gc.visitors + gt.visitors;
-                    return (
-                      <tr key={m}>
-                        <td>{m}</td>
-                        <td>{heel(gc.visitors)}</td>
-                        <td>{heel(gt.visitors)}</td>
-                        <td>{tot ? procent((gt.visitors / tot) * 100, 0) + " test" : "—"}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        )}
+                    </thead>
+                    <tbody>
+                      {segmenten.map((s) => {
+                        const wc = doel.waarde(s.controle);
+                        const wt = doel.waarde(s.test);
+                        const toon = (v: number) =>
+                          doel.vorm === "geld" ? geld(v) : v.toFixed(2) + "%";
+                        return (
+                          <tr key={s.naam} className={s.tegendraads ? "rij--tegendraads" : undefined}>
+                            <td>
+                              <span className="cell-series">
+                                {s.tegendraads && <span className="stip stip--let-op" aria-hidden />}
+                                {s.naam}
+                              </span>
+                            </td>
+                            <td>{heel(noemer(doel.key, s.controle))}</td>
+                            <td>{heel(noemer(doel.key, s.test))}</td>
+                            <td>{noemer(doel.key, s.controle) ? toon(wc) : "—"}</td>
+                            <td>{noemer(doel.key, s.test) ? toon(wt) : "—"}</td>
+                            <td>
+                              {s.toets.bruikbaar
+                                ? <Delta waarde={s.toets.lift} />
+                                : <span className="muted small">too little data</span>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        </Card>
 
         {ord && (ord.rebillsOvergeslagen > 0 || ord.ongetagd > 0 || ord.afgekapt) && (
           <Banner tone="info">
