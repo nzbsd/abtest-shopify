@@ -1,6 +1,6 @@
 import { Form, NavLink } from "@remix-run/react";
 import type { ReactNode } from "react";
-import { IconChart, IconFlask, IconGrid } from "./ui";
+import { IconChart, IconFlask, IconGrid, IconUsers } from "./ui";
 
 /**
  * Omhulsel voor beide plekken waar het dashboard leeft.
@@ -29,6 +29,7 @@ export function Shell({
     // waar je heen gaat vóórdat er iets te lezen valt.
     { to: basis, label: "Overview", Icon: IconGrid, end: true },
     { to: basis + "/tests", label: "Tests", Icon: IconFlask, end: false },
+    { to: basis + "/visitors", label: "Visitors", Icon: IconUsers, end: false },
     { to: basis + "/analytics", label: "Analytics", Icon: IconChart, end: false },
   ];
 

@@ -1,0 +1,28 @@
+-- Bezoekersanalytics voor de hele winkel, los van de A/B-tests.
+--
+-- OPZET: ÉÉN RIJ PER SESSIE, PLUS DAGTOTALEN
+--
+-- De eerste opzet schreef een rij per pageview én een per vertrek: een bezoek
+-- van acht pagina's was zestien rijen. Dat is vervangen door één rij die
+-- meegroeit. Dat scheelt niet alleen ruimte - alles wat je wilt weten gaat
+-- over de sessie (bounce, duur, route, waar ze afhaakten), dus het staat
+-- meteen in de goede vorm in plaats van dat het elke keer teruggerekend moet.
+--
+-- Waarom dat hier moet: deze database is gedeeld met de popup- en bundelapp,
+-- en popup_events stond al op 2,7 GB van de 8 - juist omdat die elke UTM-string
+-- opnieuw per rij bewaart. Sitewide meten is een veelvoud van wat de A/B-meting
+-- doet, dus alles bewaren zou binnen maanden de hele database meenemen.
+--
+-- Sessies gaan er na zestig dagen uit; de dagtotalen zijn een paar honderd
+-- bytes per dag en blijven staan. Je verliest het detail, niet de historie.
+--
+-- GEEN PERSOONSGEGEVENS
+-- Geen IP, geen user agent, geen querystring. Browser en besturingssysteem
+-- worden in de browser zelf tot een label herleid, zodat de UA-string - een
+-- vrij nauwkeurige vingerafdruk - nooit in de database komt. De querystring
+-- blijft eruit omdat daar op deze winkel e-mailadressen in belandden via
+-- Klaviyo-links.
+--
+-- De volledige DDL staat in de Supabase-migraties site_analytics,
+-- site_analytics_opnieuw, site_analytics_oprollen, site_analytics_techniek en
+-- site_pageview_techniek. Dit bestand legt vast waarom.

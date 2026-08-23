@@ -398,5 +398,180 @@
       handle(data);
     })
     .catch(function () { /* no config, no test: the visitor sees the normal page */ });
+
+  /* ═══════════════════════════════════════════ site-wide analytics ═══════
+   *
+   * Runs on every page, for every visitor, whether or not a test is active.
+   * Separate from the A/B measurement above on purpose: that answers "does
+   * this variant win", this answers "what is happening on the store at all".
+   *
+   * WHAT IS SENT
+   * A path, a referrer host, utm tags, country and device — and on leaving,
+   * how long the page was open and how far down it was read. No IP, no user
+   * agent, no query string. That last one is not a principle but experience:
+   * email addresses ended up in it through Klaviyo links.
+   *
+   * The server keeps one row per session and updates it, so a visit of eight
+   * pages is one row rather than sixteen.
+   * ═══════════════════════════════════════════════════════════════════════ */
+  (function () {
+    var SESSIE = "_pt_s";
+    var SESSIE_MS = 1800000;   /* half an hour of inactivity ends the session,
+                                  the same window every analytics tool uses */
+
+    function sessieId() {
+      try {
+        var ruw = sessionStorage.getItem(SESSIE);
+        var nu = Date.now();
+        if (ruw) {
+          var s = JSON.parse(ruw);
+          if (s && s.id && nu - s.at < SESSIE_MS) {
+            sessionStorage.setItem(SESSIE, JSON.stringify({ id: s.id, at: nu, n: s.n }));
+            return { id: s.id, nieuw: false };
+          }
+        }
+        var id = nu.toString(36) + Math.random().toString(36).slice(2, 10);
+        /* New visitor or returning: the _pt_v cookie already existed before
+           this page if they have been here before. */
+        var eerder = document.cookie.indexOf("_pt_v=") !== -1;
+        sessionStorage.setItem(SESSIE, JSON.stringify({ id: id, at: nu, n: !eerder }));
+        return { id: id, nieuw: !eerder };
+      } catch (e) {
+        return { id: "x" + Math.random().toString(36).slice(2, 10), nieuw: true };
+      }
+    }
+
+    function stuur(body) {
+      try {
+        navigator.sendBeacon(APP + "/api/site",
+          new Blob([JSON.stringify(body)], { type: "text/plain" }));
+      } catch (e) {}
+    }
+
+    /**
+     * Browser, operating system, language and screen size.
+     *
+     * Worked out here, in the browser, so only the label travels — the full
+     * user agent never reaches the server. That is not only smaller: a UA
+     * string is a fairly precise fingerprint, and keeping one per session is
+     * not something a shop needs.
+     *
+     * userAgentData first where it exists (Chromium): it is the supported way
+     * to ask, and it does not lie. The sniff below is the fallback, kept short
+     * on purpose — the aim is a readable bucket, not exact identification.
+     */
+    function techniek() {
+      var ua = navigator.userAgent || "";
+      var d = navigator.userAgentData;
+
+      var browser = "";
+      if (d && d.brands) {
+        for (var i = 0; i < d.brands.length; i++) {
+          var b = d.brands[i].brand;
+          /* Chromium ships a deliberately meaningless brand to catch bad
+             sniffing; skipping it is the documented way to read this. */
+          if (b && b.indexOf("Not") === -1 && b !== "Chromium") { browser = b; break; }
+        }
+      }
+      if (!browser) {
+        browser =
+          /Edg\//.test(ua) ? "Edge" :
+          /SamsungBrowser/.test(ua) ? "Samsung Internet" :
+          /OPR\/|Opera/.test(ua) ? "Opera" :
+          /Firefox\//.test(ua) ? "Firefox" :
+          /Chrome\//.test(ua) ? "Chrome" :
+          /Safari\//.test(ua) ? "Safari" : "Other";
+      }
+
+      var os =
+        (d && d.platform) ? d.platform :
+        /iPhone|iPad|iPod/.test(ua) ? "iOS" :
+        /Android/.test(ua) ? "Android" :
+        /Windows/.test(ua) ? "Windows" :
+        /Mac OS X/.test(ua) ? "macOS" :
+        /Linux/.test(ua) ? "Linux" : "Other";
+
+      /* Buckets and not raw pixels: every phone model would otherwise become
+         its own row, and the question is "does the layout hold up", not
+         "which handset". */
+      var b = (window.screen && window.screen.width) || 0;
+      var scherm =
+        !b ? "unknown" :
+        b < 400 ? "< 400" : b < 600 ? "400 – 600" : b < 900 ? "600 – 900" :
+        b < 1300 ? "900 – 1300" : b < 1800 ? "1300 – 1800" : "1800 +";
+
+      /* Only the language, not the region: nl-BE and nl-NL answer the same
+         question and splitting them just thins the list. */
+      var taal = String(navigator.language || "").split("-")[0].toLowerCase() || "";
+
+      return { browser: browser.slice(0, 40), os: String(os).slice(0, 40),
+               taal: taal.slice(0, 8), scherm: scherm };
+    }
+
+    var params = new URLSearchParams(window.location.search);
+    var sessie = sessieId();
+    var hierPad = pad();
+    var tech = techniek();
+
+    stuur({
+      shop: SHOP, sid: sessie.id, vid: visitor, t: "view", path: hierPad,
+      ref: document.referrer || "", country: COUNTRY, device: DEVICE,
+      new: sessie.nieuw,
+      browser: tech.browser, os: tech.os, taal: tech.taal, scherm: tech.scherm,
+      us: params.get("utm_source"), um: params.get("utm_medium"),
+      uc: params.get("utm_campaign")
+    });
+
+    /* Engagement. Measured from when the page became visible rather than from
+       load, so a tab left open in the background does not count as reading. */
+    var begon = Date.now();
+    var zichtbaar = document.visibilityState !== "hidden";
+    var opgeteld = 0;
+    var diepste = 0;
+
+    function tel() {
+      if (zichtbaar) opgeteld += Date.now() - begon;
+      begon = Date.now();
+    }
+
+    document.addEventListener("visibilitychange", function () {
+      tel();
+      zichtbaar = document.visibilityState !== "hidden";
+    });
+
+    window.addEventListener("scroll", function () {
+      try {
+        var d = document.documentElement;
+        var hoogte = Math.max(d.scrollHeight - window.innerHeight, 1);
+        var pct = Math.round((window.scrollY / hoogte) * 100);
+        if (pct > diepste) diepste = Math.min(100, pct);
+      } catch (e) {}
+    }, { passive: true });
+
+    /**
+     * Leaving the page.
+     *
+     * pagehide and not unload: unload is unreliable on mobile Safari, which
+     * does not fire it when the app is backgrounded. pagehide does.
+     *
+     * Only the time not yet reported is sent, because the server adds it to
+     * what it already has. Someone who switches tabs three times would
+     * otherwise have their whole reading time counted three times over, and
+     * the average time on page would quietly inflate.
+     */
+    var gemeld = 0;
+    function vertrek() {
+      tel();
+      var nieuw = opgeteld - gemeld;
+      if (nieuw < 1000 && gemeld > 0) return;   /* niets noemenswaardigs erbij */
+      gemeld = opgeteld;
+      stuur({ shop: SHOP, sid: sessie.id, vid: visitor, t: "leave",
+              path: hierPad, ms: nieuw, scroll: diepste });
+    }
+    window.addEventListener("pagehide", vertrek);
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "hidden") vertrek();
+    });
+  })();
 })();
 </script>
