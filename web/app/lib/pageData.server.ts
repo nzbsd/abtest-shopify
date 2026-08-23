@@ -184,12 +184,26 @@ export async function testsAction(
         throw new Error("Percentage must be between 1 and 99.");
       }
 
+      const lijst = (veld: string) =>
+        String(form.get(veld) || "").split(",").map((s) => s.trim()).filter(Boolean);
+
+      const conf = parseInt(String(form.get("confidence") || "95"), 10);
+      const mde = parseFloat(String(form.get("mde") || ""));
+
       const gedeeld = {
         shop,
         test_type: type,
         naam: String(form.get("naam") || "").trim() || null,
         hypothese: String(form.get("hypothese") || "").trim() || null,
         split_pct: split,
+        primary_metric: String(form.get("primaryMetric") || "rpv"),
+        // De hoofdmetriek kan nooit ook guardrail zijn: dan zou hij zichzelf
+        // moeten bewaken, en één slecht getal twee keer meetellen.
+        guardrails: lijst("guardrails").filter((g) => g !== String(form.get("primaryMetric") || "rpv")),
+        confidence_pct: [90, 95, 99].includes(conf) ? conf : 95,
+        mde_pct: Number.isFinite(mde) && mde > 0 ? mde : null,
+        target_devices: lijst("targetDevices"),
+        target_countries: lijst("targetCountries").map((c) => c.toUpperCase()),
         is_subscription: String(form.get("isSubscription") || "") === "1",
         avg_cycles: parseFloat(String(form.get("cycles") || "")) || null,
       };

@@ -42,7 +42,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       .from("price_tests")
       .select(
         "id, test_type, control_product_id, test_product_id, test_product_handle, " +
-        "template_suffix, control_url, test_url, test_theme_id, split_pct, variant_map",
+        "template_suffix, control_url, test_url, test_theme_id, split_pct, variant_map, " +
+        "target_devices, target_countries",
       )
       .eq("shop", shop)
       .eq("status", "running");
@@ -53,15 +54,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         const type = String(row.test_type || "price");
         const splitPct = Number(row.split_pct) || 50;
 
+        // Targeting reist mee als lege lijsten wanneer er geen beperking is,
+        // zodat het thema één regel hoeft te kennen: leeg betekent iedereen.
+        const doelgroep = {
+          devices: Array.isArray(row.target_devices) ? row.target_devices : [],
+          countries: Array.isArray(row.target_countries) ? row.target_countries : [],
+        };
+
         if (type === "url") {
           if (!row.control_url || !row.test_url) return null;
-          return { id: row.id, type, splitPct, controlPath: row.control_url, testPath: row.test_url };
+          return { id: row.id, type, splitPct, doelgroep, controlPath: row.control_url, testPath: row.test_url };
         }
 
         if (type === "theme") {
           const themeId = parseInt(String(row.test_theme_id ?? "").split("/").pop() || "", 10);
           if (!Number.isFinite(themeId)) return null;
-          return { id: row.id, type, splitPct, themeId };
+          return { id: row.id, type, splitPct, doelgroep, themeId };
         }
 
         const controlProductId = gidToNum(row.control_product_id);
@@ -69,7 +77,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
         if (type === "template") {
           if (!row.template_suffix) return null;
-          return { id: row.id, type, splitPct, controlProductId, suffix: String(row.template_suffix) };
+          return { id: row.id, type, splitPct, doelgroep, controlProductId, suffix: String(row.template_suffix) };
         }
 
         // price
@@ -86,7 +94,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         }
 
         return {
-          id: row.id, type, splitPct, controlProductId, testProductId,
+          id: row.id, type, splitPct, doelgroep, controlProductId, testProductId,
           testHandle: String(row.test_product_handle), variantMap,
         };
       })

@@ -5,6 +5,8 @@ import { geld } from "~/lib/analytics";
 import { matchVariants, prijsVergelijking, type ProductInfo } from "~/lib/variants";
 import { TYPES, normaliseerPad, type TestType } from "~/lib/testTypes";
 import type { ThemaInfo, TemplateInfo } from "~/lib/themes.server";
+import { METRICS, metricInfo, type MetricKey } from "~/lib/metrics";
+import { benodigdVoorVerhouding } from "~/lib/stats";
 
 /**
  * A small diagram per test type: control on the left, variant on the right.
@@ -66,9 +68,15 @@ function TypeDiagram({ soort }: { soort: TestType }) {
  * is the moment to catch a mistake, not after live traffic has been split.
  */
 
-type Stap = 0 | 1 | 2 | 3;
+type Stap = 0 | 1 | 2 | 3 | 4;
 
-const STAPPEN = ["Type", "Setup", "Audience", "Review"];
+const STAPPEN = ["Type", "Setup", "Goal", "Audience", "Review"];
+
+const DEVICES = [
+  { key: "mobile", naam: "Mobile", sub: "under 768px" },
+  { key: "tablet", naam: "Tablet", sub: "768 – 1024px" },
+  { key: "desktop", naam: "Desktop", sub: "1024px and up" },
+];
 
 function Voortgang({ stap, naar }: { stap: Stap; naar: (s: Stap) => void }) {
   return (
@@ -516,6 +524,32 @@ export function Wizard({
   const [abo, setAbo] = useState(false);
   const [cycles, setCycles] = useState("1.8");
 
+  const [metric, setMetric] = useState<MetricKey>("rpv");
+  const [guardrails, setGuardrails] = useState<MetricKey[]>([]);
+  const [confidence, setConfidence] = useState("95");
+  const [mde, setMde] = useState("10");
+  const [devices, setDevices] = useState<string[]>([]);
+  const [landen, setLanden] = useState("");
+
+  const wissel = <T,>(lijst: T[], zet: (l: T[]) => void, waarde: T) =>
+    zet(lijst.includes(waarde) ? lijst.filter((x) => x !== waarde) : [...lijst, waarde]);
+
+  /**
+   * Hoeveel verkeer deze opzet vraagt, vóórdat hij draait.
+   *
+   * Alleen voor metrieken die een verhouding zijn: daar volgt de spreiding uit
+   * de verhouding zelf en kun je het dus vooraf uitrekenen. Voor omzet per
+   * bezoeker en orderwaarde heb je de gemeten spreiding nodig, en die is er nog
+   * niet - beter geen getal dan een verzonnen getal.
+   */
+  const raming = useMemo(() => {
+    const m = metricInfo(metric);
+    if (m.vorm !== "procent") return null;
+    const basis = metric === "atc" ? 0.08 : metric === "sub_rate" ? 0.3 : 0.03;
+    const n = benodigdVoorVerhouding(basis, Number(mde) || 0, Number(confidence) || 95);
+    return n > 0 ? { n, basis, m } : null;
+  }, [metric, mde, confidence]);
+
   const info = TYPES.find((t) => t.key === type)!;
 
   // Deeplink naar de theme editor van het live thema, om daar een template te
@@ -552,6 +586,12 @@ export function Wizard({
     fd.set("split", split);
     fd.set("isSubscription", abo ? "1" : "");
     fd.set("cycles", cycles);
+    fd.set("primaryMetric", metric);
+    fd.set("guardrails", guardrails.join(","));
+    fd.set("confidence", confidence);
+    fd.set("mde", mde);
+    fd.set("targetDevices", devices.join(","));
+    fd.set("targetCountries", landen);
     if (type === "price") { fd.set("control", control!.id); fd.set("test", test!.id); }
     if (type === "template") { fd.set("control", control!.id); fd.set("templateSuffix", suffix.trim()); }
     if (type === "url") { fd.set("controlUrl", controlUrl); fd.set("testUrl", testUrl); }
@@ -709,8 +749,109 @@ export function Wizard({
             </div>
           )}
 
-          {/* ── 3. audience ─────────────────────────────────────────────── */}
+          {/* ── 3. goal ─────────────────────────────────────────────────── */}
           {stap === 2 && (
+            <div className="tabinhoud">
+              <h3 className="wizard__kop">What decides the winner</h3>
+              <p className="wizard__sub">
+                Pick this now, not when the numbers are in. Choosing afterwards means choosing the
+                metric that happens to look good — with five metrics on screen, roughly one in four
+                tests shows a “winner” that is pure chance.
+              </p>
+
+              <div className="metriekrij">
+                {METRICS.map((m) => {
+                  const aan = metric === m.key;
+                  return (
+                    <button key={m.key} type="button" className="metriek" aria-pressed={aan}
+                            onClick={() => {
+                              setMetric(m.key);
+                              setGuardrails((g) => g.filter((x) => x !== m.key));
+                            }}>
+                      <span className="metriek__naam">{m.naam}</span>
+                      <span className="metriek__kort">{m.kort}</span>
+                      <span className={"metriek__duur metriek__duur--" + m.duur}>
+                        {m.duur === "kort" ? "settles fast"
+                          : m.duur === "middel" ? "medium traffic"
+                          : "needs a lot of traffic"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="uitlegvak">
+                <strong>{metricInfo(metric).naam}.</strong> {metricInfo(metric).uitleg}
+                <span className="uitlegvak__toets">{metricInfo(metric).toetsnaam}</span>
+              </div>
+
+              <div className="field" style={{ marginTop: 14 }}>
+                <span className="field__label">Guardrails — must not get worse</span>
+                <div className="pilrij">
+                  {METRICS.filter((m) => m.key !== metric).map((m) => (
+                    <button key={m.key} type="button" className="pilkeuze"
+                            aria-pressed={guardrails.includes(m.key)}
+                            onClick={() => wissel(guardrails, setGuardrails, m.key)}>
+                      {m.naam}
+                    </button>
+                  ))}
+                </div>
+                <span className="field__hint">
+                  Checked the other way round: a guardrail does not have to win, it only must not
+                  measurably lose. On a price test, subscription share is the usual one — more
+                  revenue today is a poor trade against fewer subscribers.
+                </span>
+              </div>
+
+              <div className="row" style={{ marginTop: 4 }}>
+                <div className="field">
+                  <span className="field__label">Confidence</span>
+                  <div className="pilrij">
+                    {["90", "95", "99"].map((c) => (
+                      <button key={c} type="button" className="pilkeuze" aria-pressed={confidence === c}
+                              onClick={() => setConfidence(c)}>{c}%</button>
+                    ))}
+                  </div>
+                  <span className="field__hint">
+                    {confidence === "90" ? "Quicker answers, more false alarms. Fine for cheap, reversible changes."
+                      : confidence === "99" ? "Slowest and strictest. For changes that are expensive to undo."
+                      : "The usual choice."}
+                  </span>
+                </div>
+                <div className="field">
+                  <span className="field__label">Smallest lift worth finding</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input type="number" min={1} max={100} step={1} value={mde}
+                           onChange={(e) => setMde(e.target.value)} style={{ maxWidth: 110 }} />
+                    <span className="muted">%</span>
+                  </div>
+                  <span className="field__hint">
+                    Halving this roughly quadruples the traffic you need. Be honest about what would
+                    actually change your mind.
+                  </span>
+                </div>
+              </div>
+
+              {raming && (
+                <Banner tone="info">
+                  At a {(raming.basis * 100).toFixed(0)}% baseline, finding a {mde}% change in{" "}
+                  {raming.m.naam.toLowerCase()} takes roughly{" "}
+                  <strong>{raming.n.toLocaleString("en-US")}</strong> visitors per group.
+                  {raming.n > 40000 && " That is a lot — consider a bigger change, or a metric that moves earlier."}
+                </Banner>
+              )}
+              {!raming && (
+                <Banner tone="info">
+                  {metricInfo(metric).naam} needs the spread of your actual data to size, so the
+                  target appears once the test has run for a day. Expect it to need more traffic
+                  than a rate-based metric.
+                </Banner>
+              )}
+            </div>
+          )}
+
+          {/* ── 4. audience ─────────────────────────────────────────────── */}
+          {stap === 3 && (
             <div className="tabinhoud">
               <h3 className="wizard__kop">Who sees it, and what is it worth</h3>
               <p className="wizard__sub">
@@ -739,6 +880,36 @@ export function Wizard({
                        onChange={(e) => setHypothese(e.target.value)} />
               </div>
 
+              <div className="row">
+                <div className="field">
+                  <span className="field__label">Devices</span>
+                  <div className="pilrij">
+                    {DEVICES.map((d) => (
+                      <button key={d.key} type="button" className="pilkeuze"
+                              aria-pressed={devices.includes(d.key)}
+                              onClick={() => wissel(devices, setDevices, d.key)}
+                              title={d.sub}>
+                        {d.naam}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="field__hint">
+                    {devices.length
+                      ? "Only these are in the test — the rest see the original and are not counted at all."
+                      : "Nothing selected means every device."}
+                  </span>
+                </div>
+                <div className="field">
+                  <span className="field__label">Countries</span>
+                  <input type="text" value={landen} placeholder="US, GB, DE — leave empty for all"
+                         onChange={(e) => setLanden(e.target.value)} />
+                  <span className="field__hint">
+                    Two-letter codes, from Shopify’s own localisation — the same country your
+                    prices and shipping are based on.
+                  </span>
+                </div>
+              </div>
+
               <div className="card" style={{ boxShadow: "none", border: "1px solid var(--line)", padding: 14, marginTop: 6 }}>
                 <label style={{ display: "flex", gap: 9, alignItems: "flex-start", cursor: "pointer" }}>
                   <input type="checkbox" checked={abo} onChange={(e) => setAbo(e.target.checked)}
@@ -764,8 +935,8 @@ export function Wizard({
             </div>
           )}
 
-          {/* ── 4. review ───────────────────────────────────────────────── */}
-          {stap === 3 && (
+          {/* ── 5. review ───────────────────────────────────────────────── */}
+          {stap === 4 && (
             <div className="tabinhoud">
               <h3 className="wizard__kop">What will happen</h3>
               <p className="wizard__sub">
@@ -795,9 +966,36 @@ export function Wizard({
                   </span>
                 </div>
                 <div className="review__rij">
+                  <span className="review__label">Decided on</span>
+                  <span>
+                    {metricInfo(metric).naam} at {confidence}% confidence
+                    {guardrails.length > 0 && (
+                      <span className="muted">
+                        {" "}· guarding {guardrails.map((g) => metricInfo(g).naam.toLowerCase()).join(", ")}
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div className="review__rij">
                   <span className="review__label">Split</span>
                   <span>{split}% test · {100 - Number(split || 0)}% control</span>
                 </div>
+                <div className="review__rij">
+                  <span className="review__label">Audience</span>
+                  <span>
+                    {devices.length ? devices.join(", ") : "all devices"}
+                    {" · "}
+                    {landen.trim() ? landen.toUpperCase() : "all countries"}
+                  </span>
+                </div>
+                {raming && (
+                  <div className="review__rij">
+                    <span className="review__label">Needs</span>
+                    <span>
+                      ~{raming.n.toLocaleString("en-US")} visitors per group to find a {mde}% change
+                    </span>
+                  </div>
+                )}
                 {abo && (
                   <div className="review__rij">
                     <span className="review__label">Lifetime</span>
@@ -828,7 +1026,7 @@ export function Wizard({
             {stap === 0 ? "Cancel" : "Back"}
           </button>
           <span style={{ flex: 1 }} />
-          {stap < 3 ? (
+          {stap < 4 ? (
             <button
               className="btn btn--iris"
               disabled={stap === 1 && !setupKlaar}

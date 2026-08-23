@@ -12,8 +12,10 @@ import {
 } from "~/lib/analytics";
 import type { OrderCijfers, OrderResultaat } from "~/lib/orders.server";
 import {
-  benodigdeBezoekers, pTekst, toetsAandeel, toetsConversie, toetsOmzetPerBezoeker, uitslagTekst,
+  benodigdeBezoekers, benodigdVoorVerhouding, pTekst, toetsAandeel, toetsConversie,
+  toetsOmzetPerBezoeker, toetsVerdeling, uitslagTekst,
 } from "~/lib/stats";
+import { benodigd, metricInfo, noemer, noemerNaam } from "~/lib/metrics";
 import type { PriceTest } from "~/lib/priceTest.server";
 import { ForecastView } from "./forecast";
 
@@ -81,15 +83,74 @@ export function AnalyticsView({
   const c = combineer(telOp(ownStats, "control"), oc);
   const t = combineer(telOp(ownStats, "test"), ot);
 
-  const revenueTest = toetsOmzetPerBezoeker(c, t);
-  const convTest = toetsConversie(c, t);
+  const betrouwbaarheid = test.confidence_pct ?? 95;
+  const revenueTest = toetsOmzetPerBezoeker(c, t, betrouwbaarheid);
+  const convTest = toetsConversie(c, t, betrouwbaarheid);
   const enough = c.visitors >= 300 && t.visitors >= 300;
 
-  // How many visitors are needed to prove a difference of this size, computed
-  // from the spread we actually measure. With no difference visible yet we use
-  // 10% — anything smaller is unaffordable to prove for most stores.
-  const target = benodigdeBezoekers(c, Math.abs(revenueTest.lift) || 10);
-  const progress = target ? Math.min(c.visitors, t.visitors) / target : 0;
+  /**
+   * De uitslag zoals de test is opgezet: de vooraf gekozen metriek, met de
+   * vooraf gekozen betrouwbaarheid. Alles daaronder blijft zichtbaar, maar
+   * uitdrukkelijk als context en niet als beslisgrond - anders kies je alsnog
+   * achteraf de metriek die het beste uitkomt.
+   */
+  const doel = metricInfo(test.primary_metric);
+  const invoer = (g: typeof c, o: OrderCijfers) => ({
+    visitors: g.visitors, atc: g.atc, orders: g.orders,
+    revenueCents: g.revenueCents, revenueSqCents: g.revenueSqCents,
+    subOrders: o.subOrders,
+  });
+  const cIn = invoer(c, oc);
+  const tIn = invoer(t, ot);
+  const doelToets = doel.toets(cIn, tIn, betrouwbaarheid);
+
+  /**
+   * Guardrails: niet "wint het", maar "verliest het niet".
+   *
+   * Een guardrail slaat alleen alarm als hij significant de verkeerde kant op
+   * gaat. Hem ook laten juichen bij winst zou hem een tweede hoofdmetriek
+   * maken, en dan ben je alsnog vijf getallen aan het afzoeken naar het beste.
+   */
+  const guardrails = (test.guardrails ?? []).map((k) => {
+    const m = metricInfo(k);
+    const toets = m.toets(cIn, tIn, betrouwbaarheid);
+    const geschonden = toets.bruikbaar && toets.significant && toets.lift < 0;
+
+    /**
+     * Groen betekent hier alleen "meetbaar beter", niet "nog niet bewezen
+     * slechter".
+     *
+     * Dat verschil deed er meteen toe: op de eerste testdata stond het
+     * abonnementsaandeel 40% lager zonder significant te zijn, en een groene
+     * stip naast -40,5% leest als "prima" terwijl het precies het signaal is
+     * waar een guardrail voor bedoeld is. Nog niet hard genoeg om alarm te
+     * slaan, veel te hard om groen te noemen.
+     */
+    const staat: "goed" | "slecht" | "let-op" | "leeg" =
+      !toets.bruikbaar ? "leeg"
+      : geschonden ? "slecht"
+      : toets.significant && toets.lift > 0 ? "goed"
+      : toets.lift < -5 ? "let-op"
+      : "leeg";
+
+    return { m, toets, geschonden, staat };
+  });
+
+  // Klopt de verdeling? Staat los van de uitslag omdat het iets anders zegt:
+  // niet "welke wint" maar "is deze vergelijking überhaupt eerlijk".
+  const srm = toetsVerdeling(c.visitors, t.visitors, test.split_pct);
+
+  /**
+   * Het doelaantal, uit de opzet en niet uit wat er toevallig gemeten is.
+   *
+   * Dit stond eerder op de waargenomen lift, en dat is precies verkeerd om:
+   * dan verschuift het doel elke dag mee met de ruis, en "we zijn er bijna"
+   * betekent niets. Nu is het de lift die je vooraf de moeite waard vond.
+   */
+  const mde = test.mde_pct ?? 10;
+  const target = benodigd(doel.key, cIn, mde, betrouwbaarheid);
+  const behaald = Math.min(noemer(doel.key, cIn), noemer(doel.key, tIn));
+  const progress = target ? behaald / target : 0;
   const smallest = Math.min(c.visitors, t.visitors);
 
   const days = looptDagen(test.started_at);
@@ -183,41 +244,104 @@ export function AnalyticsView({
       ) : (
       <div className="stack stack--strak tabinhoud">
         {tab === "verdict" && (<>
+        {/* ── de verdeling: eerst kijken of de vergelijking eerlijk is ──── */}
+        {srm.scheef && (
+          <Banner tone="error">
+            <strong>The split is off, so these results cannot be trusted.</strong> You set{" "}
+            {test.split_pct}% test, but {heel(srm.werkelijkTest)} of {heel(srm.totaal)} visitors
+            landed there — {((srm.werkelijkTest / srm.totaal) * 100).toFixed(1)}% instead of{" "}
+            {test.split_pct}%. At this many visitors that is not chance ({pTekst(srm.p)}). Something
+            is dropping visitors on one side: a redirect failing, a cache serving one version, or
+            events not arriving. Fix that before reading anything below.
+          </Banner>
+        )}
+
+        {guardrails.some((g) => g.geschonden) && (
+          <Banner tone="error">
+            <strong>A guardrail is being hit.</strong>{" "}
+            {guardrails.filter((g) => g.geschonden)
+              .map((g) => g.m.naam.toLowerCase() + " is " + ondertekend(g.toets.lift))
+              .join(", ")}
+            . You said this must not get worse, and it measurably has — even if{" "}
+            {doel.naam.toLowerCase()} is up.
+          </Banner>
+        )}
+
         {/* ── the verdict ──────────────────────────────────────────────── */}
         <Card>
           <CardHead
-            title="Revenue per visitor"
-            sub="The measure that decides it. Conversion alone misleads: a higher price nearly always lowers it while revenue can still rise."
+            title={doel.naam}
+            sub={"Chosen up front as what decides this test · " + doel.toetsnaam +
+                 " at " + betrouwbaarheid + "% confidence"}
           />
           <div className="card__body">
             <div style={{ display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap", marginBottom: 14 }}>
               <span className="num" style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-.035em" }}>
-                {ondertekend(revenueTest.lift)}
+                {ondertekend(doelToets.lift)}
               </span>
-              {c.rpv > 0 && (
-                <span className="num" style={{ fontSize: 14.5, fontWeight: 600, color: "var(--ink-2)" }}>
-                  {bedragVerschil(t.rpv - c.rpv)} per visitor
-                </span>
-              )}
-              {revenueTest.bruikbaar && (
+              <span className="num" style={{ fontSize: 14.5, fontWeight: 600, color: "var(--ink-2)" }}>
+                {doel.vorm === "geld"
+                  ? geld(doel.waarde(cIn)) + " → " + geld(doel.waarde(tIn))
+                  : doel.waarde(cIn).toFixed(2) + "% → " + doel.waarde(tIn).toFixed(2) + "%"}
+              </span>
+              {doelToets.bruikbaar && (
                 <span className="small muted num">
-                  {revenueTest.significant ? "statistically solid" : "not solid yet"} · {pTekst(revenueTest.p)}
-                  {revenueTest.significant &&
-                    " · real difference between " + ondertekend(revenueTest.onder) + " and " + ondertekend(revenueTest.boven)}
+                  {doelToets.significant ? "statistically solid" : "not solid yet"} · {pTekst(doelToets.p)}
+                  {doelToets.significant &&
+                    " · real difference between " + ondertekend(doelToets.onder) + " and " + ondertekend(doelToets.boven)}
                 </span>
               )}
             </div>
 
-            <Banner tone={!enough || !revenueTest.significant ? "warn" : revenueTest.lift >= 0 ? "ok" : "error"}>
-              {uitslagTekst(revenueTest, enough)}
+            <Banner tone={
+              srm.scheef ? "error"
+              : !enough || !doelToets.significant ? "warn"
+              : progress < 1 ? "warn"
+              : doelToets.lift >= 0 ? "ok" : "error"
+            }>
+              {srm.scheef
+                ? "The split is off — read the warning above before drawing any conclusion from this number."
+                : doelToets.significant && progress < 1 && target > 0
+                  ? "This looks significant, but the test has not reached its planned size yet (" +
+                    Math.round(progress * 100) + "%). Early significance disappears more often than " +
+                    "it holds. Checking every day and stopping at the first green multiplies the " +
+                    "false-alarm rate: at " + betrouwbaarheid + "% confidence one look risks " +
+                    (100 - betrouwbaarheid) + "%, but ten looks over a two-week test come out " +
+                    "around " +
+                    /* 1 - (1 - alfa)^k, met k = 10 kijkmomenten. Een ruwe
+                       bovengrens omdat opeenvolgende kijkmomenten samenhangen,
+                       maar de orde van grootte klopt en dat is het punt. */
+                    Math.round((1 - Math.pow(betrouwbaarheid / 100, 10)) * 100) + "%. Let it finish."
+                  : uitslagTekst(doelToets, enough)}
             </Banner>
+
+            {guardrails.length > 0 && (
+              <div className="guardrails">
+                {guardrails.map((g) => (
+                  <div key={g.m.key} className="guardrail">
+                    <span className={"guardrail__stip guardrail__stip--" + g.staat} />
+                    <span className="guardrail__naam">{g.m.naam}</span>
+                    <span className="guardrail__waarde num">
+                      {g.toets.bruikbaar ? ondertekend(g.toets.lift) : "—"}
+                    </span>
+                    <span className="small muted">
+                      {g.staat === "leeg" && !g.toets.bruikbaar ? "not enough data"
+                        : g.staat === "slecht" ? "measurably worse"
+                        : g.staat === "goed" ? "measurably better"
+                        : g.staat === "let-op" ? "down, but not solid enough to call"
+                        : "no measurable change"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {target > 0 && progress < 1 && (
               <div style={{ marginTop: 18 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 7 }}>
-                  <span className="small muted">Progress towards a reliable answer</span>
+                  <span className="small muted">Towards the size you planned for: a {mde}% change</span>
                   <span className="small num muted">
-                    {heel(smallest)} of {heel(target)} per group
+                    {heel(behaald)} of {heel(target)} {noemerNaam(doel.key)} per group
                   </span>
                 </div>
                 <Track value={progress} color="var(--iris-lit)" />

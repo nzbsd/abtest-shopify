@@ -77,6 +77,23 @@
   var THEME_ID = {{ theme.id | default: 0 | json }};
   var THEME_ROLE = {{ theme.role | default: '' | json }};
 
+  /* Land uit Shopify's eigen localisatie, niet uit een IP-gok: dit is hetzelfde
+     land waarop de winkel prijzen en verzending baseert, dus targeting en
+     kassa zijn het per definitie met elkaar eens. */
+  var COUNTRY = {{ localization.country.iso_code | default: '' | json }};
+
+  /* Device uit de viewportbreedte en niet uit de user agent. De user agent
+     liegt al twintig jaar en Chrome bouwt hem af; de breedte is wat de
+     bezoeker daadwerkelijk ziet, en dat is ook wat een test op "mobiel"
+     bedoelt. 768 is dezelfde grens die het thema aanhoudt. */
+  var DEVICE = (function () {
+    try {
+      var b = window.innerWidth || document.documentElement.clientWidth || 0;
+      if (!b) return "unknown";
+      return b < 768 ? "mobile" : b < 1024 ? "tablet" : "desktop";
+    } catch (e) { return "unknown"; }
+  })();
+
   var COOKIE = "_pt_v";
   var CACHE = "_pt_cfg";
   var CACHE_MS = 120000;   /* two minutes: long enough to skip the fetch while
@@ -115,6 +132,24 @@
   }
 
   /**
+   * Valt deze bezoeker binnen de doelgroep van de test?
+   *
+   * Een lege lijst betekent geen beperking. Dit wordt bewust vóór de
+   * groepsindeling gecontroleerd: wie niet in de doelgroep zit hoort in geen
+   * van beide groepen, ook niet in de controlegroep. Hem als controle meetellen
+   * zou de vergelijking verpesten, want zijn gedrag heeft niets met de variant
+   * te maken en verdunt precies het effect dat je zoekt.
+   */
+  function inDoelgroep(t) {
+    var d = t.doelgroep || {};
+    var devices = d.devices || [];
+    var landen = d.countries || [];
+    if (devices.length && devices.indexOf(DEVICE) === -1) return false;
+    if (landen.length && (!COUNTRY || landen.indexOf(COUNTRY) === -1)) return false;
+    return true;
+  }
+
+  /**
    * Report an event.
    *
    * text/plain, and it has to stay text/plain. application/json is not a
@@ -130,7 +165,8 @@
         APP + "/api/price-test-event",
         new Blob([JSON.stringify({
           shop: SHOP, testId: testId, cohort: cohort, eventType: type,
-          productId: PRODUCT_ID, market: MARKET, currency: CURRENCY, visitorId: visitor
+          productId: PRODUCT_ID, market: MARKET, currency: CURRENCY, visitorId: visitor,
+          device: DEVICE, country: COUNTRY
         })], { type: "text/plain" })
       );
     } catch (e) { /* a failed measurement must never hold up the store */ }
@@ -315,6 +351,7 @@
     for (var i = 0; i < tests.length; i++) {
       var t = tests[i];
       var raak = false;
+      if (!inDoelgroep(t)) continue;
       if (t.type === "theme") raak = doeTheme(t);
       else if (t.type === "url") raak = doeUrl(t);
       else if (t.type === "template") raak = doeTemplate(t);

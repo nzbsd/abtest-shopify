@@ -143,6 +143,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       product_id: String(body?.productId ?? ""),
       market: body?.market ? String(body.market) : null,
       currency: body?.currency ? String(body.currency) : null,
+      // Afgedwongen op een vaste lijst, want dit veld komt uit de browser en
+      // gaat ongefilterd een groepering in. Alles wat er niet in past wordt
+      // "unknown" in plaats van een eigen kolomwaarde in de uitsplitsing.
+      device: ["mobile", "tablet", "desktop"].includes(String(body?.device))
+        ? String(body.device)
+        : "unknown",
       visitor_id: visitorId,
     });
 

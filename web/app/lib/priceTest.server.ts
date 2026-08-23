@@ -46,6 +46,20 @@ export type PriceTest = {
   split_pct: number;
   started_at: string | null;
   stopped_at: string | null;
+  /** Waarop de uitslag gelezen wordt - zie lib/metrics.ts. */
+  primary_metric: "rpv" | "cvr" | "aov" | "sub_rate" | "atc";
+  /** Metrieken die niet mogen verslechteren, ook al wint de hoofdmetriek. */
+  guardrails: string[];
+  confidence_pct: number;
+  /** Kleinste lift die het waard is om te vinden, in procenten. */
+  mde_pct: number | null;
+  /** Leeg = iedereen. */
+  target_devices: string[];
+  target_countries: string[];
+  /** Wat je besloot toen de test stopte. */
+  besluit: "uitrollen" | "verwerpen" | "onbeslist" | "opnieuw" | null;
+  besluit_notitie: string | null;
+  besluit_at: string | null;
   /** Abonnementsproduct? Zet de LTV-voorspelling aan. */
   is_subscription: boolean;
   /** Aanname: gemiddeld aantal facturatiecycli per klant, eerste order inbegrepen. */

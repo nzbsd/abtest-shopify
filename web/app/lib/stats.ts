@@ -27,9 +27,15 @@ function normaleCdf(z: number): number {
   return z > 0 ? 1 - p : p;
 }
 
-/** Tweezijdige p-waarde bij een z- of t-waarde. */
+/**
+ * Tweezijdige p-waarde bij een z- of t-waarde.
+ *
+ * Afgekapt op [0,1]: de benadering hierboven heeft een fout van ~1e-9, en bij
+ * z = 0 komt daar 1,0000000010 uit. Wiskundig onzin en op het scherm lelijk,
+ * dus hier vastgezet in plaats van bij elke lezer.
+ */
 function tweezijdigeP(z: number): number {
-  return 2 * (1 - normaleCdf(Math.abs(z)));
+  return Math.min(1, Math.max(0, 2 * (1 - normaleCdf(Math.abs(z)))));
 }
 
 export type Toets = {
@@ -44,7 +50,21 @@ export type Toets = {
   bruikbaar: boolean;
 };
 
-const Z95 = 1.959964;
+/**
+ * Kritieke z-waarde per betrouwbaarheidsniveau.
+ *
+ * 95% is de gewoonte, maar het is een keuze en geen natuurwet. Wie snel wil
+ * bijsturen op iets goedkoops kan met 90% uit de voeten; wie een prijs voor
+ * de hele winkel omzet wil 99%. Het niveau bepaalt zowel de breedte van het
+ * interval als waar de grens voor "significant" ligt, dus het moet één
+ * instelling zijn en niet twee.
+ */
+const Z: Record<number, number> = { 90: 1.644854, 95: 1.959964, 99: 2.575829 };
+
+export const zVan = (betrouwbaarheid = 95) => Z[betrouwbaarheid] ?? Z[95];
+export const alfaVan = (betrouwbaarheid = 95) => 1 - (betrouwbaarheid ?? 95) / 100;
+
+const Z95 = Z[95];
 
 export type CohortCijfers = {
   visitors: number;
@@ -61,7 +81,7 @@ export type CohortCijfers = {
  * bezoekers mee, ook de nul-omzetters: som van kwadraten gedeeld door n, min
  * het gemiddelde in het kwadraat.
  */
-export function toetsOmzetPerBezoeker(c: CohortCijfers, t: CohortCijfers): Toets {
+export function toetsOmzetPerBezoeker(c: CohortCijfers, t: CohortCijfers, betrouwbaarheid = 95): Toets {
   const stat = (g: CohortCijfers) => {
     const n = g.visitors;
     if (n < 2) return { n, gem: 0, var: 0 };
@@ -88,7 +108,7 @@ export function toetsOmzetPerBezoeker(c: CohortCijfers, t: CohortCijfers): Toets
   // controlegroep. Dat is benaderend - het interval om een verhouding is niet
   // symmetrisch - maar bij deze aantallen is het verschil verwaarloosbaar en
   // veel makkelijker te lezen.
-  const marge = Z95 * se;
+  const marge = zVan(betrouwbaarheid) * se;
   const basis = a.gem || 1;
 
   return {
@@ -96,13 +116,118 @@ export function toetsOmzetPerBezoeker(c: CohortCijfers, t: CohortCijfers): Toets
     onder: ((verschil - marge) / basis) * 100,
     boven: ((verschil + marge) / basis) * 100,
     p,
-    significant: p < 0.05,
+    significant: p < alfaVan(betrouwbaarheid),
     bruikbaar: true,
   };
 }
 
+/**
+ * Twee gemiddelden vergelijken, gegeven som en som-van-kwadraten.
+ *
+ * Losgetrokken uit toetsOmzetPerBezoeker omdat gemiddelde orderwaarde precies
+ * dezelfde wiskunde is met een andere noemer: daar tel je per bezoeker, hier
+ * per order. Het verschil is niet cosmetisch - bij orderwaarde tellen de
+ * niet-kopers niet mee, en dat is een veel kleinere en veel minder scheve
+ * steekproef.
+ */
+export function toetsGemiddelde(
+  a: { som: number; somKwadraten: number; n: number },
+  b: { som: number; somKwadraten: number; n: number },
+  betrouwbaarheid = 95,
+): Toets {
+  const stat = (g: { som: number; somKwadraten: number; n: number }) => {
+    if (g.n < 2) return { n: g.n, gem: 0, var: 0 };
+    const gem = g.som / g.n;
+    const ruw = g.somKwadraten / g.n - gem * gem;
+    return { n: g.n, gem, var: Math.max(0, ruw) * (g.n / (g.n - 1)) };
+  };
+
+  const x = stat(a);
+  const y = stat(b);
+  // Twintig orders per groep is weinig, maar orderwaarde is veel minder scheef
+  // verdeeld dan omzet per bezoeker, dus de drempel mag lager dan de dertig
+  // die daar geldt.
+  const bruikbaar = x.n >= 20 && y.n >= 20 && (x.var > 0 || y.var > 0);
+
+  if (!bruikbaar) {
+    const lift = x.gem > 0 ? ((y.gem - x.gem) / x.gem) * 100 : 0;
+    return { lift, onder: 0, boven: 0, p: 1, significant: false, bruikbaar: false };
+  }
+
+  const se = Math.sqrt(x.var / x.n + y.var / y.n);
+  const verschil = y.gem - x.gem;
+  const p = se > 0 ? tweezijdigeP(verschil / se) : 1;
+  const marge = zVan(betrouwbaarheid) * se;
+  const basis = x.gem || 1;
+
+  return {
+    lift: (verschil / basis) * 100,
+    onder: ((verschil - marge) / basis) * 100,
+    boven: ((verschil + marge) / basis) * 100,
+    p,
+    significant: p < alfaVan(betrouwbaarheid),
+    bruikbaar: true,
+  };
+}
+
+/**
+ * Sample Ratio Mismatch: klopt de verdeling met wat je hebt ingesteld?
+ *
+ * Dit is de belangrijkste controle in de hele app en hij staat er los van de
+ * uitslag, omdat hij iets anders zegt. Stel je 50/50 in en zie je 55/45 bij
+ * duizenden bezoekers, dan is de kans dat dat toeval is verwaarloosbaar - en
+ * dan is er iets stuk aan de toewijzing, niet iets interessants aan de variant.
+ *
+ * Wat het meestal betekent: de doorverwijzing faalt voor een deel van de
+ * testgroep, een bot telt maar aan één kant mee, een cache serveert één versie,
+ * of de meting mist events aan één kant. In al die gevallen is de vergelijking
+ * scheef en zegt de uitslag niets - hoe mooi de p-waarde ook is.
+ *
+ * Chi-kwadraat met één vrijheidsgraad. De drempel ligt bewust streng op 0,001:
+ * bij ruime aantallen tikt deze toets aan op verschillen die er niet toe doen,
+ * en een vals alarm dat je leert negeren is erger dan geen alarm.
+ */
+export type SrmUitslag = {
+  verwachtTest: number;
+  werkelijkTest: number;
+  totaal: number;
+  chi: number;
+  p: number;
+  /** Scheef genoeg om de uitslag niet te vertrouwen. */
+  scheef: boolean;
+  /** Genoeg waarnemingen om er iets over te zeggen. */
+  bruikbaar: boolean;
+};
+
+export function toetsVerdeling(
+  bezoekersControle: number,
+  bezoekersTest: number,
+  splitPct: number,
+): SrmUitslag {
+  const totaal = bezoekersControle + bezoekersTest;
+  const deelTest = (splitPct || 50) / 100;
+  const verwachtTest = totaal * deelTest;
+  const verwachtControle = totaal * (1 - deelTest);
+
+  // Onder de vijfhonderd zegt deze toets zo weinig dat elk antwoord misleidt.
+  const bruikbaar = totaal >= 500 && verwachtTest > 0 && verwachtControle > 0;
+  if (!bruikbaar) {
+    return { verwachtTest, werkelijkTest: bezoekersTest, totaal, chi: 0, p: 1, scheef: false, bruikbaar: false };
+  }
+
+  const chi =
+    Math.pow(bezoekersTest - verwachtTest, 2) / verwachtTest +
+    Math.pow(bezoekersControle - verwachtControle, 2) / verwachtControle;
+
+  // Met één vrijheidsgraad is de p-waarde van chi-kwadraat gelijk aan de
+  // tweezijdige p van de wortel, gelezen op de normale verdeling.
+  const p = tweezijdigeP(Math.sqrt(chi));
+
+  return { verwachtTest, werkelijkTest: bezoekersTest, totaal, chi, p, scheef: p < 0.001, bruikbaar: true };
+}
+
 /** Conversie, getoetst op twee proporties. */
-export function toetsConversie(c: CohortCijfers, t: CohortCijfers): Toets {
+export function toetsConversie(c: CohortCijfers, t: CohortCijfers, betrouwbaarheid = 95): Toets {
   const pa = c.visitors ? c.orders / c.visitors : 0;
   const pb = t.visitors ? t.orders / t.visitors : 0;
 
@@ -126,7 +251,7 @@ export function toetsConversie(c: CohortCijfers, t: CohortCijfers): Toets {
   const p = sePool > 0 ? tweezijdigeP((pb - pa) / sePool) : 1;
 
   const se = Math.sqrt((pa * (1 - pa)) / c.visitors + (pb * (1 - pb)) / t.visitors);
-  const marge = Z95 * se;
+  const marge = zVan(betrouwbaarheid) * se;
   const basis = pa || 1;
 
   return {
@@ -134,7 +259,7 @@ export function toetsConversie(c: CohortCijfers, t: CohortCijfers): Toets {
     onder: ((pb - pa - marge) / basis) * 100,
     boven: ((pb - pa + marge) / basis) * 100,
     p,
-    significant: p < 0.05,
+    significant: p < alfaVan(betrouwbaarheid),
     bruikbaar: true,
   };
 }
@@ -178,6 +303,92 @@ export function benodigdeBezoekers(
   return Math.ceil((2 * Math.pow(zAlpha + zBeta, 2) * variantie) / (verschil * verschil));
 }
 
+/**
+ * Steekproefomvang voor een gemiddelde, uit de spreiding die je al meet.
+ *
+ * Werkt voor omzet per bezoeker (n = bezoekers) en voor orderwaarde
+ * (n = orders). Die twee door elkaar halen is geen detail: bij een test met
+ * 900 bezoekers en 250 orders levert dat een voortgang van 1% of van 40% op,
+ * afhankelijk van welke noemer je pakt, en beide zien er even plausibel uit.
+ */
+export function benodigdVoorGemiddelde(
+  controle: { som: number; somKwadraten: number; n: number },
+  minimaalVerschilPct: number,
+  betrouwbaarheid = 95,
+  power = 80,
+): number {
+  const { som, somKwadraten, n } = controle;
+  if (n < 2 || !minimaalVerschilPct) return 0;
+
+  const gem = som / n;
+  if (gem <= 0) return 0;
+
+  const ruw = somKwadraten / n - gem * gem;
+  const variantie = Math.max(0, ruw) * (n / (n - 1));
+  if (variantie <= 0) return 0;
+
+  const verschil = Math.abs(gem * (minimaalVerschilPct / 100));
+  if (verschil <= 0) return 0;
+
+  const zAlpha = zVan(betrouwbaarheid);
+  const zBeta = power >= 90 ? 1.281552 : 0.8416212;
+
+  // Twee groepen van gelijke omvang, vandaar de factor 2.
+  return Math.ceil((2 * Math.pow(zAlpha + zBeta, 2) * variantie) / (verschil * verschil));
+}
+
+/**
+ * Steekproefomvang voor een verhouding (conversie, add-to-cart, aandeel).
+ *
+ * Waarom apart van de omzetvariant: bij een verhouding volgt de spreiding uit
+ * de verhouding zelf, dus je hebt geen gemeten variantie nodig en kun je dit
+ * al uitrekenen vóórdat de test één bezoeker heeft gezien. Dat is precies wat
+ * je wilt weten op het moment dat je hem opzet.
+ *
+ * Van 2% naar 2,2% tillen vraagt iets heel anders dan van 20% naar 22%: bij
+ * lage percentages is de relatieve ruis veel groter. Vandaar de basis als
+ * argument in plaats van een vuistregel.
+ */
+export function benodigdVoorVerhouding(
+  basisFractie: number,
+  minimaalVerschilPct: number,
+  betrouwbaarheid = 95,
+  power = 80,
+): number {
+  const p1 = basisFractie;
+  const p2 = p1 * (1 + minimaalVerschilPct / 100);
+  if (p1 <= 0 || p1 >= 1 || p2 <= 0 || p2 >= 1 || minimaalVerschilPct === 0) return 0;
+
+  const zAlpha = zVan(betrouwbaarheid);
+  const zBeta = power >= 90 ? 1.281552 : 0.8416212;
+  const verschil = Math.abs(p2 - p1);
+
+  const gem = (p1 + p2) / 2;
+  const teller =
+    zAlpha * Math.sqrt(2 * gem * (1 - gem)) + zBeta * Math.sqrt(p1 * (1 - p1) + p2 * (1 - p2));
+  return Math.ceil(Math.pow(teller, 2) / (verschil * verschil));
+}
+
+/**
+ * Hoe lang de test nog moet, gegeven wat er per dag binnenkomt.
+ *
+ * Null als er niets te zeggen valt. Bewust geen schatting uit één dag verkeer:
+ * een weekend ziet er anders uit dan een dinsdag, dus onder de twee dagen
+ * historie geven we liever geen antwoord dan een antwoord dat er stellig
+ * uitziet.
+ */
+export function dagenTeGaan(
+  benodigdPerGroep: number,
+  huidigMinimum: number,
+  perDagPerGroep: number,
+  dagenGelopen: number,
+): number | null {
+  if (!benodigdPerGroep || dagenGelopen < 2 || perDagPerGroep <= 0) return null;
+  const tekort = benodigdPerGroep - huidigMinimum;
+  if (tekort <= 0) return 0;
+  return Math.ceil(tekort / perDagPerGroep);
+}
+
 /** p-waarde leesbaar maken. */
 export function pTekst(p: number): string {
   if (p < 0.001) return "p < 0.001";
@@ -218,6 +429,7 @@ export function uitslagTekst(toets: Toets, genoegBezoekers: boolean): string {
 export function toetsAandeel(
   aTeller: number, aNoemer: number,
   bTeller: number, bNoemer: number,
+  betrouwbaarheid = 95,
 ): Toets {
   const pa = aNoemer ? aTeller / aNoemer : 0;
   const pb = bNoemer ? bTeller / bNoemer : 0;
@@ -232,7 +444,7 @@ export function toetsAandeel(
   const p = sePool > 0 ? tweezijdigeP((pb - pa) / sePool) : 1;
 
   const se = Math.sqrt((pa * (1 - pa)) / aNoemer + (pb * (1 - pb)) / bNoemer);
-  const marge = Z95 * se;
+  const marge = zVan(betrouwbaarheid) * se;
   const basis = pa || 1;
 
   return {
@@ -240,7 +452,7 @@ export function toetsAandeel(
     onder: ((pb - pa - marge) / basis) * 100,
     boven: ((pb - pa + marge) / basis) * 100,
     p,
-    significant: p < 0.05,
+    significant: p < alfaVan(betrouwbaarheid),
     bruikbaar: true,
   };
 }

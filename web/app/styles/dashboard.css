@@ -1054,6 +1054,114 @@ tbody tr:hover { background: var(--wash); }
 .lijst__meta--pillen { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 2px; }
 .lijst__meta code { font-size: 10.5px; }
 
+/* ── doelmetriek ────────────────────────────────────────────────────────── */
+
+.metriekrij {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+.metriek {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 12px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  transition: border-color .15s, box-shadow .15s;
+}
+.metriek:hover { border-color: var(--line-loud); }
+.metriek[aria-pressed="true"] {
+  border-color: var(--iris-lit);
+  box-shadow: 0 0 0 1px var(--iris-lit);
+}
+.metriek__naam { font-size: 12.5px; font-weight: 700; letter-spacing: -.01em; }
+.metriek__kort { font-size: 11px; color: var(--ink-3); }
+
+/* Hoeveel verkeer een metriek vraagt. Niet met kleur als waardeoordeel - een
+   trage metriek is niet slechter, hij kost alleen meer geduld. */
+.metriek__duur {
+  margin-top: 5px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  background: var(--wash);
+  color: var(--ink-3);
+}
+.metriek__duur--kort   { background: var(--up-bg); color: var(--up); }
+.metriek__duur--lang   { background: var(--veil); color: var(--iris); }
+
+.uitlegvak {
+  margin-top: 10px;
+  padding: 11px 13px;
+  border-radius: var(--r-md);
+  background: var(--wash);
+  font-size: 12px;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.uitlegvak strong { color: var(--ink); }
+.uitlegvak__toets {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Guardrails onder de uitslag. Een stip per stuk, want de vraag is niet
+   "hoeveel" maar "is er iets aan de hand". */
+.guardrails {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.guardrail {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+}
+.guardrail:last-child { border-bottom: 0; }
+.guardrail__stip { width: 7px; height: 7px; border-radius: 999px; flex: none; }
+.guardrail__stip--goed   { background: var(--up); }
+.guardrail__stip--slecht { background: var(--down); }
+.guardrail__stip--leeg   { background: var(--ink-4); }
+/* Wijst de verkeerde kant op maar nog niet hard genoeg om alarm te slaan.
+   Bewust geen groen: een groene stip naast -40% leest als "prima". */
+.guardrail__stip--let-op { background: var(--test); }
+.guardrail__naam { font-weight: 600; }
+.guardrail__waarde { margin-left: auto; font-weight: 700; }
+
+/* Meerkeuze als pillen: guardrails, devices, betrouwbaarheid. */
+.pilrij { display: flex; flex-wrap: wrap; gap: 6px; }
+.pilkeuze {
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line-loud);
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+  transition: border-color .15s, background-color .15s, color .15s;
+}
+.pilkeuze:hover { border-color: var(--ink-4); }
+.pilkeuze[aria-pressed="true"] {
+  border-color: var(--iris);
+  background: var(--iris-pale);
+  color: var(--iris);
+}
+
 /* Een knop die als tekstlink hoort te lezen: "of typ er zelf een". */
 .linkje {
   font: inherit;
