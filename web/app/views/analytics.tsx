@@ -522,7 +522,8 @@ export function AnalyticsView({
         <div className="grid grid--2">
           {/* ── funnel ─────────────────────────────────────────────────── */}
           <Card>
-            <CardHead title="Funnel" sub="On the right, the share that made it from the previous step: control / test." />
+            <CardHead title="Where people drop off"
+                       sub="Visitors who saw the page, then added to cart, then bought. On the right the share that made it from the step above: control / test." />
             <div className="card__body">
               <div style={{ marginBottom: 16 }}><Legend /></div>
               {/* The cart step only appears when it is actually measured. This
@@ -550,7 +551,8 @@ export function AnalyticsView({
 
           {/* ── per group ──────────────────────────────────────────────── */}
           <Card>
-            <CardHead title="Per group" />
+            <CardHead title="Per group"
+                       sub="Visitors and cart adds come from our own measurement on your storefront; orders and revenue come from Shopify, with subscription renewals left out." />
             <div className="card__body card__body--flush table-scroll">
               <table>
                 <thead>
@@ -594,7 +596,7 @@ export function AnalyticsView({
             <Card>
               <CardHead
                 title="Subscription versus one-off"
-                sub="At a higher price the first thing to give way is usually the commitment, not the purchase."
+                sub="Of the people who bought, how many chose a plan. At a higher price the commitment usually gives way before the purchase does — so this can move while conversion does not."
               />
               <div className="card__body">
                 {!heeftOrders && (
@@ -646,7 +648,8 @@ export function AnalyticsView({
             </Card>
 
             <Card>
-              <CardHead title="What an order looks like" sub="Same money can mean fewer units or a smaller bundle." />
+              <CardHead title="What an order looks like"
+                         sub="The same revenue can hide a different basket: fewer units at a higher price, or a smaller bundle. This is where that shows." />
               <div className="card__body card__body--flush table-scroll">
                 <table>
                   <thead>
@@ -689,7 +692,7 @@ export function AnalyticsView({
           <Card>
             <CardHead
               title="Which option they picked"
-              sub="A tier priced the same in both groups is not part of the test — its orders add noise, not signal. This is where you see how much volume goes there."
+              sub="Which variant or tier people bought. One that is priced the same in both groups is not part of the test — its orders add noise rather than signal, and this is where you see how much volume goes there."
             />
             <div className="card__body card__body--flush table-scroll">
               <table>

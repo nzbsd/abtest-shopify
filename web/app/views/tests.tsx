@@ -160,11 +160,15 @@ function LtvInstelling({
   }
 
   return (
-    <div className="card" style={{ boxShadow: "none", border: "1px solid var(--line)", padding: 16, width: "100%", marginTop: 12 }}>
-      <label style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer" }}>
-        <input type="checkbox" checked={aan} onChange={(e) => setAan(e.target.checked)}
-               style={{ width: 16, height: 16, flex: "none" }} />
-        <strong style={{ fontSize: 13.5 }}>Subscription product</strong>
+    <div className="veldkaart" style={{ width: "100%", marginTop: 12 }}>
+      <label className="schakelrij" style={{ border: 0, padding: 0 }}>
+        <input type="checkbox" checked={aan} onChange={(e) => setAan(e.target.checked)} />
+        <span className="schakelrij__body">
+          <span className="schakelrij__naam">Subscription product</span>
+          <span className="schakelrij__sub">
+            Turns on the Forecast tab, which projects the difference over a customer lifetime.
+          </span>
+        </span>
       </label>
 
       {aan && (
@@ -258,7 +262,7 @@ export function TestsView({
     <main className="page">
       <PageHead
         titel="Tests"
-        sub="Which product runs against which duplicate, and how traffic is split."
+        sub="What is being compared with what, and how the traffic is divided."
         actie={
           <button className={"btn " + (open ? "" : "btn--iris")} onClick={() => setOpen((v) => !v)}>
             {open ? "Cancel" : "New test"}
@@ -294,7 +298,7 @@ export function TestsView({
         )}
 
         <Card>
-          <CardHead title="All tests" />
+          <CardHead title="All tests" sub="Newest first. A draft changes nothing until you start it." />
           <div className="card__body card__body--flush">
             {!tests.length && <Leeg>No tests yet.</Leeg>}
             {tests.map((t) => {

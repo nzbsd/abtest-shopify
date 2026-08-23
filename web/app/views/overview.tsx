@@ -11,6 +11,7 @@ import { toetsOmzetPerBezoeker } from "~/lib/stats";
 import { gezondheid } from "~/lib/health";
 import type { PriceTest } from "~/lib/priceTest.server";
 import { typeInfo } from "~/lib/testTypes";
+import { benodigd, metricInfo, noemer, noemerNaam } from "~/lib/metrics";
 
 /**
  * Wat er in deze test verschilt, in één regel.
@@ -59,7 +60,7 @@ export function OverviewView({
     <main className="page">
       <PageHead
         titel="Overview"
-        sub="Which price tests are running, and how they are doing."
+        sub="What is running, how far along it is, and whether anything needs your attention."
         actie={<Link className="btn btn--iris" to={basis + "/tests"}>New test</Link>}
       />
 
@@ -69,9 +70,9 @@ export function OverviewView({
                value={heel(lopend.length)}
                note={tests.length ? heel(tests.length) + " in total" : "none created yet"} />
           <Kpi icon={<IconUsers />} tone="neutral" label="Visitors measured"
-               value={heel(alleBezoekers)} note="across all tests" />
+               value={heel(alleBezoekers)} note="people who saw a tested page" />
           <Kpi icon={<IconCoins />} tone="neutral" label="Orders"
-               value={heel(alleOrders)} note="assigned to a group" />
+               value={heel(alleOrders)} note="placed after seeing one" />
           <Kpi icon={<IconCoins />} tone="test" label="Revenue"
                value={geld(alleOmzet / 100)} note="within the tests" />
         </div>
@@ -83,8 +84,9 @@ export function OverviewView({
                 <strong style={{ display: "block", marginBottom: 8, color: "var(--ink)" }}>
                   No tests yet
                 </strong>
-                First duplicate the product in Shopify with the price you want to test, and attach
-                your bundle, selling plan and reviews to it. Then create the test here.
+                A test compares two versions of something and splits your traffic between them —
+                a price, a product page, a landing page, or a whole theme. The wizard walks you
+                through it and tells you what to prepare in Shopify first.
                 <div style={{ marginTop: 16 }}>
                   <Link className="btn btn--iris" to={basis + "/tests"}>Go to Tests</Link>
                 </div>
@@ -98,11 +100,33 @@ export function OverviewView({
           const o = orders[t.id];
           const c = combineer(telOp(eigen, "control"), o?.control ?? GEEN);
           const te = combineer(telOp(eigen, "test"), o?.test ?? GEEN);
-          const toets = toetsOmzetPerBezoeker(c, te);
+          /**
+           * De metriek waarop DEZE test besloten wordt, niet omzet per bezoeker
+           * voor alles.
+           *
+           * Dit stond hardgecodeerd, waardoor het overzicht iets anders zei dan
+           * het uitslagscherm over dezelfde test. Twee schermen die hetzelfde
+           * getal anders noemen is erger dan één scherm dat het niet noemt.
+           */
+          const doel = metricInfo(t.primary_metric);
+          const betrouwbaar = t.confidence_pct ?? 95;
+          const cIn = { visitors: c.visitors, atc: c.atc, orders: c.orders,
+                        revenueCents: c.revenueCents, revenueSqCents: c.revenueSqCents,
+                        subOrders: (o?.control ?? GEEN).subOrders };
+          const tIn = { visitors: te.visitors, atc: te.atc, orders: te.orders,
+                        revenueCents: te.revenueCents, revenueSqCents: te.revenueSqCents,
+                        subOrders: (o?.test ?? GEEN).subOrders };
+          const toets = doel.toets(cIn, tIn, betrouwbaar);
+
           const dagen = looptDagen(t.started_at);
           const gezond = gezondheid(t, stats);
+
+          // Voortgang tegen het doel dat bij de test hoort, niet tegen een
+          // vast getal van 300 dat voor geen enkele test klopt.
+          const doelAantal = benodigd(doel.key, cIn, t.mde_pct ?? 10, betrouwbaar);
+          const behaald = Math.min(noemer(doel.key, cIn), noemer(doel.key, tIn));
           const kleinste = Math.min(c.visitors, te.visitors);
-          const voortgang = Math.min(kleinste / 300, 1);
+          const voortgang = doelAantal ? Math.min(behaald / doelAantal, 1) : 0;
 
           return (
             <Card key={t.id}>
@@ -115,7 +139,7 @@ export function OverviewView({
                 action={
                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                     <Badge status={t.status} />
-                    <Link className="btn btn--sm" to={basis + "/analytics"}>Details</Link>
+                    <Link className="btn btn--sm" to={basis + "/analytics?test=" + t.id}>Details</Link>
                   </div>
                 }
               />
@@ -134,7 +158,7 @@ export function OverviewView({
                 )}
                 <div style={{ display: "flex", gap: 28, flexWrap: "wrap", alignItems: "baseline", marginBottom: 16 }}>
                   <div>
-                    <p className="small muted">Revenue per visitor</p>
+                    <p className="small muted">{doel.naam}</p>
                     <p className="num" style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-.03em", marginTop: 2 }}>
                       {ondertekend(toets.lift)}
                     </p>
@@ -142,13 +166,13 @@ export function OverviewView({
                   <div>
                     <p className="small muted">Control</p>
                     <p className="num" style={{ fontSize: 14.5, fontWeight: 600, marginTop: 4 }}>
-                      {geld(c.rpv)} <span className="muted small">· {procent(c.cr)} conversion</span>
+                      {doel.vorm === "geld" ? geld(doel.waarde(cIn)) : procent(doel.waarde(cIn))}
                     </p>
                   </div>
                   <div>
                     <p className="small muted">Test</p>
                     <p className="num" style={{ fontSize: 14.5, fontWeight: 600, marginTop: 4 }}>
-                      {geld(te.rpv)} <span className="muted small">· {procent(te.cr)} conversion</span>
+                      {doel.vorm === "geld" ? geld(doel.waarde(tIn)) : procent(doel.waarde(tIn))}
                     </p>
                   </div>
                   <div style={{ marginLeft: "auto" }}>
@@ -158,11 +182,19 @@ export function OverviewView({
 
                 <Track value={voortgang} color={toets.significant ? "var(--up)" : "var(--iris-lit)"} />
                 <p className="small muted" style={{ marginTop: 8 }}>
-                  {toets.significant
-                    ? "The difference is statistically solid. You can act on this."
-                    : kleinste < 300
-                      ? heel(kleinste) + " of the ~300 visitors per group at which a difference starts to show."
-                      : "Enough visitors, but the difference is not solid yet. Let it run, or accept that the effect is small."}
+                  {!doelAantal
+                    ? heel(kleinste) + " visitors per group so far. The target fills in once there is " +
+                      "enough data to size it."
+                    : voortgang >= 1 && toets.significant
+                      ? "At full size and statistically solid. You can decide on this."
+                      : voortgang >= 1
+                        ? "At full size, but the difference is not solid. That is an answer too: any " +
+                          "effect is smaller than the " + (t.mde_pct ?? 10) + "% you set out to find."
+                        : heel(behaald) + " of " + heel(doelAantal) + " " + noemerNaam(doel.key) +
+                          " per group" +
+                          (toets.significant
+                            ? " — significant already, but early significance often disappears. Let it finish."
+                            : ".")}
                 </p>
               </div>
             </Card>
@@ -171,7 +203,7 @@ export function OverviewView({
 
         {rest.length > 0 && (
           <Card>
-            <CardHead title="Not active" sub="Drafts and stopped tests." />
+            <CardHead title="Not running" sub="Drafts you have not started, and tests you have stopped." />
             <div className="card__body card__body--flush">
               {rest.map((t) => {
                 const eigen = stats.filter((r) => r.test_id === t.id);
