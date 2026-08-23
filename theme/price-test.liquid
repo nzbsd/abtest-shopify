@@ -1,63 +1,58 @@
 {%- comment -%}
-  Price test: send part of the traffic to a duplicate product with a different
-  price.
+  Experli — A/B tests on the storefront.
 
   WHERE TO PUT THIS
-  In the <head>, on every product page. In theme.liquid before </head> is
-  simplest, or in the product template if you prefer. Fill in app_base below.
+  In the <head>, on every page. In theme.liquid before </head> is simplest.
+  Fill in app_base below with the URL of the app.
 
-  Placing it in the head matters: the redirect should happen before the page
-  paints, otherwise the visitor briefly sees the original price.
+  Every page, not just product pages: a URL test can run on a landing page or a
+  collection, and those never render the product object.
+
+  Placing it in the head matters. The redirect should happen before the page
+  paints, otherwise the visitor briefly sees the version they were not meant to
+  get.
 
   HOW IT WORKS
   1. Fetch the running tests from the app.
   2. Assign the visitor to a group once and remember it in a cookie, so a
-     return visit shows the same price. A price that moves between visits is a
+     return visit shows the same thing. A page that changes between visits is a
      support ticket waiting to happen, and it ruins the measurement.
-  3. Test group on the original product: replace the location with the
-     duplicate's URL. That page then renders itself - real prices, real
-     quantity tiers, real subscription, real currency.
-  4. Report view and add-to-cart to the app.
+  3. Do what the test type asks for the test group:
+       price     - go to the duplicate product's URL
+       template  - reload the same URL with ?view=<suffix>
+       url       - go from the first path to the second
+  4. Report view and add-to-cart, and write the group into the cart so orders
+     can be attributed to it later.
 
-  WHY A REDIRECT AND NOT REWRITING PRICES
-  An earlier version rewrote the prices in place. On this store that turned out
-  to be a bad idea: the product page shows quantity tiers, a subscription
-  discount and market pricing, all computed by the theme. Rewriting means
-  reimplementing that arithmetic and keeping it correct forever, and any theme
-  change silently breaks it - in the worst case showing one price and charging
-  another. Redirecting hands all of it back to Shopify, which already gets it
-  right.
+  WHY REDIRECTS AND NOT REWRITING THE PAGE
+  An earlier version rewrote prices in place. On a real theme that means
+  reimplementing quantity tiers, subscription discounts and market pricing, and
+  keeping all of it correct forever — with a silent wrong price as the failure
+  mode. Handing the visitor to a real page gives all of that back to Shopify,
+  which already gets it right.
 
   WHAT IT COSTS
-  The URL changes to the duplicate's. The first visit has a short delay while
-  the config is fetched; after that the decision is cached and the redirect is
-  immediate. location.replace is used rather than assigning href, so the back
-  button does not bounce the visitor into a loop.
-
-  BEFORE YOU RUN A TEST
-  Set the duplicate to "unlisted" so it stays out of search and collections,
-  and give it a canonical tag pointing at the original if your theme does not
-  already. Two near-identical public product pages is not something you want
-  Google to see.
+  The URL changes. The first page view waits briefly for the config; after that
+  it is cached and the redirect is immediate. location.replace is used rather
+  than assigning href, so the back button does not bounce the visitor into a
+  loop.
 {%- endcomment -%}
 
 {%- assign app_base = 'https://abtest-shopify.vercel.app' -%}
 
-{%- if product -%}
 <script>
 (function () {
   var APP = {{ app_base | json }};
   var SHOP = {{ shop.permanent_domain | json }};
-  var PRODUCT_ID = {{ product.id | json }};
+  var PRODUCT_ID = {{ product.id | default: 0 | json }};
   var MARKET = {{ localization.market.handle | default: '' | json }};
   var CURRENCY = {{ cart.currency.iso_code | default: shop.currency | json }};
-  if (!PRODUCT_ID) return;
 
   var COOKIE = "_pt_v";
   var CACHE = "_pt_cfg";
-  var CACHE_MS = 120000;   /* two minutes: long enough to skip the fetch on a
-                              browse session, short enough that stopping a test
-                              takes effect while you are still watching. */
+  var CACHE_MS = 120000;   /* two minutes: long enough to skip the fetch while
+                              browsing, short enough that stopping a test takes
+                              effect while you are still watching. */
 
   function readCookie(name) {
     var m = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
@@ -78,13 +73,16 @@
     writeCookie(COOKIE, visitor, 180);
   }
 
-  /* Stable assignment: derive a number 0-99 from visitor + test id. The same
-     visitor and the same test always land in the same group, without storing
-     the choice anywhere. */
+  /* Stable assignment: derive 0-99 from visitor + test id. The same visitor and
+     the same test always land in the same group, without storing the choice. */
   function bucket(key) {
     var h = 0;
     for (var i = 0; i < key.length; i++) h = ((h << 5) - h + key.charCodeAt(i)) | 0;
     return Math.abs(h) % 100;
+  }
+
+  function pad() {
+    return window.location.pathname.replace(/\/+$/, "") || "/";
   }
 
   /**
@@ -93,11 +91,9 @@
    * text/plain, and it has to stay text/plain. application/json is not a
    * CORS-safelisted content type, so it needs a preflight, and sendBeacon
    * cannot do preflights — the browser returns true, queues the request, and
-   * then silently drops it. That is exactly what happened here: the beacon
-   * looked fine from the page and nothing ever reached the database.
+   * then silently drops it. That cost an evening of debugging once.
    *
-   * The server parses the body as JSON regardless of the declared type, so
-   * nothing is lost by declaring it as plain text.
+   * The server parses the body as JSON regardless of the declared type.
    */
   function report(testId, cohort, type) {
     try {
@@ -111,10 +107,10 @@
     } catch (e) { /* a failed measurement must never hold up the store */ }
   }
 
-  /* Cart attributes travel into the order, which is how the webhook knows the
-     market and visitor behind a purchase. The group itself is decided there by
-     which product was bought, so this is context rather than the source of
-     truth. */
+  /* The group travels into the order through the cart, which is how revenue is
+     attributed later. Attribution by product would be wrong: the original is
+     also sold through ads, email and upsells whose visitors were never part of
+     the test. */
   function tagCart(testId, cohort) {
     try {
       fetch("/cart/update.js", {
@@ -133,14 +129,11 @@
   /**
    * Notice an add-to-cart.
    *
-   * Listening for a form submit is not enough on this theme: it adds to the
-   * cart with JavaScript, so no submit ever fires and the step stayed at zero.
-   * The reliable signal is the request itself — whichever button or script made
-   * it, it ends up at /cart/add.
-   *
-   * Both fetch and XMLHttpRequest are covered, because a theme or an app can
-   * use either. Reported at most once every two seconds: a double click or a
-   * theme that retries would otherwise count as two people.
+   * A form submit is not enough: most themes add to the cart with JavaScript,
+   * so no submit ever fires. The request itself is the reliable signal, and
+   * both fetch and XMLHttpRequest are covered because a theme or app can use
+   * either. Reported at most once every two seconds, so a double click does
+   * not count as two people.
    */
   function watchAddToCart(testId, cohort) {
     var laatst = 0;
@@ -150,90 +143,112 @@
       laatst = nu;
       report(testId, cohort, "atc");
     };
-    var isAdd = function (url) {
-      return typeof url === "string" && url.indexOf("/cart/add") !== -1;
-    };
+    var isAdd = function (u) { return typeof u === "string" && u.indexOf("/cart/add") !== -1; };
 
     document.addEventListener("submit", function (e) {
       var f = e.target;
       if (f && f.action && isAdd(f.action)) meld();
     }, true);
 
-    var origFetch = window.fetch;
-    if (typeof origFetch === "function") {
-      window.fetch = function (input, init) {
+    var of = window.fetch;
+    if (typeof of === "function") {
+      window.fetch = function (input) {
         try {
-          var url = typeof input === "string" ? input : (input && input.url) || "";
-          if (isAdd(url)) meld();
-        } catch (e) { /* measuring must never break a cart */ }
-        return origFetch.apply(this, arguments);
+          var u = typeof input === "string" ? input : (input && input.url) || "";
+          if (isAdd(u)) meld();
+        } catch (e) {}
+        return of.apply(this, arguments);
       };
     }
 
-    var origOpen = window.XMLHttpRequest && window.XMLHttpRequest.prototype.open;
-    if (origOpen) {
-      window.XMLHttpRequest.prototype.open = function (method, url) {
-        try { if (isAdd(url)) meld(); } catch (e) {}
-        return origOpen.apply(this, arguments);
+    var oo = window.XMLHttpRequest && window.XMLHttpRequest.prototype.open;
+    if (oo) {
+      window.XMLHttpRequest.prototype.open = function (m, u) {
+        try { if (isAdd(u)) meld(); } catch (e) {}
+        return oo.apply(this, arguments);
       };
     }
+  }
+
+  function meet(testId, cohort) {
+    report(testId, cohort, "view");
+    tagCart(testId, cohort);
+    watchAddToCart(testId, cohort);
+  }
+
+  /* ─────────────────────────────────────────────────────── per test type ─ */
+
+  function doePrice(t) {
+    /* Already on the duplicate: the visitor was sent here, or landed here
+       directly. Measure, do not redirect again. */
+    if (t.testProductId === PRODUCT_ID) return meet(t.id, "test");
+    if (t.controlProductId !== PRODUCT_ID) return false;
+
+    var cohort = bucket(visitor + ":" + t.id) < t.splitPct ? "test" : "control";
+    if (cohort === "control") return meet(t.id, "control");
+
+    var params = new URLSearchParams(window.location.search);
+    var variant = params.get("variant");
+    if (variant) {
+      var mapped = (t.variantMap || {})[String(variant)];
+      if (mapped) params.set("variant", String(mapped));
+      else params.delete("variant");
+    }
+    var q = params.toString();
+    window.location.replace("/products/" + t.testHandle + (q ? "?" + q : "") + window.location.hash);
+    return true;
+  }
+
+  function doeTemplate(t) {
+    if (t.controlProductId !== PRODUCT_ID) return false;
+
+    var params = new URLSearchParams(window.location.search);
+    var cohort = bucket(visitor + ":" + t.id) < t.splitPct ? "test" : "control";
+
+    /* Already carrying the view parameter: this is the reloaded page, so just
+       measure. Without this check the redirect would repeat forever. */
+    if (params.get("view") === t.suffix) return meet(t.id, "test");
+    if (cohort === "control") return meet(t.id, "control");
+
+    params.set("view", t.suffix);
+    window.location.replace(window.location.pathname + "?" + params.toString() + window.location.hash);
+    return true;
+  }
+
+  function doeUrl(t) {
+    var hier = pad();
+    if (hier === t.testPath) return meet(t.id, "test");
+    if (hier !== t.controlPath) return false;
+
+    var cohort = bucket(visitor + ":" + t.id) < t.splitPct ? "test" : "control";
+    if (cohort === "control") return meet(t.id, "control");
+
+    var q = window.location.search;
+    window.location.replace(t.testPath + q + window.location.hash);
+    return true;
   }
 
   function handle(data) {
     var tests = (data && data.tests) || [];
-
-    /* Are we on the duplicate? Then the visitor was sent here, or landed here
-       directly. Either way: no redirect, just measure. */
-    var asTest = tests.filter(function (t) { return t.testProductId === PRODUCT_ID; })[0];
-    if (asTest) {
-      report(asTest.id, "test", "view");
-      tagCart(asTest.id, "test");
-      watchAddToCart(asTest.id, "test");
-      return;
+    for (var i = 0; i < tests.length; i++) {
+      var t = tests[i];
+      var raak = false;
+      if (t.type === "url") raak = doeUrl(t);
+      else if (t.type === "template") raak = doeTemplate(t);
+      else raak = doePrice(t);
+      /* One test per page view. Two redirects would fight each other and the
+         visitor would end up somewhere neither test intended. */
+      if (raak) return;
     }
-
-    var test = tests.filter(function (t) { return t.controlProductId === PRODUCT_ID; })[0];
-    if (!test) return;
-
-    var cohort = bucket(visitor + ":" + test.id) < test.splitPct ? "test" : "control";
-
-    if (cohort === "control") {
-      report(test.id, "control", "view");
-      tagCart(test.id, "control");
-      watchAddToCart(test.id, "control");
-      return;
-    }
-
-    /* Test group: hand the visitor to the duplicate. Query parameters are kept
-       so ad tracking and utm tags survive; a ?variant= is mapped through when
-       we know the matching variant, otherwise dropped rather than pointing at
-       a variant that belongs to the other product. */
-    var url = new URL(window.location.href);
-    var params = new URLSearchParams(url.search);
-    var variant = params.get("variant");
-    if (variant) {
-      var mapped = (test.variantMap || {})[String(variant)];
-      if (mapped) params.set("variant", String(mapped));
-      else params.delete("variant");
-    }
-    var query = params.toString();
-    var target = "/products/" + test.testHandle + (query ? "?" + query : "") + url.hash;
-
-    /* replace and not assign: otherwise the back button lands on the original,
-       which redirects again, and the visitor is stuck. */
-    window.location.replace(target);
   }
 
-  /* Cached config first so a returning visitor is redirected without waiting
-     for the network. */
+  /* Cached config first, so a returning visitor is handled without waiting for
+     the network. */
   try {
     var raw = sessionStorage.getItem(CACHE);
     if (raw) {
-      var cached = JSON.parse(raw);
-      if (cached && cached.at && Date.now() - cached.at < CACHE_MS) {
-        handle(cached.data);
-        return;
-      }
+      var c = JSON.parse(raw);
+      if (c && c.at && Date.now() - c.at < CACHE_MS) { handle(c.data); return; }
     }
   } catch (e) { /* private mode, no storage - just fetch */ }
 
@@ -243,7 +258,6 @@
       try { sessionStorage.setItem(CACHE, JSON.stringify({ at: Date.now(), data: data })); } catch (e) {}
       handle(data);
     })
-    .catch(function () { /* no config, no test: the visitor sees the original */ });
+    .catch(function () { /* no config, no test: the visitor sees the normal page */ });
 })();
 </script>
-{%- endif -%}

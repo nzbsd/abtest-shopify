@@ -21,11 +21,21 @@ export { matchVariants, prijsVergelijking } from "./variants";
 export type PriceTest = {
   id: number;
   shop: string;
+  /** price | template | url - zie testTypes.ts */
+  test_type: "price" | "template" | "url";
+  /** Vrije naam, want het product zegt niets als er drie tests op draaien. */
+  naam: string | null;
+  hypothese: string | null;
+  /** Alleen bij een template-test: het deel achter ?view= */
+  template_suffix: string | null;
+  /** Alleen bij een url-test. */
+  control_url: string | null;
+  test_url: string | null;
   control_product_id: string;
   control_product_handle: string | null;
   control_title: string | null;
-  test_product_id: string;
-  test_product_handle: string;
+  test_product_id: string | null;
+  test_product_handle: string | null;
   test_title: string | null;
   variant_map: VariantPair[];
   status: "draft" | "running" | "stopped";

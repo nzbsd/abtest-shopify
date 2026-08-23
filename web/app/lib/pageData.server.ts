@@ -5,6 +5,7 @@ import {
 } from "./priceTest.server";
 import type { DagRij, StatRij } from "./analytics";
 import { bundleProductIds, preflight, type Bevinding } from "./preflight.server";
+import { normaliseerPad } from "./testTypes";
 import { orderCijfers, type OrderResultaat } from "./orders.server";
 
 /**
@@ -151,113 +152,77 @@ export async function testsAction(
 
   try {
     if (intent === "save") {
-      const control = await resolveProduct(admin, String(form.get("control") || ""));
-      if (!control) throw new Error("Original product not found.");
-      const test = await resolveProduct(admin, String(form.get("test") || ""));
-      if (!test) throw new Error("Duplicate not found.");
-      if (control.id === test.id) throw new Error("Original and duplicate are the same product.");
-
-      // Opnieuw koppelen op de server, met exact dezelfde functie als het
-      // scherm gebruikte. Wat de browser stuurde vertrouwen we niet; wat we
-      // opslaan moet uit de echte productgegevens komen.
-      const { pairs, unmatched } = matchVariants(control, test);
-      if (!pairs.length) throw new Error("No variant could be matched.");
-
+      const type = String(form.get("testType") || "price") as "price" | "template" | "url";
       const split = parseInt(String(form.get("split") || "50"), 10);
       if (!Number.isFinite(split) || split < 1 || split > 99) {
         throw new Error("Percentage must be between 1 and 99.");
       }
 
-      const { error } = await supabase.from("price_tests").insert({
+      const gedeeld = {
         shop,
-        control_product_id: control.id,
-        control_product_handle: control.handle,
-        control_title: control.title,
-        test_product_id: test.id,
-        test_product_handle: test.handle,
-        test_title: test.title,
-        variant_map: pairs,
+        test_type: type,
+        naam: String(form.get("naam") || "").trim() || null,
+        hypothese: String(form.get("hypothese") || "").trim() || null,
         split_pct: split,
         is_subscription: String(form.get("isSubscription") || "") === "1",
         avg_cycles: parseFloat(String(form.get("cycles") || "")) || null,
-      });
-      if (error) throw new Error(error.message);
+      };
 
-      let bericht = "Test saved: " + pairs.length + " variant(s) matched.";
-      if (unmatched.length) bericht += " Outside the test: " + unmatched.join(", ") + ".";
-      return { ok: true, bericht };
-    }
+      let rij: any;
+      let bericht = "";
 
-    if (intent === "start" || intent === "stop") {
-      const id = Number(form.get("id"));
+      if (type === "url") {
+        const a = normaliseerPad(String(form.get("controlUrl") || ""));
+        const b = normaliseerPad(String(form.get("testUrl") || ""));
+        if (!a || !b) throw new Error("Both URLs are required.");
+        if (a === b) throw new Error("The two URLs are the same.");
+        rij = { ...gedeeld, control_product_id: a, control_url: a, test_url: b, test_product_id: null };
+        bericht = "Test saved: " + a + " against " + b + ".";
+      } else {
+        const control = await resolveProduct(admin, String(form.get("control") || ""));
+        if (!control) throw new Error("Product not found.");
 
-      // Starting splits live traffic, so the two products get checked against
-      // each other first. Stopping never gets blocked: if something is wrong,
-      // stopping is the fix.
-      if (intent === "start" && String(form.get("force") || "") !== "1") {
-        const { data: rij } = await supabase
-          .from("price_tests")
-          .select("control_product_id, test_product_id")
-          .eq("id", id).eq("shop", shop).maybeSingle();
+        if (type === "template") {
+          const suffix = String(form.get("templateSuffix") || "").trim();
+          if (!suffix) throw new Error("Template suffix is required.");
+          rij = {
+            ...gedeeld,
+            control_product_id: control.id,
+            control_product_handle: control.handle,
+            control_title: control.title,
+            template_suffix: suffix,
+            test_product_id: null,
+          };
+          bericht = "Test saved: " + control.title + " against template ?view=" + suffix + ".";
+        } else {
+          const test = await resolveProduct(admin, String(form.get("test") || ""));
+          if (!test) throw new Error("Duplicate not found.");
+          if (control.id === test.id) throw new Error("Original and duplicate are the same product.");
 
-        if (rij) {
-          const [control, test, bundelIds] = await Promise.all([
-            resolveProduct(admin, rij.control_product_id),
-            resolveProduct(admin, rij.test_product_id),
-            bundleProductIds(),
-          ]);
+          // Opnieuw koppelen op de server met exact dezelfde functie als het
+          // scherm gebruikte. Wat de browser stuurde vertrouwen we niet.
+          const { pairs, unmatched } = matchVariants(control, test);
+          if (!pairs.length) throw new Error("No variant could be matched.");
 
-          if (control && test) {
-            const bevindingen = preflight({
-              control,
-              test,
-              controlSellingPlans: control.sellingPlanGroups ?? 0,
-              testSellingPlans: test.sellingPlanGroups ?? 0,
-              bundleProductIds: bundelIds,
-            });
-            const blokkerend = bevindingen.filter((b) => b.niveau === "block");
-            if (blokkerend.length) {
-              return {
-                ok: false,
-                bericht:
-                  "Not started — " + blokkerend.length + " problem(s) would make this test " +
-                  "meaningless or cost you money:\n\n" +
-                  blokkerend.map((b) => "• " + b.titel + ". " + b.uitleg).join("\n\n"),
-                bevindingen,
-              };
-            }
-            if (bevindingen.length) {
-              // Warnings do not block, but they do travel back so the screen
-              // can show them next to the started test.
-              const nieuw = {
-                status: "running", started_at: new Date().toISOString(), stopped_at: null,
-              };
-              const { error } = await supabase
-                .from("price_tests").update(nieuw).eq("id", id).eq("shop", shop);
-              if (error) throw new Error(error.message);
-              return {
-                ok: true,
-                bericht: "Test started, with " + bevindingen.length + " thing(s) worth checking.",
-                bevindingen,
-              };
-            }
-          }
+          rij = {
+            ...gedeeld,
+            control_product_id: control.id,
+            control_product_handle: control.handle,
+            control_title: control.title,
+            test_product_id: test.id,
+            test_product_handle: test.handle,
+            test_title: test.title,
+            variant_map: pairs,
+          };
+          bericht = "Test saved: " + pairs.length + " variant(s) matched.";
+          if (unmatched.length) bericht += " Outside the test: " + unmatched.join(", ") + ".";
         }
       }
 
-      const nieuw = intent === "start"
-        ? { status: "running", started_at: new Date().toISOString(), stopped_at: null }
-        : { status: "stopped", stopped_at: new Date().toISOString() };
-      const { error } = await supabase.from("price_tests").update(nieuw).eq("id", id).eq("shop", shop);
+      const { error } = await supabase.from("price_tests").insert(rij);
       if (error) throw new Error(error.message);
-      return {
-        ok: true,
-        bericht: intent === "start"
-          ? "Test started. The test group is now sent to the duplicate."
-          : "Test stopped. Everyone sees the original again.",
-      };
+      return { ok: true, bericht };
     }
-
     // Abonnementsinstellingen kunnen ook op een lopende test: ze veranderen
     // alleen hoe er gerekend wordt, niet wat bezoekers te zien krijgen.
     if (intent === "settings") {

@@ -112,8 +112,11 @@ export async function orderCijfers(
   const hit = cache.get(test.id);
   if (!opnieuw && hit && Date.now() - hit.at < CACHE_MS) return hit.data;
 
-  const controlNum = numOf(test.control_product_id);
-  const testNum = numOf(test.test_product_id);
+  // Bij een template- of url-test is er maar één product: beide groepen kopen
+  // hetzelfde. De toewijzing loopt dan volledig op de cohort-tag, en dat werkte
+  // al zo - het product is alleen nog het filter op welke orders we ophalen.
+  const controlNum = numOf(test.control_product_id || "");
+  const testNum = test.test_product_id ? numOf(test.test_product_id) : controlNum;
 
   const uit: OrderResultaat = {
     control: leeg(), test: leeg(), perVariant: {}, perDag: {}, perValuta: {},
@@ -123,9 +126,10 @@ export async function orderCijfers(
   // Only from the moment the test started. Orders before that belong to no
   // group and would only add noise on the control side.
   const sinds = test.started_at || test.created_at || new Date(Date.now() - 30 * 864e5).toISOString();
-  const q =
-    "created_at:>=" + new Date(sinds).toISOString() +
-    " AND (product_id:" + controlNum + " OR product_id:" + testNum + ")";
+  const producten = controlNum === testNum
+    ? "product_id:" + controlNum
+    : "(product_id:" + controlNum + " OR product_id:" + testNum + ")";
+  const q = "created_at:>=" + new Date(sinds).toISOString() + " AND " + producten;
 
   let cursor: string | null = null;
 

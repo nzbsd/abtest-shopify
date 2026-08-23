@@ -38,7 +38,7 @@ export function Shell({
       <aside className="rail">
         <a className="rail__brand" href={basis}>
           <span className="rail__mark"><span /></span>
-          <span className="rail__name">Price Test</span>
+          <span className="rail__name">Experli</span>
         </a>
 
         <nav className="rail__nav">

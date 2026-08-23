@@ -6,7 +6,7 @@ import { isIngelogd, maakSessie, wachtwoordKlopt } from "~/lib/dashboardAuth.ser
 import { ipVan, magNog, tellingVan, wisSleutel } from "~/lib/rateLimit.server";
 
 export const links: LinksFunction = () => [{ rel: "stylesheet", href: styles }];
-export const meta = () => [{ title: "Sign in · Price Test" }];
+export const meta = () => [{ title: "Sign in · Experli" }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   if (await isIngelogd(request)) throw redirect("/dashboard");
@@ -68,7 +68,7 @@ export default function Login() {
       <div className="card login__card">
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 22 }}>
           <span className="rail__mark"><span /></span>
-          <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-.03em" }}>Price Test</span>
+          <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-.03em" }}>Experli</span>
         </div>
 
         {!ingesteld && (

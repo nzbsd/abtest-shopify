@@ -779,3 +779,144 @@ tbody tr:hover { background: var(--wash); }
 @media (prefers-reduced-motion: reduce) {
   .kpi:hover, .compare:hover, .rail__link:hover { transform: none; padding-left: 11px; }
 }
+
+/* ══════════════════════════════════════════════════════════ wizard
+   Een test opzetten is een reeks keuzes, geen formulier. Elke stap
+   vraagt één ding en kan zichzelf uitleggen; de reviewstap laat zien
+   wat er gaat gebeuren, want dat is het laatste goedkope moment om een
+   fout te zien. */
+
+.wizard { display: flex; flex-direction: column; }
+
+.wizard__steps {
+  display: flex;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.wizard__steps::-webkit-scrollbar { display: none; }
+
+.wizard__step button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px 5px 5px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-4);
+  white-space: nowrap;
+  transition: color .15s, background-color .15s;
+}
+.wizard__step button:disabled { cursor: default; }
+
+.wizard__bol {
+  display: grid;
+  place-items: center;
+  width: 21px; height: 21px;
+  border-radius: 999px;
+  background: var(--wash);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-4);
+  transition: background-color .2s var(--ease-out), color .2s var(--ease-out);
+}
+
+.wizard__step--gedaan button { color: var(--ink-2); }
+.wizard__step--gedaan button:hover { background: var(--wash); color: var(--ink); }
+.wizard__step--gedaan .wizard__bol { background: var(--up-bg); color: var(--up); }
+
+.wizard__step--nu button { color: var(--ink); }
+.wizard__step--nu .wizard__bol { background: var(--iris-lit); color: #fff; }
+
+.wizard__paneel { padding: 18px; min-height: 300px; }
+.wizard__kop { font-size: 16px; font-weight: 700; letter-spacing: -.02em; }
+.wizard__sub { margin-top: 4px; margin-bottom: 4px; font-size: 12.5px; color: var(--ink-3); max-width: 62ch; }
+
+.wizard__voet {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--line);
+  background: var(--wash);
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
+}
+
+/* Typekeuze */
+.typekaarten {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+.typekaart {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  transition: border-color .15s, background-color .15s, transform .15s var(--ease-out);
+}
+.typekaart:hover { border-color: var(--line-loud); transform: translateY(-1px); }
+.typekaart[aria-pressed="true"] {
+  border-color: var(--iris-lit);
+  background: var(--veil);
+  box-shadow: 0 0 0 1px var(--iris-lit);
+}
+
+.typekaart__naam { font-size: 14px; font-weight: 700; letter-spacing: -.02em; }
+.typekaart__kort { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.typekaart__uitleg { font-size: 12px; color: var(--ink-3); line-height: 1.45; }
+.typekaart__mech {
+  margin-top: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--iris);
+}
+
+/* Review */
+.review {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.review__rij {
+  display: grid;
+  grid-template-columns: 132px 1fr;
+  gap: 12px;
+  padding: 11px 14px;
+  font-size: 13px;
+  border-top: 1px solid var(--line);
+}
+.review__rij:first-child { border-top: 0; }
+.review__label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+/* Type-pil in de testlijst */
+.typepil {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--veil);
+  color: var(--iris);
+}

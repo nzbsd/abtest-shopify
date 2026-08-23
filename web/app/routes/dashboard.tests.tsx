@@ -6,7 +6,7 @@ import { vereisLogin, winkelDomein } from "~/lib/dashboardAuth.server";
 import { testsAction, testsData } from "~/lib/pageData.server";
 import { adminVoorShop } from "~/lib/adminVoorShop.server";
 
-export const meta = () => [{ title: "Tests · Price Test" }];
+export const meta = () => [{ title: "Tests · Experli" }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await vereisLogin(request);

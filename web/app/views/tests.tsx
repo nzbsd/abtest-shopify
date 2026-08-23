@@ -5,6 +5,8 @@ import { Badge, Banner, Card, CardHead, Delta, Leeg } from "~/components/ui";
 import { geld, heel, looptDagen } from "~/lib/analytics";
 import { matchVariants, prijsVergelijking, type ProductInfo } from "~/lib/variants";
 import type { PriceTest } from "~/lib/priceTest.server";
+import { typeInfo, watOntbreekt } from "~/lib/testTypes";
+import { Wizard } from "./wizard";
 
 /* ── product picker ─────────────────────────────────────────────────────── */
 
@@ -35,7 +37,7 @@ function ProductRow({
     <>
       {p.image ? <img className="picker__img" src={p.image} alt="" /> : <span className="picker__img" />}
       <span className="picker__body">
-        <span className="picker__title">{p.title}</span>
+        <span className="picker__title" title={p.title}>{p.title}</span>
         <span className="picker__meta">
           <StatusPill status={p.status} />
           <code>{p.handle}</code>
@@ -276,129 +278,11 @@ export function TestsView({
         )}
 
         {open && (
-          <Card>
-            <CardHead
-              title="New test"
-              sub="The original is the control group, the duplicate is the test group."
-            />
-            <div className="card__body">
-              <Banner tone="warn">
-                First duplicate the product in Shopify and set the new price on it — per market if
-                you want. Attach your <strong>bundle, selling plan and reviews</strong> to it as
-                well; miss one and you will be measuring that difference instead of the price.
-                Keep the duplicate <strong>unlisted</strong> so it stays out of search and
-                collections.
-              </Banner>
-
-              <div className="row" style={{ marginTop: 20 }}>
-                <Picker
-                  label="Original — control group"
-                  hint="The product visitors currently land on."
-                  products={producten}
-                  picked={control}
-                  onPick={setControl}
-                  exclude={test?.id}
-                />
-                <Picker
-                  label="Duplicate — test group"
-                  hint="The same product at the price you want to test."
-                  products={producten}
-                  picked={test}
-                  onPick={setTest}
-                  exclude={control?.id}
-                />
-              </div>
-
-              {matched && (
-                <div style={{ marginTop: 24 }}>
-                  <span className="field__label">What gets matched</span>
-
-                  {samePrice && (
-                    <div style={{ marginBottom: 12 }}>
-                      <Banner tone="warn">
-                        Both products have the same price. There is nothing to measure — set the
-                        new price on the duplicate first.
-                      </Banner>
-                    </div>
-                  )}
-
-                  {matched.unmatched.length > 0 && (
-                    <div style={{ marginBottom: 12 }}>
-                      <Banner tone="error">
-                        <strong>Not matched:</strong> {matched.unmatched.join(", ")}. Those variants
-                        fall outside the test and keep their own price.
-                      </Banner>
-                    </div>
-                  )}
-
-                  <div className="table-scroll card" style={{ boxShadow: "none", border: "1px solid var(--line)" }}>
-                    <table>
-                      <thead>
-                        <tr><th>Variant</th><th>Now</th><th>Test</th><th>Difference</th></tr>
-                      </thead>
-                      <tbody>
-                        {comparison.map((v) => (
-                          <tr key={v.titel}>
-                            <td>{v.titel}</td>
-                            <td className="num">{geld(v.oud)}</td>
-                            <td className="num"><strong>{geld(v.nieuw)}</strong></td>
-                            <td>
-                              {Math.abs(v.verschil) < 0.005
-                                ? <span className="muted">same</span>
-                                : <Delta waarde={v.procent} goedAls="geen" />}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              <div className="field" style={{ maxWidth: 280, marginTop: 22 }}>
-                <span className="field__label">Percentage in the test group</span>
-                <input type="number" min={1} max={99} value={split}
-                       onChange={(e) => setSplit(e.target.value)} />
-                <span className="field__hint">The rest is the control group. 50 is almost always best.</span>
-              </div>
-
-              <div className="card" style={{ boxShadow: "none", border: "1px solid var(--line)", padding: 18, marginTop: 6 }}>
-                <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" }}>
-                  <input type="checkbox" checked={abo} onChange={(e) => setAbo(e.target.checked)}
-                         style={{ width: 16, height: 16, marginTop: 2, flex: "none" }} />
-                  <span>
-                    <strong style={{ fontSize: 13.5 }}>This is a subscription product</strong>
-                    <span className="field__hint" style={{ display: "block", marginTop: 2 }}>
-                      A price test measures the first order. For a subscription that is the smaller
-                      half: a customer paying more per cycle is worth more every cycle. Turning this
-                      on adds a Forecast tab that projects the difference over a customer lifetime.
-                    </span>
-                  </span>
-                </label>
-
-                {abo && (
-                  <div className="field" style={{ maxWidth: 320, marginTop: 16, marginBottom: 0 }}>
-                    <span className="field__label">Average billing cycles per customer</span>
-                    <input type="number" step="0.1" min={1} max={60} value={cycles}
-                           onChange={(e) => setCycles(e.target.value)} />
-                    <span className="field__hint">
-                      Including the first order. 1.8 means the first order plus roughly 0.8
-                      renewals on average. This is your assumption, not something the test can
-                      measure — the forecast treats it as such.
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <div style={{ marginTop: 22, display: "flex", gap: 10 }}>
-                <button className="btn btn--iris" onClick={save}
-                        disabled={!control || !test || !matched?.pairs.length || busy}>
-                  {busy ? "Working…" : "Save test"}
-                </button>
-                <button className="btn" onClick={() => setOpen(false)}>Cancel</button>
-              </div>
-            </div>
-          </Card>
+          <Wizard
+            producten={producten}
+            winkelUrl={winkelUrl}
+            onKlaar={() => setOpen(false)}
+          />
         )}
 
         <Card>
@@ -411,28 +295,50 @@ export function TestsView({
                 <div className="test-row" key={t.id}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                      <strong>{t.control_title || t.control_product_id}</strong>
+                      <strong>{t.naam || t.control_title || t.control_product_id}</strong>
+                      <span className="typepil">{typeInfo(t.test_type).naam}</span>
                       <Badge status={t.status} />
                     </div>
                     <div className="pair">
-                      <span className="legend__item">
-                        <span className="swatch swatch--control" />
-                        {productUrl(t.control_product_handle) ? (
-                          <a href={productUrl(t.control_product_handle)!} target="_blank" rel="noreferrer">
-                            <code>{t.control_product_handle}</code>
-                          </a>
-                        ) : <code>original</code>}
-                      </span>
-                      <span className="pair__arrow">→</span>
-                      <span className="legend__item">
-                        <span className="swatch swatch--test" />
-                        {productUrl(t.test_product_handle) ? (
-                          <a href={productUrl(t.test_product_handle)!} target="_blank" rel="noreferrer">
-                            <code>{t.test_product_handle}</code>
-                          </a>
-                        ) : <code>{t.test_product_handle}</code>}
-                      </span>
+                      {t.test_type === "url" ? (
+                        <>
+                          <span className="legend__item"><span className="swatch swatch--control" /><code>{t.control_url}</code></span>
+                          <span className="pair__arrow">→</span>
+                          <span className="legend__item"><span className="swatch swatch--test" /><code>{t.test_url}</code></span>
+                        </>
+                      ) : t.test_type === "template" ? (
+                        <>
+                          <span className="legend__item"><span className="swatch swatch--control" />default template</span>
+                          <span className="pair__arrow">→</span>
+                          <span className="legend__item"><span className="swatch swatch--test" /><code>?view={t.template_suffix}</code></span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="legend__item">
+                            <span className="swatch swatch--control" />
+                            {productUrl(t.control_product_handle) ? (
+                              <a href={productUrl(t.control_product_handle)!} target="_blank" rel="noreferrer">
+                                <code>{t.control_product_handle}</code>
+                              </a>
+                            ) : <code>original</code>}
+                          </span>
+                          <span className="pair__arrow">→</span>
+                          <span className="legend__item">
+                            <span className="swatch swatch--test" />
+                            {productUrl(t.test_product_handle) ? (
+                              <a href={productUrl(t.test_product_handle)!} target="_blank" rel="noreferrer">
+                                <code>{t.test_product_handle}</code>
+                              </a>
+                            ) : <code>{t.test_product_handle}</code>}
+                          </span>
+                        </>
+                      )}
                     </div>
+                    {watOntbreekt(t) && (
+                      <p className="small" style={{ marginTop: 6, color: "var(--down)" }}>
+                        {watOntbreekt(t)}
+                      </p>
+                    )}
                     <p className="small muted" style={{ marginTop: 6 }}>
                       {t.split_pct}% in the test group · {heel((t.variant_map || []).length)} variant(s) matched
                       {days !== null && t.status === "running" ? " · running for " + days + " days" : ""}
