@@ -23,5 +23,5 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 export default function Route() {
   const d = useLoaderData<typeof loader>();
-  return <TestsView tests={d.tests} producten={d.producten} templates={d.templates} themas={d.themas} fout={d.fout} winkelUrl={d.winkelUrl} basis="/dashboard" />;
+  return <TestsView tests={d.tests} producten={d.producten} templates={d.templates} themas={d.themas} fout={d.fout} winkelUrl={d.winkelUrl} shop={d.shop} basis="/dashboard" />;
 }

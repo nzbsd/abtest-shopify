@@ -918,41 +918,6 @@ tbody tr:hover { background: var(--wash); }
   color: var(--iris);
 }
 
-/* Kiezen uit wat er al is: templates, thema's. Compacter dan de productkiezer,
-   want een naam en een bestandsnaam is alles wat er te tonen valt. */
-.keuzeraster {
-  display: grid;
-  gap: 6px;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-}
-.keuze {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 9px 11px;
-  text-align: left;
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  background: var(--surface);
-  transition: border-color .15s, box-shadow .15s, background-color .15s;
-}
-.keuze:hover { border-color: var(--line-loud); }
-.keuze[aria-pressed="true"] {
-  border-color: var(--iris-lit);
-  box-shadow: 0 0 0 1px var(--iris-lit);
-}
-.keuze--vast { cursor: default; background: var(--wash); }
-.keuze__naam { font-size: 12.5px; font-weight: 650; letter-spacing: -.01em; }
-.keuze__meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  font-size: 11px;
-  color: var(--ink-3);
-}
-.keuze__meta code { font-size: 10.5px; }
-
 /* Control tegenover variant, naast elkaar. Een template-test is een vergelijking
    van twee pagina's, en die moet je als vergelijking kunnen lezen - niet als een
    invulveld waarbij de andere helft impliciet blijft. */
@@ -998,6 +963,96 @@ tbody tr:hover { background: var(--wash); }
   .duel { grid-template-columns: 1fr; }
   .duel__vs { justify-self: start; }
 }
+
+/* ── modaal ─────────────────────────────────────────────────────────────── */
+
+.modaal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(21, 20, 27, .38);
+  backdrop-filter: blur(2px);
+  animation: verschijn .14s var(--ease-out);
+}
+.modaal__paneel {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+  max-height: min(620px, 100%);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  animation: schuifIn .18s var(--ease-out);
+}
+.modaal__kop {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.modaal__titel { font-size: 15px; font-weight: 700; letter-spacing: -.02em; }
+.modaal__sub { margin-top: 3px; font-size: 12px; color: var(--ink-3); max-width: 52ch; }
+.modaal__sluit {
+  flex: none;
+  margin-left: auto;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-sm);
+  font-size: 19px;
+  line-height: 1;
+  color: var(--ink-3);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.modaal__sluit:hover { background: var(--wash); color: var(--ink); }
+.modaal__body { padding: 14px 18px; overflow-y: auto; }
+.modaal__voet {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px 18px;
+  border-top: 1px solid var(--line);
+  background: var(--wash);
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
+}
+
+@keyframes verschijn { from { opacity: 0 } to { opacity: 1 } }
+
+/* Een lijst om uit te kiezen: rijen, geen rooster. Dertien tegels naast elkaar
+   lieten je zoeken in plaats van lezen. */
+.lijst { border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+.lijst__rij {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.lijst__rij:last-child { border-bottom: 0; }
+.lijst__rij:hover { background: var(--wash); }
+.lijst__kies {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 9px 12px;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.lijst__naam { font-size: 13px; font-weight: 650; letter-spacing: -.01em; }
+.lijst__meta { font-size: 11px; color: var(--ink-3); }
+.lijst__meta--pillen { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 2px; }
+.lijst__meta code { font-size: 10.5px; }
 
 /* Een knop die als tekstlink hoort te lezen: "of typ er zelf een". */
 .linkje {

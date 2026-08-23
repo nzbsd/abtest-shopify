@@ -109,7 +109,7 @@ draaien.
 SHOPIFY_API_KEY
 SHOPIFY_API_SECRET
 SHOPIFY_APP_URL           de URL van de Vercel-deploy
-SCOPES=read_products,read_orders
+SCOPES=read_products,read_orders,read_themes
 SUPABASE_URL              https://qeozjlrswqummkcasewb.supabase.co
 SUPABASE_SERVICE_ROLE_KEY dezelfde als de Email Pop up-app
 DASHBOARD_PASSWORD        toegang tot /dashboard

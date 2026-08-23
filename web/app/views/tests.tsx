@@ -188,13 +188,15 @@ function LtvInstelling({
 /* ── screen ─────────────────────────────────────────────────────────────── */
 
 export function TestsView({
-  tests, producten, templates, themas, fout, winkelUrl, basis,
+  tests, producten, templates, themas, fout, winkelUrl, shop, basis,
 }: {
   tests: PriceTest[];
   producten: ProductInfo[];
   templates: TemplateInfo[];
   themas: ThemaInfo[];
   fout: string | null;
+  /** Winkeldomein, voor de deeplink naar de theme editor. */
+  shop: string | null;
   /** Public storefront URL, for preview links from a saved test. */
   winkelUrl: string | null;
   /** "/dashboard" or "/app" - where the results link points. */
@@ -286,6 +288,7 @@ export function TestsView({
             templates={templates}
             themas={themas}
             winkelUrl={winkelUrl}
+            shop={shop}
             onKlaar={() => setOpen(false)}
           />
         )}

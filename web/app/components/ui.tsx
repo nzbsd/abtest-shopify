@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 /* ── iconen ─────────────────────────────────────────────────────────────── */
 
@@ -85,6 +86,65 @@ export function Delta({ waarde, goedAls = "up" }: { waarde: number; goedAls?: "u
       {tekst}
     </span>
   );
+}
+
+/**
+ * Een keuze die te lang is om op het scherm zelf te passen.
+ *
+ * Dertien templates naast elkaar op de instelpagina lazen als een rooster
+ * waarin je moest zoeken; hier hebben ze de ruimte om een lijst te zijn, en
+ * blijft de pagina eronder de vergelijking tonen waar het om gaat.
+ */
+export function Modal({
+  titel, sub, onSluit, children, voet,
+}: {
+  titel: string;
+  sub?: string;
+  onSluit: () => void;
+  children: ReactNode;
+  voet?: ReactNode;
+}) {
+  const [gemonteerd, setGemonteerd] = useState(false);
+  useEffect(() => setGemonteerd(true), []);
+
+  // Escape sluit. Zonder dit is de enige uitweg het kruisje, en dat is precies
+  // wat mensen niet zoeken als ze zich vergist hebben.
+  useEffect(() => {
+    const opToets = (e: KeyboardEvent) => { if (e.key === "Escape") onSluit(); };
+    document.addEventListener("keydown", opToets);
+    return () => document.removeEventListener("keydown", opToets);
+  }, [onSluit]);
+
+  /**
+   * In een portal naar body, en dat is niet optioneel.
+   *
+   * position: fixed rekent tegen de dichtstbijzijnde voorouder met een
+   * transform, niet tegen het scherm. De wizard-stappen schuiven in met een
+   * transform, dus een modaal dáárbinnen dekte alleen het tabblok af: een
+   * overlay van 316 pixels hoog, midden op de pagina, met een lijst die niet
+   * verder kon groeien dan een derde van wat hij nodig had.
+   *
+   * Gemeten voordat dit erin ging, anders was het niet opgevallen: het zag er
+   * op het eerste gezicht uit als een modaal die gewoon klein was.
+   */
+  if (!gemonteerd) return null;
+
+  return createPortal((
+    <div className="modaal" role="dialog" aria-modal="true" aria-label={titel}
+         onClick={(e) => { if (e.target === e.currentTarget) onSluit(); }}>
+      <div className="modaal__paneel">
+        <div className="modaal__kop">
+          <div>
+            <h3 className="modaal__titel">{titel}</h3>
+            {sub && <p className="modaal__sub">{sub}</p>}
+          </div>
+          <button type="button" className="modaal__sluit" onClick={onSluit} aria-label="Close">×</button>
+        </div>
+        <div className="modaal__body">{children}</div>
+        {voet && <div className="modaal__voet">{voet}</div>}
+      </div>
+    </div>
+  ), document.body);
 }
 
 export function Segmented<T extends string>({

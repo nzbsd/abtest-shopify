@@ -1,6 +1,6 @@
 import { useFetcher } from "@remix-run/react";
 import { useMemo, useState } from "react";
-import { Banner, Card, Delta } from "~/components/ui";
+import { Banner, Card, Delta, Modal } from "~/components/ui";
 import { geld } from "~/lib/analytics";
 import { matchVariants, prijsVergelijking, type ProductInfo } from "~/lib/variants";
 import { TYPES, normaliseerPad, type TestType } from "~/lib/testTypes";
@@ -184,15 +184,18 @@ function Kiezer({
  * exception rather than the default.
  */
 function TemplateKiezer({
-  templates, product, waarde, onKies, previewBasis,
+  templates, product, waarde, onKies, previewBasis, themaEditorUrl,
 }: {
   templates: TemplateInfo[];
   product: ProductInfo;
   waarde: string;
   onKies: (s: string) => void;
   previewBasis: string | null;
+  themaEditorUrl: string | null;
 }) {
   const [handmatig, setHandmatig] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [zoek, setZoek] = useState("");
 
   // Wat de controlegroep vandaag ziet: het template waar het product op staat.
   // Leeg betekent het standaardtemplate, want dat is wat Shopify pakt als er
@@ -203,6 +206,11 @@ function TemplateKiezer({
   // Het eigen template van het product valt af: dat kiezen zou een test
   // opleveren waarin beide groepen precies dezelfde pagina krijgen.
   const keuzes = templates.filter((t) => t.suffix !== huidig);
+
+  const gefilterd = useMemo(() => {
+    const n = zoek.trim().toLowerCase();
+    return n ? keuzes.filter((t) => t.suffix.toLowerCase().includes(n)) : keuzes;
+  }, [keuzes, zoek]);
 
   const previewUrl = (suffix: string | null) =>
     !previewBasis ? null
@@ -243,59 +251,101 @@ function TemplateKiezer({
                   <a className="btn btn--sm btn--iris" target="_blank" rel="noreferrer"
                      href={previewUrl(waarde)!}>Preview</a>
                 )}
-                <button type="button" className="btn btn--sm" onClick={() => onKies("")}>Change</button>
+                <button type="button" className="btn btn--sm" onClick={() => setOpen(true)}>Change</button>
               </span>
             </>
           ) : (
-            <span className="duel__leeg">Pick a template below</span>
+            <>
+              <span className="duel__leeg">Nothing chosen yet</span>
+              <button type="button" className="btn btn--sm btn--iris" onClick={() => setOpen(true)}>
+                Choose template
+              </button>
+            </>
           )}
         </div>
       </div>
 
-      {!waarde && (
-        handmatig || !keuzes.length ? (
-          <div style={{ maxWidth: 340, marginTop: 12 }}>
-            <input type="text" placeholder="new-design"
-                   onChange={(e) => onKies(e.target.value.trim())} />
-            <span className="field__hint">
-              The part after the dot in <code>product.new-design.json</code>.
-              {keuzes.length > 0 && (
-                <> <button type="button" className="linkje" onClick={() => setHandmatig(false)}>
-                  Pick from the theme instead
-                </button></>
+      {open && (
+        <Modal
+          titel="Template for the test group"
+          sub={
+            keuzes.length
+              ? keuzes.length + " template" + (keuzes.length === 1 ? "" : "s") +
+                " in your live theme, apart from the one this product already uses."
+              : "No other templates found in your live theme."
+          }
+          onSluit={() => setOpen(false)}
+          voet={
+            <>
+              <span className="small muted">
+                Need a new one? Duplicate a template in the theme editor — it shows up here after.
+              </span>
+              <span style={{ flex: 1 }} />
+              {themaEditorUrl && (
+                <a className="btn btn--sm" href={themaEditorUrl} target="_blank" rel="noreferrer">
+                  Open theme editor
+                </a>
               )}
-            </span>
-            {!templates.length && (
-              <div style={{ marginTop: 10 }}>
-                <Banner tone="warn">
-                  Experli cannot read your theme's templates yet, so it cannot show the list.
-                  Open the app from Shopify once to approve the <code>read_themes</code>{" "}
-                  permission.
-                </Banner>
+              <button type="button" className="btn btn--sm"
+                      onClick={() => { setHandmatig(true); setOpen(false); }}>
+                Enter by hand
+              </button>
+            </>
+          }
+        >
+          {!templates.length && (
+            <div style={{ marginBottom: 12 }}>
+              <Banner tone="warn">
+                Experli cannot read your theme's templates yet. Deploy the app with the{" "}
+                <code>read_themes</code> permission, then approve it in Shopify.
+              </Banner>
+            </div>
+          )}
+
+          {keuzes.length > 6 && (
+            <input type="search" placeholder="Search templates" value={zoek}
+                   onChange={(e) => setZoek(e.target.value)} style={{ marginBottom: 10 }} />
+          )}
+
+          <div className="lijst">
+            {gefilterd.map((t) => (
+              <div className="lijst__rij" key={t.suffix}>
+                <button type="button" className="lijst__kies"
+                        onClick={() => { onKies(t.suffix); setOpen(false); setZoek(""); }}>
+                  <span className="lijst__naam">{t.suffix}</span>
+                  <span className="lijst__meta"><code>product.{t.suffix}.{t.soort}</code></span>
+                </button>
+                {previewBasis && (
+                  <a className="btn btn--sm" target="_blank" rel="noreferrer"
+                     href={previewUrl(t.suffix)!}
+                     onClick={(e) => e.stopPropagation()}>
+                    Preview
+                  </a>
+                )}
               </div>
+            ))}
+            {!gefilterd.length && keuzes.length > 0 && (
+              <p className="small muted" style={{ padding: 10 }}>Nothing matches that.</p>
             )}
           </div>
-        ) : (
-          <div style={{ marginTop: 12 }}>
-            <div className="keuzeraster">
-              {keuzes.map((t) => (
-                <button key={t.suffix} type="button" className="keuze" aria-pressed={false}
-                        onClick={() => onKies(t.suffix)}>
-                  <span className="keuze__naam">{t.suffix}</span>
-                  <span className="keuze__meta"><code>product.{t.suffix}.{t.soort}</code></span>
-                </button>
-              ))}
-            </div>
-            <span className="field__hint">
-              {keuzes.length} other template{keuzes.length === 1 ? "" : "s"} in your live theme.
-              {" "}
-              <button type="button" className="linkje" onClick={() => setHandmatig(true)}>
-                Enter one by hand
+        </Modal>
+      )}
+
+      {handmatig && !waarde && (
+        <div style={{ maxWidth: 340, marginTop: 12 }}>
+          <span className="field__label">Template suffix</span>
+          <input type="text" placeholder="new-design"
+                 onChange={(e) => onKies(e.target.value.trim())} />
+          <span className="field__hint">
+            The part after the dot in <code>product.new-design.json</code>.{" "}
+            {keuzes.length > 0 && (
+              <button type="button" className="linkje"
+                      onClick={() => { setHandmatig(false); setOpen(true); }}>
+                Pick from the theme instead
               </button>
-              {" "}— to make a new one, duplicate a template in the theme editor and it appears here.
-            </span>
-          </div>
-        )
+            )}
+          </span>
+        </div>
       )}
     </div>
   );
@@ -311,85 +361,141 @@ function ThemaKiezer({
   onKies: (t: ThemaInfo | null) => void;
   winkelUrl: string | null;
 }) {
+  const [open, setOpen] = useState(false);
+  const [zoek, setZoek] = useState("");
+
   const live = themas.find((t) => t.rol === "MAIN") || null;
   const keuzes = themas.filter((t) => t.rol !== "MAIN");
+
+  const gefilterd = useMemo(() => {
+    const n = zoek.trim().toLowerCase();
+    return n ? keuzes.filter((t) => t.naam.toLowerCase().includes(n)) : keuzes;
+  }, [keuzes, zoek]);
+
+  const preview = (num: number) =>
+    winkelUrl ? winkelUrl.replace(/\/+$/, "") + "/?preview_theme_id=" + num : null;
 
   if (!themas.length) {
     return (
       <Banner tone="warn">
-        No themes could be read. Experli needs the <code>read_themes</code> permission — open the
-        app from Shopify once to approve it.
+        No themes could be read. Experli needs the <code>read_themes</code> permission — deploy the
+        app with that scope and approve it in Shopify.
       </Banner>
     );
   }
 
   return (
-    <>
-      <div className="field">
-        <span className="field__label">Control — your live theme</span>
-        <div className="keuze keuze--vast">
-          <span className="keuze__naam">{live?.naam ?? "(unknown)"}</span>
-          <span className="keuze__meta">published · every visitor sees this today</span>
-        </div>
-      </div>
+    <div className="field">
+      <span className="field__label">Which theme against which</span>
 
-      <div className="field">
-        <span className="field__label">Test group gets</span>
-        <div className="keuzeraster">
-          {keuzes.map((t) => {
-            const aan = waarde?.id === t.id;
-            return (
-              <button key={t.id} type="button" className="keuze" aria-pressed={aan}
-                      onClick={() => onKies(aan ? null : t)}>
-                <span className="keuze__naam">{t.naam}</span>
-                <span className="keuze__meta">
-                  {/* Null means "could not check", which is not the same as
-                      missing — no point alarming anyone about ignorance. */}
-                  {t.snippet === false && <span className="pill pill--draft">no snippet</span>}
-                  {t.snippet === true && <span className="pill pill--active">ready</span>}
-                  {t.bijgewerkt && <span>edited {t.bijgewerkt.slice(0, 10)}</span>}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        {!keuzes.length && (
-          <span className="field__hint">There are no unpublished themes to test against.</span>
-        )}
-      </div>
-
-      {waarde && (
-        <>
-          {waarde.snippet === false && (
-            <Banner tone="error">
-              <strong>{waarde.naam}</strong> does not have the Experli snippet. The test group
-              would browse it without ever being measured. Add the snippet to that theme first —
-              Start is blocked until it is there.
-            </Banner>
-          )}
+      <div className="duel">
+        <div className="duel__kant">
+          <span className="duel__kop"><span className="swatch swatch--control" /> Control</span>
+          <span className="duel__naam">{live?.naam ?? "(unknown)"}</span>
+          <span className="duel__sub">published — every visitor sees this today</span>
           {winkelUrl && (
-            <div style={{ marginTop: 10 }}>
-              <a className="btn btn--sm btn--iris" target="_blank" rel="noreferrer"
-                 href={winkelUrl.replace(/\/+$/, "") + "/?preview_theme_id=" + waarde.num}>
-                Preview {waarde.naam}
-              </a>
-            </div>
+            <a className="btn btn--sm" target="_blank" rel="noreferrer" href={winkelUrl}>Preview</a>
           )}
-        </>
+        </div>
+
+        <span className="duel__vs">vs</span>
+
+        <div className="duel__kant">
+          <span className="duel__kop"><span className="swatch swatch--test" /> Test</span>
+          {waarde ? (
+            <>
+              <span className="duel__naam">{waarde.naam}</span>
+              <span className="duel__sub">
+                {waarde.snippet === false
+                  ? "unpublished — snippet missing"
+                  : "unpublished — served for the whole session"}
+              </span>
+              <span style={{ display: "flex", gap: 6 }}>
+                {preview(waarde.num) && (
+                  <a className="btn btn--sm btn--iris" target="_blank" rel="noreferrer"
+                     href={preview(waarde.num)!}>Preview</a>
+                )}
+                <button type="button" className="btn btn--sm" onClick={() => setOpen(true)}>Change</button>
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="duel__leeg">Nothing chosen yet</span>
+              <button type="button" className="btn btn--sm btn--iris"
+                      disabled={!keuzes.length} onClick={() => setOpen(true)}>
+                {keuzes.length ? "Choose theme" : "No unpublished themes"}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {waarde?.snippet === false && (
+        <div style={{ marginTop: 12 }}>
+          <Banner tone="error">
+            <strong>{waarde.naam}</strong> does not have the Experli snippet. The test group would
+            browse it without ever being measured. Add the snippet to that theme first — Start is
+            blocked until it is there.
+          </Banner>
+        </div>
       )}
-    </>
+
+      {open && (
+        <Modal
+          titel="Theme for the test group"
+          sub={keuzes.length + " unpublished theme" + (keuzes.length === 1 ? "" : "s") +
+               ". Experli checks each one for the snippet it needs to measure."}
+          onSluit={() => setOpen(false)}
+          voet={<span className="small muted">
+            A theme without the snippet can be picked, but not started.
+          </span>}
+        >
+          {keuzes.length > 6 && (
+            <input type="search" placeholder="Search themes" value={zoek}
+                   onChange={(e) => setZoek(e.target.value)} style={{ marginBottom: 10 }} />
+          )}
+          <div className="lijst">
+            {gefilterd.map((t) => (
+              <div className="lijst__rij" key={t.id}>
+                <button type="button" className="lijst__kies"
+                        onClick={() => { onKies(t); setOpen(false); setZoek(""); }}>
+                  <span className="lijst__naam">{t.naam}</span>
+                  <span className="lijst__meta lijst__meta--pillen">
+                    {/* Null betekent "niet kunnen bepalen", en dat is iets anders
+                        dan ontbreken - daar hoort geen alarm bij. */}
+                    {t.snippet === false && <span className="pill pill--draft">no snippet</span>}
+                    {t.snippet === true && <span className="pill pill--active">ready</span>}
+                    {t.bijgewerkt && <span>edited {t.bijgewerkt.slice(0, 10)}</span>}
+                  </span>
+                </button>
+                {preview(t.num) && (
+                  <a className="btn btn--sm" target="_blank" rel="noreferrer" href={preview(t.num)!}>
+                    Preview
+                  </a>
+                )}
+              </div>
+            ))}
+            {!gefilterd.length && (
+              <p className="small muted" style={{ padding: 10 }}>Nothing matches that.</p>
+            )}
+          </div>
+        </Modal>
+      )}
+    </div>
   );
 }
 
 /* ── wizard ──────────────────────────────────────────────────────────────── */
 
 export function Wizard({
-  producten, templates, themas, winkelUrl, onKlaar,
+  producten, templates, themas, winkelUrl, shop, onKlaar,
 }: {
   producten: ProductInfo[];
   templates: TemplateInfo[];
   themas: ThemaInfo[];
   winkelUrl: string | null;
+  /** Voor de deeplink naar de theme editor. */
+  shop: string | null;
   onKlaar: () => void;
 }) {
   const fetcher = useFetcher<{ ok: boolean; bericht: string }>();
@@ -411,6 +517,17 @@ export function Wizard({
   const [cycles, setCycles] = useState("1.8");
 
   const info = TYPES.find((t) => t.key === type)!;
+
+  // Deeplink naar de theme editor van het live thema, om daar een template te
+  // dupliceren. Dat scheelt de app write_themes, en dat is een fors mandaat
+  // voor iets wat in de editor twee klikken is.
+  const themaEditorUrl = useMemo(() => {
+    const live = themas.find((t) => t.rol === "MAIN");
+    const winkelNaam = shop?.replace(/\.myshopify\.com$/, "");
+    return live && winkelNaam
+      ? "https://admin.shopify.com/store/" + winkelNaam + "/themes/" + live.num + "/editor"
+      : null;
+  }, [themas, shop]);
 
   const koppeling = type === "price" && control && test ? matchVariants(control, test) : null;
   const vergelijking = type === "price" && control && test && koppeling
@@ -561,6 +678,7 @@ export function Wizard({
                           ? winkelUrl.replace(/\/+$/, "") + "/products/" + control.handle
                           : control.url ?? null
                       }
+                      themaEditorUrl={themaEditorUrl}
                     />
                   )}
                 </>
