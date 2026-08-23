@@ -24,6 +24,22 @@ const GEEN: OrderCijfers = {
   orders: 0, units: 0, revenueCents: 0, revenueSqCents: 0, subOrders: 0, subRevenueCents: 0,
 };
 
+/**
+ * De testgroep tegenover de controlegroep, als percentage.
+ *
+ * Een streepje als de controlegroep nul is: dan is er geen noemer en zegt een
+ * percentage niets.
+ *
+ * Het bezoekersverschil krijgt bewust "geen" mee, dus grijs in plaats van
+ * groen of rood. Meer bezoekers aan één kant is geen uitslag maar gewoon hoe
+ * de 50/50-verdeling toevallig uitviel; het kleuren zou suggereren dat de test
+ * daar iets wint of verliest.
+ */
+function Verschil(controle: number, test: number, goedAls: "up" | "geen" = "up") {
+  if (!controle) return <span className="muted">—</span>;
+  return <Delta waarde={((test - controle) / controle) * 100} goedAls={goedAls} />;
+}
+
 export function AnalyticsView({
   tests, stats, daily, orders = {},
 }: {
@@ -361,6 +377,16 @@ export function AnalyticsView({
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr>
+                    <td>Difference</td>
+                    <td>{Verschil(c.visitors, t.visitors, "geen")}</td>
+                    {c.atc + t.atc > 0 && <td>{Verschil(c.atc, t.atc)}</td>}
+                    <td>{Verschil(c.orders, t.orders)}</td>
+                    <td>{Verschil(c.revenueCents, t.revenueCents)}</td>
+                    <td>{Verschil(c.rpv, t.rpv)}</td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </Card>

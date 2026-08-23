@@ -184,66 +184,118 @@ function Kiezer({
  * exception rather than the default.
  */
 function TemplateKiezer({
-  templates, waarde, onKies, previewBasis,
+  templates, product, waarde, onKies, previewBasis,
 }: {
   templates: TemplateInfo[];
+  product: ProductInfo;
   waarde: string;
   onKies: (s: string) => void;
   previewBasis: string | null;
 }) {
   const [handmatig, setHandmatig] = useState(false);
-  const bekend = templates.some((t) => t.suffix === waarde);
 
-  if (handmatig || (!templates.length && !bekend)) {
-    return (
-      <div className="field" style={{ maxWidth: 340 }}>
-        <span className="field__label">Template suffix</span>
-        <input type="text" value={waarde} placeholder="new-design"
-               onChange={(e) => onKies(e.target.value)} />
-        <span className="field__hint">
-          The part after the dot in <code>product.new-design.json</code>.
-          {templates.length > 0 && (
-            <> <button type="button" className="linkje" onClick={() => setHandmatig(false)}>
-              Pick from the theme instead
-            </button></>
-          )}
-        </span>
-      </div>
-    );
-  }
+  // Wat de controlegroep vandaag ziet: het template waar het product op staat.
+  // Leeg betekent het standaardtemplate, want dat is wat Shopify pakt als er
+  // geen suffix is ingesteld.
+  const huidig = product.templateSuffix || null;
+  const huidigNaam = huidig ? "product." + huidig : "product (default)";
+
+  // Het eigen template van het product valt af: dat kiezen zou een test
+  // opleveren waarin beide groepen precies dezelfde pagina krijgen.
+  const keuzes = templates.filter((t) => t.suffix !== huidig);
+
+  const previewUrl = (suffix: string | null) =>
+    !previewBasis ? null
+      : suffix
+        ? previewBasis + (previewBasis.includes("?") ? "&" : "?") + "view=" + encodeURIComponent(suffix)
+        : previewBasis;
 
   return (
     <div className="field">
-      <span className="field__label">Template for the test group</span>
-      <div className="keuzeraster">
-        {templates.map((t) => {
-          const aan = t.suffix === waarde;
-          return (
-            <button key={t.suffix} type="button" className="keuze" aria-pressed={aan}
-                    onClick={() => onKies(t.suffix)}>
-              <span className="keuze__naam">{t.suffix}</span>
-              <span className="keuze__meta"><code>product.{t.suffix}.{t.soort}</code></span>
-            </button>
-          );
-        })}
-      </div>
-      <span className="field__hint">
-        {templates.length} alternate template{templates.length === 1 ? "" : "s"} in your live theme.
-        {" "}
-        <button type="button" className="linkje" onClick={() => setHandmatig(true)}>
-          Enter one by hand
-        </button>
-      </span>
-      {waarde && previewBasis && (
-        <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
-          <a className="btn btn--sm" target="_blank" rel="noreferrer" href={previewBasis}>
-            Preview control
-          </a>
-          <a className="btn btn--sm btn--iris" target="_blank" rel="noreferrer"
-             href={previewBasis + (previewBasis.includes("?") ? "&" : "?") + "view=" + encodeURIComponent(waarde)}>
-            Preview variant
-          </a>
+      <span className="field__label">Which page against which</span>
+
+      <div className="duel">
+        <div className="duel__kant">
+          <span className="duel__kop"><span className="swatch swatch--control" /> Control</span>
+          <span className="duel__naam">{huidigNaam}</span>
+          <span className="duel__sub">
+            {huidig ? "the template this product is set to" : "the default product template"}
+          </span>
+          {previewBasis && (
+            <a className="btn btn--sm" target="_blank" rel="noreferrer" href={previewUrl(null)!}>
+              Preview
+            </a>
+          )}
         </div>
+
+        <span className="duel__vs">vs</span>
+
+        <div className="duel__kant">
+          <span className="duel__kop"><span className="swatch swatch--test" /> Test</span>
+          {waarde ? (
+            <>
+              <span className="duel__naam">product.{waarde}</span>
+              <span className="duel__sub">
+                served as <code>?view={waarde}</code>
+              </span>
+              <span style={{ display: "flex", gap: 6 }}>
+                {previewBasis && (
+                  <a className="btn btn--sm btn--iris" target="_blank" rel="noreferrer"
+                     href={previewUrl(waarde)!}>Preview</a>
+                )}
+                <button type="button" className="btn btn--sm" onClick={() => onKies("")}>Change</button>
+              </span>
+            </>
+          ) : (
+            <span className="duel__leeg">Pick a template below</span>
+          )}
+        </div>
+      </div>
+
+      {!waarde && (
+        handmatig || !keuzes.length ? (
+          <div style={{ maxWidth: 340, marginTop: 12 }}>
+            <input type="text" placeholder="new-design"
+                   onChange={(e) => onKies(e.target.value.trim())} />
+            <span className="field__hint">
+              The part after the dot in <code>product.new-design.json</code>.
+              {keuzes.length > 0 && (
+                <> <button type="button" className="linkje" onClick={() => setHandmatig(false)}>
+                  Pick from the theme instead
+                </button></>
+              )}
+            </span>
+            {!templates.length && (
+              <div style={{ marginTop: 10 }}>
+                <Banner tone="warn">
+                  Experli cannot read your theme's templates yet, so it cannot show the list.
+                  Open the app from Shopify once to approve the <code>read_themes</code>{" "}
+                  permission.
+                </Banner>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ marginTop: 12 }}>
+            <div className="keuzeraster">
+              {keuzes.map((t) => (
+                <button key={t.suffix} type="button" className="keuze" aria-pressed={false}
+                        onClick={() => onKies(t.suffix)}>
+                  <span className="keuze__naam">{t.suffix}</span>
+                  <span className="keuze__meta"><code>product.{t.suffix}.{t.soort}</code></span>
+                </button>
+              ))}
+            </div>
+            <span className="field__hint">
+              {keuzes.length} other template{keuzes.length === 1 ? "" : "s"} in your live theme.
+              {" "}
+              <button type="button" className="linkje" onClick={() => setHandmatig(true)}>
+                Enter one by hand
+              </button>
+              {" "}— to make a new one, duplicate a template in the theme editor and it appears here.
+            </span>
+          </div>
+        )
       )}
     </div>
   );
@@ -368,7 +420,8 @@ export function Wizard({
 
   const setupKlaar =
     type === "price" ? Boolean(control && test && koppeling?.pairs.length)
-    : type === "template" ? Boolean(control && suffix.trim())
+    // De variant moet een ánder template zijn dan waar het product al op staat.
+    : type === "template" ? Boolean(control && suffix.trim() && suffix.trim() !== control.templateSuffix)
     : type === "theme" ? Boolean(thema)
     : Boolean(controlUrl.trim() && testUrl.trim() &&
               normaliseerPad(controlUrl) !== normaliseerPad(testUrl));
@@ -487,18 +540,29 @@ export function Wizard({
                 <>
                   <div style={{ marginTop: 16 }}>
                     <Kiezer label="Product" hint="Both groups buy this, at the same price."
-                            products={producten} picked={control} onPick={setControl} />
+                            products={producten} picked={control}
+                            onPick={(p) => {
+                              setControl(p);
+                              // Wissel je van product, dan kan de gekozen variant
+                              // toevallig het eigen template van het nieuwe product
+                              // zijn - en dan zouden beide groepen dezelfde pagina
+                              // krijgen zonder dat het scherm dat laat merken.
+                              if (p && suffix && p.templateSuffix === suffix) setSuffix("");
+                            }} />
                   </div>
-                  <TemplateKiezer
-                    templates={templates}
-                    waarde={suffix}
-                    onKies={setSuffix}
-                    previewBasis={
-                      control && winkelUrl
-                        ? winkelUrl.replace(/\/+$/, "") + "/products/" + control.handle
-                        : null
-                    }
-                  />
+                  {control && (
+                    <TemplateKiezer
+                      templates={templates}
+                      product={control}
+                      waarde={suffix}
+                      onKies={setSuffix}
+                      previewBasis={
+                        winkelUrl
+                          ? winkelUrl.replace(/\/+$/, "") + "/products/" + control.handle
+                          : control.url ?? null
+                      }
+                    />
+                  )}
                 </>
               )}
 

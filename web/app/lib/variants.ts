@@ -30,6 +30,10 @@ export type ProductInfo = {
   /** Number of selling plan groups. Used by the pre-flight check: a duplicate
       without one means the test group cannot subscribe at all. */
   sellingPlanGroups?: number;
+  /** Het template waar dit product nu op staat, zonder "product." ervoor.
+      Leeg betekent het standaardtemplate (product.json). Dit is de
+      controlekant van een page design-test: wat bezoekers vandaag zien. */
+  templateSuffix?: string | null;
   variants: VariantInfo[];
 };
 

@@ -59,7 +59,7 @@ function numOf(gid: string): number {
 }
 
 const PRODUCT_VELDEN = `
-  id handle title status
+  id handle title status templateSuffix
   sellingPlanGroupCount
   onlineStoreUrl
   onlineStorePreviewUrl
@@ -76,6 +76,7 @@ function naarProductInfo(p: any): ProductInfo {
     status: p.status,
     url: p.onlineStoreUrl || p.onlineStorePreviewUrl || null,
     sellingPlanGroups: Number(p.sellingPlanGroupCount) || 0,
+    templateSuffix: p.templateSuffix || null,
     variants: (p.variants?.nodes || []).map((v: any) => ({
       id: v.id,
       num: numOf(v.id),
