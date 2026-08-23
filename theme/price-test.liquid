@@ -130,11 +130,53 @@
     } catch (e) {}
   }
 
+  /**
+   * Notice an add-to-cart.
+   *
+   * Listening for a form submit is not enough on this theme: it adds to the
+   * cart with JavaScript, so no submit ever fires and the step stayed at zero.
+   * The reliable signal is the request itself — whichever button or script made
+   * it, it ends up at /cart/add.
+   *
+   * Both fetch and XMLHttpRequest are covered, because a theme or an app can
+   * use either. Reported at most once every two seconds: a double click or a
+   * theme that retries would otherwise count as two people.
+   */
   function watchAddToCart(testId, cohort) {
+    var laatst = 0;
+    var meld = function () {
+      var nu = Date.now();
+      if (nu - laatst < 2000) return;
+      laatst = nu;
+      report(testId, cohort, "atc");
+    };
+    var isAdd = function (url) {
+      return typeof url === "string" && url.indexOf("/cart/add") !== -1;
+    };
+
     document.addEventListener("submit", function (e) {
       var f = e.target;
-      if (f && f.action && f.action.indexOf("/cart/add") !== -1) report(testId, cohort, "atc");
+      if (f && f.action && isAdd(f.action)) meld();
     }, true);
+
+    var origFetch = window.fetch;
+    if (typeof origFetch === "function") {
+      window.fetch = function (input, init) {
+        try {
+          var url = typeof input === "string" ? input : (input && input.url) || "";
+          if (isAdd(url)) meld();
+        } catch (e) { /* measuring must never break a cart */ }
+        return origFetch.apply(this, arguments);
+      };
+    }
+
+    var origOpen = window.XMLHttpRequest && window.XMLHttpRequest.prototype.open;
+    if (origOpen) {
+      window.XMLHttpRequest.prototype.open = function (method, url) {
+        try { if (isAdd(url)) meld(); } catch (e) {}
+        return origOpen.apply(this, arguments);
+      };
+    }
   }
 
   function handle(data) {

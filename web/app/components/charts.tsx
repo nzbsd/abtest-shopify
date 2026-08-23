@@ -136,12 +136,24 @@ export function Trechter({
           <div className="funnel__row" key={s.label}>
             <span className="funnel__label">{s.label}</span>
             <div className="funnel__bars">
-              <div className="funnel__bar" style={{ width: (s.control / max) * 100 + "%", background: "var(--control)" }}>
-                <span className="num">{heel(s.control)}</span>
-              </div>
-              <div className="funnel__bar" style={{ width: (s.test / max) * 100 + "%", background: "var(--test)" }}>
-                <span className="num">{heel(s.test)}</span>
-              </div>
+              {([["control", s.control], ["test", s.test]] as const).map(([k, v]) => {
+                const breedte = (v / max) * 100;
+                // Under a fifth of the width the number no longer fits inside the
+                // bar; it gets clipped to a single digit and reads as a wrong
+                // figure rather than a small one. Below that it sits beside it.
+                const binnen = breedte > 20;
+                return (
+                  <div className="funnel__lane" key={k}>
+                    <div
+                      className={"funnel__bar" + (binnen ? "" : " funnel__bar--smal")}
+                      style={{ width: breedte + "%", background: "var(--" + k + ")" }}
+                    >
+                      {binnen && <span className="num">{heel(v)}</span>}
+                    </div>
+                    {!binnen && <span className="funnel__buiten num">{heel(v)}</span>}
+                  </div>
+                );
+              })}
             </div>
             <span className="small muted num" style={{ minWidth: 96, textAlign: "right" }}>
               {behoudC === null ? "—" : behoudC.toFixed(1) + "% / " + (behoudT ?? 0).toFixed(1) + "%"}

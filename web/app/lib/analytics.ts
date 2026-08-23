@@ -139,9 +139,19 @@ export function looptDagen(start: string | null | undefined): number | null {
 /* ── formatting ─────────────────────────────────────────────────────────── */
 
 /* en-US throughout: this store prices in USD and the interface is English, so
-   1,234.56 rather than 1.234,56. */
+   1,234.56 rather than 1.234,56.
+
+   All amounts come from Shopify as shopMoney, which is always the shop
+   currency — USD here — regardless of what the customer paid in. The symbol is
+   part of the number for that reason: a bare 49.01 next to a table of GBP
+   orders invites exactly the wrong reading. */
 export const geld = (v: number) =>
-  v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  "$" + v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** Signed amount, for showing a difference rather than a level. */
+export const bedragVerschil = (v: number) =>
+  (v >= 0 ? "+" : "-") + "$" +
+  Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export const heel = (v: number) => Math.round(v).toLocaleString("en-US");
 

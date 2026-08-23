@@ -7,7 +7,7 @@ import {
   Kpi, Leeg, Legend, Segmented, Track, Vergelijk,
 } from "~/components/ui";
 import {
-  beperkTotDagen, combineer, dagReeks, geld, heel, korteDatum, looptDagen, ondertekend, procent,
+  bedragVerschil, beperkTotDagen, combineer, dagReeks, geld, heel, korteDatum, looptDagen, ondertekend, procent,
   telOp, type DagRij, type StatRij,
 } from "~/lib/analytics";
 import type { OrderCijfers, OrderResultaat } from "~/lib/orders.server";
@@ -152,6 +152,11 @@ export function AnalyticsView({
               <span className="num" style={{ fontSize: 44, fontWeight: 700, letterSpacing: "-.035em" }}>
                 {ondertekend(revenueTest.lift)}
               </span>
+              {c.rpv > 0 && (
+                <span className="num" style={{ fontSize: 17, fontWeight: 600, color: "var(--ink-2)" }}>
+                  {bedragVerschil(t.rpv - c.rpv)} per visitor
+                </span>
+              )}
               {revenueTest.bruikbaar && (
                 <span className="small muted num">
                   {revenueTest.significant ? "statistically solid" : "not solid yet"} · {pTekst(revenueTest.p)}
@@ -217,7 +222,10 @@ export function AnalyticsView({
             control={geld(c.aov)}
             test={geld(t.aov)}
             delta={c.aov ? ((t.aov - c.aov) / c.aov) * 100 : 0}
-            noot={heel(c.orders) + " versus " + heel(t.orders) + " orders"}
+            noot={
+              (c.aov ? bedragVerschil(t.aov - c.aov) + " per order · " : "") +
+              heel(c.orders) + " versus " + heel(t.orders) + " orders"
+            }
           />
         </div>
 
@@ -291,7 +299,11 @@ export function AnalyticsView({
             <div className="card__body card__body--flush table-scroll">
               <table>
                 <thead>
-                  <tr><th>Group</th><th>Visitors</th><th>Cart</th><th>Orders</th><th>Revenue</th><th>/ visitor</th></tr>
+                  <tr>
+                    <th>Group</th><th>Visitors</th>
+                    {c.atc + t.atc > 0 && <th>Cart</th>}
+                    <th>Orders</th><th>Revenue</th><th>/ visitor</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {([["control", "Control", c], ["test", "Test", t]] as const).map(([k, label, g]) => (
@@ -300,7 +312,7 @@ export function AnalyticsView({
                         <span className="cell-series"><span className={"swatch swatch--" + k} />{label}</span>
                       </td>
                       <td>{heel(g.visitors)}</td>
-                      <td>{heel(g.atc)}</td>
+                      {c.atc + t.atc > 0 && <td>{heel(g.atc)}</td>}
                       <td>{heel(g.orders)}</td>
                       <td>{geld(g.revenueCents / 100)}</td>
                       <td><strong>{geld(g.rpv)}</strong></td>
@@ -388,6 +400,18 @@ export function AnalyticsView({
                           <td><strong>{geld(g.aov)}</strong></td>
                         </tr>
                       ),
+                    )}
+                    {oc.orders > 0 && ot.orders > 0 && (
+                      <tr>
+                        <td className="muted">Difference</td>
+                        <td className="muted">{ot.orders - oc.orders > 0 ? "+" : ""}{heel(ot.orders - oc.orders)}</td>
+                        <td className="muted">{ot.units - oc.units > 0 ? "+" : ""}{heel(ot.units - oc.units)}</td>
+                        <td className="muted">
+                          {((ot.units / ot.orders) - (oc.units / oc.orders) > 0 ? "+" : "") +
+                            ((ot.units / ot.orders) - (oc.units / oc.orders)).toFixed(2)}
+                        </td>
+                        <td><strong>{bedragVerschil(t.aov - c.aov)}</strong></td>
+                      </tr>
                     )}
                   </tbody>
                 </table>

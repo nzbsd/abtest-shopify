@@ -617,3 +617,9 @@ code {
 }
 .compare__delta { margin-left: auto; padding-bottom: 4px; }
 .compare__note { margin-top: 12px; font-size: 12px; color: var(--ink-3); }
+
+/* Trechterbalk: het getal staat in de balk, maar bij een smalle balk ernaast —
+   binnenin wordt het afgeknipt tot één cijfer en dat leest als een fout getal. */
+.funnel__lane { display: flex; align-items: center; gap: 8px; }
+.funnel__bar--smal { min-width: 4px; }
+.funnel__buiten { font-size: 11.5px; font-weight: 700; color: var(--ink-2); }
