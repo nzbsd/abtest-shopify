@@ -854,7 +854,7 @@ tbody tr:hover { background: var(--wash); }
 
 .wizard__paneel { padding: 18px; min-height: 300px; }
 .wizard__kop { font-size: 16px; font-weight: 700; letter-spacing: -.02em; }
-.wizard__sub { margin-top: 4px; margin-bottom: 4px; font-size: 12.5px; color: var(--ink-3); max-width: 62ch; }
+.wizard__sub { margin-top: 3px; margin-bottom: 2px; font-size: 12.5px; color: var(--ink-3); max-width: 62ch; }
 
 .wizard__voet {
   display: flex;
@@ -908,7 +908,6 @@ tbody tr:hover { background: var(--wash); }
 
 .typekaart__naam { font-size: 13.5px; font-weight: 700; letter-spacing: -.02em; }
 .typekaart__kort { font-size: 11.5px; font-weight: 600; color: var(--ink-2); }
-.typekaart__uitleg { font-size: 11.5px; color: var(--ink-3); line-height: 1.45; margin-top: 2px; }
 .typekaart__mech {
   margin-top: 7px;
   padding-top: 7px;
@@ -1088,7 +1087,7 @@ tbody tr:hover { background: var(--wash); }
   align-items: flex-start;
   gap: 11px;
   width: 100%;
-  padding: 11px 13px;
+  padding: 9px 13px;
   text-align: left;
   background: none;
   border: 0;
@@ -1359,4 +1358,187 @@ tbody tr:hover { background: var(--wash); }
   font-weight: 700;
   background: var(--veil);
   color: var(--iris);
+}
+
+/* ── de overige wizardstappen, in dezelfde taal ─────────────────────────────
+   Uitlezing waar iets uitkomt, kaart waar iets bij elkaar hoort, en de
+   controle/test-kleuren consequent: iris links, oranje rechts, van de
+   opzetstap tot in de uitslag.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* De uitleg bij het gekozen type. Eén blok in plaats van vier alinea's die
+   je alle vier moet lezen om één keuze te maken. */
+.typeuitleg {
+  margin-top: 12px;
+  padding: 13px 15px;
+  border-radius: var(--r-md);
+  background: var(--wash);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  max-width: 78ch;
+  animation: schuifIn .2s var(--ease-out) both;
+}
+.typeuitleg__voor {
+  margin-top: 9px;
+  padding-top: 9px;
+  border-top: 1px solid var(--line-loud);
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.typeuitleg__voor span {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+/* De verdeling zie je, in plaats van hem in te typen. */
+.verdeling {
+  padding: 13px 15px 15px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+.verdeling__kop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.verdeling__cijfers { display: flex; gap: 14px; font-size: 12px; font-weight: 650; }
+.verdeling__ctl { color: var(--control); }
+.verdeling__tst { color: var(--test); }
+
+.verdeling__balk {
+  display: flex;
+  height: 9px;
+  margin: 10px 0 2px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--wash);
+}
+.verdeling__deel { transition: width .18s var(--ease-out); }
+.verdeling__deel--control { background: var(--control); }
+.verdeling__deel--test { background: var(--test); }
+
+/* De schuif zelf is onzichtbaar op de balk na: die balk ís de weergave, en
+   twee weergaven van hetzelfde getal boven elkaar is ruis. */
+.verdeling__schuif {
+  display: block;
+  width: 100%;
+  margin: 0 0 8px;
+  height: 18px;
+  padding: 0;
+  background: none;
+  border: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: ew-resize;
+}
+.verdeling__schuif::-webkit-slider-runnable-track { height: 18px; background: none; }
+.verdeling__schuif::-moz-range-track { height: 18px; background: none; }
+.verdeling__schuif::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  margin-top: 1px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1.5px solid var(--ink-4);
+  box-shadow: var(--shadow-card);
+  transition: border-color .13s, transform .13s var(--ease-out);
+}
+.verdeling__schuif::-moz-range-thumb {
+  width: 16px; height: 16px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1.5px solid var(--ink-4);
+  box-shadow: var(--shadow-card);
+}
+.verdeling__schuif:hover::-webkit-slider-thumb { border-color: var(--iris); }
+.verdeling__schuif:active::-webkit-slider-thumb { transform: scale(1.12); border-color: var(--iris); }
+.verdeling__schuif:hover::-moz-range-thumb { border-color: var(--iris); }
+
+/* Een omlijnd vlak zonder schaduw: hoort binnen een kaart, dus het mag niet
+   nog eens lijken op te tillen. */
+.vlak {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+/* Een groepje dat bij elkaar hoort. Vervangt de bordered div met inline
+   stijlen die hier eerder als noodgreep stond. */
+.veldkaart {
+  padding: 12px 14px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+.veldkaart__kop {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.veldkaart .field__hint { display: block; margin-top: 8px; }
+.veldkaart .row { gap: 10px; }
+
+/* Aan/uit met een uitleg ernaast, als eigen rij in plaats van een kaart. */
+.schakelrij {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color .13s;
+}
+.schakelrij:hover { border-color: var(--line-loud); }
+.schakelrij > input[type="checkbox"] { width: 15px; height: 15px; margin-top: 1px; flex: none; accent-color: var(--iris); }
+.schakelrij__body { flex: 1; min-width: 0; }
+.schakelrij__naam { display: block; font-size: 12.5px; font-weight: 650; }
+.schakelrij__sub { display: block; margin-top: 2px; font-size: 11.5px; line-height: 1.5; color: var(--ink-3); }
+.schakelrij__extra {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.schakelrij__extra input { width: 62px; text-align: right; }
+
+/* De samenvatting: label links, waarde rechts, zwaarte op de waarde. */
+.samenvat { margin-top: 8px; }
+.samenvat__rij {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+.samenvat__rij:last-child { border-bottom: 0; }
+.samenvat__rij span { color: var(--ink-3); flex: none; }
+.samenvat__rij strong { font-weight: 650; text-align: right; }
+.samenvat__rij--klem strong { color: var(--iris); }
+.samenvat__hyp {
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid var(--line);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--ink-3);
+  font-style: italic;
 }

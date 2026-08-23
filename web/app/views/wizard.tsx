@@ -636,6 +636,10 @@ export function Wizard({
                 test group is shown differs.
               </p>
 
+              {/* Vier kaarten met elk vier alinea's is vier keer lezen om één
+                  keuze te maken. De lange uitleg hoort bij de kaart die je
+                  overweegt, niet bij alle vier tegelijk - zelfde patroon als
+                  bij de metrieken. */}
               <div className="typekaarten">
                 {TYPES.map((t) => (
                   <button
@@ -648,10 +652,17 @@ export function Wizard({
                     <TypeDiagram soort={t.key} />
                     <span className="typekaart__naam">{t.naam}</span>
                     <span className="typekaart__kort">{t.kort}</span>
-                    <span className="typekaart__uitleg">{t.uitleg}</span>
                     <span className="typekaart__mech">{t.mechaniek}</span>
                   </button>
                 ))}
+              </div>
+
+              <div className="typeuitleg">
+                <p>{info.uitleg}</p>
+                <p className="typeuitleg__voor">
+                  <span>Before you can start</span>
+                  {info.voorbereiding}
+                </p>
               </div>
             </div>
           )}
@@ -692,7 +703,7 @@ export function Wizard({
                           </Banner>
                         </div>
                       )}
-                      <div className="table-scroll card" style={{ boxShadow: "none", border: "1px solid var(--line)" }}>
+                      <div className="table-scroll vlak">
                         <table>
                           <thead><tr><th>Variant</th><th>Now</th><th>Test</th><th>Difference</th></tr></thead>
                           <tbody>
@@ -906,172 +917,238 @@ export function Wizard({
 
           {/* ── 4. audience ─────────────────────────────────────────────── */}
           {stap === 3 && (
-            <div className="tabinhoud">
-              <h3 className="wizard__kop">Who sees it, and what is it worth</h3>
+            <div className="tabinhoud doel">
+              <h3 className="wizard__kop">Who gets it, and what to call it</h3>
               <p className="wizard__sub">
-                A name helps once several tests run on the same product. The hypothesis is for
-                your future self, who will not remember why this seemed like a good idea.
+                Everything here you can change later except one thing: the split, once traffic has
+                been counted against it.
               </p>
 
-              <div className="row" style={{ marginTop: 16 }}>
-                <div className="field">
-                  <span className="field__label">Name</span>
-                  <input type="text" value={naam} placeholder="Oregano +$4"
-                         onChange={(e) => setNaam(e.target.value)} />
+              {/* De verdeling is een verdeling, geen getalveld. Je verdeelt echt
+                  verkeer in tweeën, en dat hoort te zien te zijn - inclusief
+                  welke helft welke kleur heeft, dezelfde kleuren als in de
+                  uitslag straks. */}
+              <div className="verdeling">
+                <div className="verdeling__kop">
+                  <span className="field__label" style={{ margin: 0 }}>Traffic split</span>
+                  <span className="verdeling__cijfers num">
+                    <span className="verdeling__ctl">{100 - Number(split || 0)}% control</span>
+                    <span className="verdeling__tst">{split}% test</span>
+                  </span>
                 </div>
-                <div className="field">
-                  <span className="field__label">Percentage in the test group</span>
-                  <input type="number" min={1} max={99} value={split}
-                         onChange={(e) => setSplit(e.target.value)} />
-                  <span className="field__hint">50 is almost always best — it gets you an answer soonest.</span>
+
+                <div className="verdeling__balk">
+                  <span className="verdeling__deel verdeling__deel--control"
+                        style={{ width: (100 - Number(split || 0)) + "%" }} />
+                  <span className="verdeling__deel verdeling__deel--test"
+                        style={{ width: Number(split || 0) + "%" }} />
                 </div>
+
+                <input
+                  className="verdeling__schuif"
+                  type="range" min={1} max={99} step={1} value={split}
+                  onChange={(e) => setSplit(e.target.value)}
+                  aria-label="Percentage of traffic in the test group"
+                />
+
+                <span className="field__hint">
+                  {split === "50"
+                    ? "50/50 gets you an answer soonest — any other split needs more total traffic for the same certainty."
+                    : "Off 50/50, so the smaller group decides how long this takes. It needs more total traffic than an even split would."}
+                </span>
               </div>
 
-              <div className="field">
-                <span className="field__label">Hypothesis</span>
-                <input type="text" value={hypothese}
-                       placeholder="A higher price costs some conversion but earns more per visitor"
-                       onChange={(e) => setHypothese(e.target.value)} />
-              </div>
-
-              <div className="row">
-                <div className="field">
-                  <span className="field__label">Devices</span>
-                  <div className="pilrij">
+              <div className="doel__onder">
+                <div className="veldkaart">
+                  <span className="veldkaart__kop">Devices</span>
+                  <div className="doel__lijst doel__lijst--klein" style={{ marginTop: 8 }}>
                     {DEVICES.map((d) => (
-                      <button key={d.key} type="button" className="pilkeuze"
+                      <button key={d.key} type="button" className="doelrij doelrij--vink"
                               aria-pressed={devices.includes(d.key)}
-                              onClick={() => wissel(devices, setDevices, d.key)}
-                              title={d.sub}>
-                        {d.naam}
+                              onClick={() => wissel(devices, setDevices, d.key)}>
+                        <span className="doelrij__vink" aria-hidden />
+                        <span className="doelrij__body">
+                          <span className="doelrij__regel">
+                            <span className="doelrij__naam">{d.naam}</span>
+                            <span className="doelrij__kort">{d.sub}</span>
+                          </span>
+                        </span>
                       </button>
                     ))}
                   </div>
                   <span className="field__hint">
                     {devices.length
-                      ? "Only these are in the test — the rest see the original and are not counted at all."
-                      : "Nothing selected means every device."}
+                      ? "Everyone else sees the original and is not counted at all."
+                      : "None ticked means every device."}
                   </span>
                 </div>
-                <div className="field">
-                  <span className="field__label">Countries</span>
-                  <input type="text" value={landen} placeholder="US, GB, DE — leave empty for all"
-                         onChange={(e) => setLanden(e.target.value)} />
+
+                <div className="veldkaart">
+                  <span className="veldkaart__kop">Countries</span>
+                  <input type="text" value={landen} placeholder="US, GB, DE"
+                         onChange={(e) => setLanden(e.target.value)} style={{ marginTop: 8 }} />
                   <span className="field__hint">
-                    Two-letter codes, from Shopify’s own localisation — the same country your
-                    prices and shipping are based on.
+                    Two-letter codes, comma separated. Empty means everywhere. Read from Shopify’s
+                    own localisation — the same country your prices and shipping run on.
                   </span>
                 </div>
               </div>
 
-              <div className="card" style={{ boxShadow: "none", border: "1px solid var(--line)", padding: 14, marginTop: 6 }}>
-                <label style={{ display: "flex", gap: 9, alignItems: "flex-start", cursor: "pointer" }}>
-                  <input type="checkbox" checked={abo} onChange={(e) => setAbo(e.target.checked)}
-                         style={{ width: 15, height: 15, marginTop: 2, flex: "none" }} />
-                  <span>
-                    <strong style={{ fontSize: 13 }}>This is a subscription product</strong>
-                    <span className="field__hint" style={{ display: "block", marginTop: 2 }}>
-                      Adds a Forecast tab that projects the difference over a customer lifetime,
-                      and works out how much retention the variant could afford to lose.
-                    </span>
-                  </span>
-                </label>
-
-                {abo && (
-                  <div className="field" style={{ maxWidth: 280, marginTop: 12, marginBottom: 0 }}>
-                    <span className="field__label">Average billing cycles per customer</span>
-                    <input type="number" step="0.1" min={1} max={60} value={cycles}
-                           onChange={(e) => setCycles(e.target.value)} />
-                    <span className="field__hint">Including the first order. Your assumption, not a measurement.</span>
+              <div className="veldkaart">
+                <span className="veldkaart__kop">Naming it</span>
+                <div className="row" style={{ marginTop: 8 }}>
+                  <div className="field" style={{ margin: 0 }}>
+                    <input type="text" value={naam} placeholder="Name — e.g. Oregano +$4"
+                           onChange={(e) => setNaam(e.target.value)} />
                   </div>
-                )}
+                  <div className="field" style={{ margin: 0 }}>
+                    <input type="text" value={hypothese}
+                           placeholder="What you expect to happen, and why"
+                           onChange={(e) => setHypothese(e.target.value)} />
+                  </div>
+                </div>
+                <span className="field__hint">
+                  The name is for the list once several tests run at once. The expectation is for
+                  your future self, who will not remember why this seemed like a good idea.
+                </span>
               </div>
+
+              <label className="schakelrij">
+                <input type="checkbox" checked={abo} onChange={(e) => setAbo(e.target.checked)} />
+                <span className="schakelrij__body">
+                  <span className="schakelrij__naam">This is a subscription product</span>
+                  <span className="schakelrij__sub">
+                    Adds a Forecast tab that projects the difference over a customer lifetime, and
+                    works out how much retention the variant could afford to lose.
+                  </span>
+                </span>
+                {abo && (
+                  <span className="schakelrij__extra" onClick={(e) => e.preventDefault()}>
+                    <input type="number" step="0.1" min={1} max={60} value={cycles}
+                           onChange={(e) => setCycles(e.target.value)} className="num"
+                           aria-label="Average billing cycles per customer" />
+                    <span>cycles per customer</span>
+                  </span>
+                )}
+              </label>
             </div>
           )}
 
           {/* ── 5. review ───────────────────────────────────────────────── */}
           {stap === 4 && (
-            <div className="tabinhoud">
+            <div className="tabinhoud doel">
               <h3 className="wizard__kop">What will happen</h3>
               <p className="wizard__sub">
-                Read this as a visitor would. It is the last cheap moment to spot a mistake.
+                Read it as a visitor would. This is the last cheap moment to spot a mistake.
               </p>
 
-              <div className="review">
-                <div className="review__rij">
-                  <span className="review__label">Test</span>
-                  <span>{naam.trim() || <span className="muted">unnamed</span>} · {info.naam}</span>
-                </div>
-                <div className="review__rij">
-                  <span className="review__label"><span className="swatch swatch--control" /> Control</span>
-                  <span>
-                    {type === "url" ? <code>{normaliseerPad(controlUrl)}</code>
-                      : type === "theme" ? <>{themas.find((t) => t.rol === "MAIN")?.naam ?? "live theme"} <span className="muted">— published</span></>
-                      : <>{control?.title} <span className="muted">— unchanged</span></>}
+              {/* Dezelfde tegenoverstelling als in de opzetstap, zodat je hier
+                  herkent wat je daar koos in plaats van het te moeten
+                  hervertalen uit twee tabelregels. */}
+              <div className="duel">
+                <div className="duel__kant">
+                  <span className="duel__kop"><span className="swatch swatch--control" /> Control</span>
+                  <span className="duel__naam">
+                    {type === "url" ? normaliseerPad(controlUrl)
+                      : type === "theme" ? (themas.find((t) => t.rol === "MAIN")?.naam ?? "live theme")
+                      : type === "template" ? "product." + (control?.templateSuffix || "(default)")
+                      : control?.title ?? "—"}
+                  </span>
+                  <span className="duel__sub">
+                    {100 - Number(split || 0)}% of traffic · unchanged
                   </span>
                 </div>
-                <div className="review__rij">
-                  <span className="review__label"><span className="swatch swatch--test" /> Test</span>
-                  <span>
-                    {type === "price" && <>{test?.title} <code>{test?.handle}</code></>}
-                    {type === "template" && <>same product, <code>?view={suffix.trim()}</code></>}
-                    {type === "url" && <code>{normaliseerPad(testUrl)}</code>}
-                    {type === "theme" && <>{thema?.naam} <span className="muted">— every page</span></>}
+
+                <span className="duel__vs">vs</span>
+
+                <div className="duel__kant">
+                  <span className="duel__kop"><span className="swatch swatch--test" /> Test</span>
+                  <span className="duel__naam">
+                    {type === "price" ? test?.title ?? "—"
+                      : type === "template" ? "product." + suffix
+                      : type === "url" ? normaliseerPad(testUrl)
+                      : thema?.naam ?? "—"}
+                  </span>
+                  <span className="duel__sub">
+                    {split}% of traffic ·{" "}
+                    {type === "price" ? "different price"
+                      : type === "template" ? "?view=" + suffix
+                      : type === "url" ? "sent from the other URL"
+                      : "every page"}
                   </span>
                 </div>
-                <div className="review__rij">
-                  <span className="review__label">Decided on</span>
-                  <span>
-                    {metricInfo(metric).naam} at {confidence}% confidence
-                    {guardrails.length > 0 && (
-                      <span className="muted">
-                        {" "}· guarding {guardrails.map((g) => metricInfo(g).naam.toLowerCase()).join(", ")}
-                      </span>
-                    )}
-                  </span>
-                </div>
-                <div className="review__rij">
-                  <span className="review__label">Split</span>
-                  <span>{split}% test · {100 - Number(split || 0)}% control</span>
-                </div>
-                <div className="review__rij">
-                  <span className="review__label">Audience</span>
-                  <span>
-                    {devices.length ? devices.join(", ") : "all devices"}
-                    {" · "}
-                    {landen.trim() ? landen.toUpperCase() : "all countries"}
-                  </span>
-                </div>
-                {raming && (
-                  <div className="review__rij">
-                    <span className="review__label">Needs</span>
-                    <span>
-                      ~{raming.n.toLocaleString("en-US")} visitors per group to find a {mde}% change
-                    </span>
-                  </div>
-                )}
-                {abo && (
-                  <div className="review__rij">
-                    <span className="review__label">Lifetime</span>
-                    <span>{cycles} billing cycles assumed</span>
-                  </div>
-                )}
-                {hypothese.trim() && (
-                  <div className="review__rij">
-                    <span className="review__label">Hypothesis</span>
-                    <span className="muted">{hypothese}</span>
-                  </div>
-                )}
               </div>
 
-              <div style={{ marginTop: 14 }}>
-                <Banner tone="info">
-                  Saving does not start anything. The test sits as a draft until you press Start,
-                  and only then does it get checked and begin splitting traffic.
-                </Banner>
+              <div className="doel__onder">
+                <div className="veldkaart">
+                  <span className="veldkaart__kop">How it will be decided</span>
+                  <div className="samenvat">
+                    <div className="samenvat__rij">
+                      <span>Winner decided on</span>
+                      <strong>{metricInfo(metric).naam}</strong>
+                    </div>
+                    <div className="samenvat__rij">
+                      <span>Confidence</span>
+                      <strong className="num">{confidence}%</strong>
+                    </div>
+                    <div className="samenvat__rij">
+                      <span>Smallest lift worth finding</span>
+                      <strong className="num">{mde}%</strong>
+                    </div>
+                    {guardrails.length > 0 && (
+                      <div className="samenvat__rij">
+                        <span>Must not get worse</span>
+                        <strong>{guardrails.map((g) => metricInfo(g).naam).join(", ")}</strong>
+                      </div>
+                    )}
+                    {raming && (
+                      <div className="samenvat__rij samenvat__rij--klem">
+                        <span>Needs</span>
+                        <strong className="num">
+                          {raming.n.toLocaleString("en-US")} visitors per group
+                        </strong>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="veldkaart">
+                  <span className="veldkaart__kop">Who is in it</span>
+                  <div className="samenvat">
+                    <div className="samenvat__rij">
+                      <span>Devices</span>
+                      <strong>{devices.length ? devices.join(", ") : "all"}</strong>
+                    </div>
+                    <div className="samenvat__rij">
+                      <span>Countries</span>
+                      <strong>{landen.trim() ? landen.toUpperCase() : "all"}</strong>
+                    </div>
+                    {abo && (
+                      <div className="samenvat__rij">
+                        <span>Lifetime assumed</span>
+                        <strong className="num">{cycles} cycles</strong>
+                      </div>
+                    )}
+                    {naam.trim() && (
+                      <div className="samenvat__rij">
+                        <span>Named</span>
+                        <strong>{naam}</strong>
+                      </div>
+                    )}
+                  </div>
+                  {hypothese.trim() && (
+                    <p className="samenvat__hyp">“{hypothese}”</p>
+                  )}
+                </div>
               </div>
+
+              <Banner tone="info">
+                Saving does not start anything. The test sits as a draft until you press Start, and
+                only then does it get checked and begin splitting traffic.
+              </Banner>
             </div>
           )}
+
         </div>
 
         {/* ── navigatie ─────────────────────────────────────────────────── */}
