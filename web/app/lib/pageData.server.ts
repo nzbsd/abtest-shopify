@@ -3,7 +3,7 @@ import { configProbleem } from "./dashboardAuth.server";
 import {
   lijstProducten, loadTests, matchVariants, resolveProduct, type ProductInfo, type PriceTest,
 } from "./priceTest.server";
-import type { DagRij, DeviceRij, StatRij } from "./analytics";
+import type { DagRij, DekkingRij, DeviceRij, StatRij } from "./analytics";
 import { bundleProductIds, preflight, type Bevinding } from "./preflight.server";
 import { normaliseerPad, type TestType } from "./testTypes";
 import {
@@ -84,13 +84,13 @@ async function ordersPerTest(
 export async function analyticsData(
   admin: any,
   shop: string | null,
-): Promise<BasisData & { daily: DagRij[]; devices: DeviceRij[]; orders: Record<number, OrderResultaat> }> {
-  const leeg = { tests: [], stats: [], daily: [], devices: [], orders: {} };
+): Promise<BasisData & { daily: DagRij[]; devices: DeviceRij[]; dekking: DekkingRij[]; orders: Record<number, OrderResultaat> }> {
+  const leeg = { tests: [], stats: [], daily: [], devices: [], dekking: [], orders: {} };
   const { fout } = await shopOfFout(shop);
   if (fout || !shop) return { shop: null, fout, ...leeg };
 
   try {
-    const [tests, stats, daily, devices] = await Promise.all([
+    const [tests, stats, daily, devices, dekking] = await Promise.all([
       loadTests(shop),
       supabase.from("price_test_stats").select("*").eq("shop", shop),
       supabase.from("price_test_daily").select("*").eq("shop", shop).order("dag"),
@@ -98,6 +98,7 @@ export async function analyticsData(
       // en een database die de migratie nog niet heeft gehad hoort geen leeg
       // analyticsscherm op te leveren.
       supabase.from("price_test_devices").select("*").eq("shop", shop),
+      supabase.from("price_test_device_dekking").select("*").eq("shop", shop),
     ]);
     return {
       shop,
@@ -106,6 +107,7 @@ export async function analyticsData(
       stats: (stats.data || []) as StatRij[],
       daily: (daily.data || []) as DagRij[],
       devices: (devices.data || []) as DeviceRij[],
+      dekking: (dekking.data || []) as DekkingRij[],
       orders: await ordersPerTest(admin, tests),
     };
   } catch (e: any) {

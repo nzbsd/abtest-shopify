@@ -82,13 +82,31 @@
      kassa zijn het per definitie met elkaar eens. */
   var COUNTRY = {{ localization.country.iso_code | default: '' | json }};
 
-  /* Device uit de viewportbreedte en niet uit de user agent. De user agent
-     liegt al twintig jaar en Chrome bouwt hem af; de breedte is wat de
-     bezoeker daadwerkelijk ziet, en dat is ook wat een test op "mobiel"
-     bedoelt. 768 is dezelfde grens die het thema aanhoudt. */
+  /**
+   * Device uit screen.width, en niet uit window.innerWidth.
+   *
+   * Dat verschil is geen detail. Dit snippet draait bovenin de head, en in
+   * dit thema staat het vóór <meta name="viewport">. Zolang die tag niet
+   * verwerkt is, geeft een telefoon de standaard layout-viewport terug -
+   * rond de 980 pixels - en niet de echte schermbreedte. Elke mobiele
+   * bezoeker belandde daardoor in het tablet-bereik.
+   *
+   * Dat is precies wat er in de eerste uren gebeurde: 279 "tablets" tegen
+   * 3 "mobiel" op een winkel waar het merendeel van het verkeer mobiel is.
+   * De cijfers waren niet leeg, ze waren stil verkeerd - de vervelendste
+   * soort.
+   *
+   * screen.width is de fysieke schermbreedte, meteen beschikbaar en niet
+   * afhankelijk van de viewport-tag. Een desktopvenster dat smal is gesleept
+   * telt daarmee nog steeds als desktop, en dat klopt: de vraag is met wat
+   * voor apparaat iemand koopt, niet hoe groot zijn venster toevallig staat.
+   *
+   * De user agent blijft buiten beschouwing - die liegt al twintig jaar en
+   * browsers bouwen hem af.
+   */
   var DEVICE = (function () {
     try {
-      var b = window.innerWidth || document.documentElement.clientWidth || 0;
+      var b = (window.screen && window.screen.width) || 0;
       if (!b) return "unknown";
       return b < 768 ? "mobile" : b < 1024 ? "tablet" : "desktop";
     } catch (e) { return "unknown"; }

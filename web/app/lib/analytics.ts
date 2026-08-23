@@ -37,6 +37,9 @@ export type DeviceRij = {
   visitors: number;
 };
 
+/** Hoeveel bezoekers wel en niet met een device gemeten zijn. */
+export type DekkingRij = { test_id: number; zonder_device: number; met_device: number };
+
 export type DagRij = {
   test_id: number;
   cohort: string;

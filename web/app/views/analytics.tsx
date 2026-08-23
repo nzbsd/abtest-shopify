@@ -8,7 +8,7 @@ import {
 } from "~/components/ui";
 import {
   bedragVerschil, beperkTotDagen, combineer, dagReeks, geld, heel, korteDatum, looptDagen, ondertekend, procent,
-  telOp, type DagRij, type DeviceRij, type StatRij,
+  telOp, type DagRij, type DekkingRij, type DeviceRij, type StatRij,
 } from "~/lib/analytics";
 import type { OrderCijfers, OrderResultaat } from "~/lib/orders.server";
 import {
@@ -46,13 +46,15 @@ function Verschil(controle: number, test: number, goedAls: "up" | "geen" = "up")
 }
 
 export function AnalyticsView({
-  tests, stats, daily, devices = [], orders = {},
+  tests, stats, daily, devices = [], dekking = [], orders = {},
 }: {
   tests: PriceTest[];
   stats: StatRij[];
   daily: DagRij[];
   /** Bezoekers en orders per device, uit onze eigen meting. */
   devices?: DeviceRij[];
+  /** Hoeveel bezoekers buiten de device-uitsplitsing vallen. */
+  dekking?: DekkingRij[];
   /** Per test-id de ordercijfers zoals ze bij Shopify staan. */
   orders?: Record<number, OrderResultaat>;
 }) {
@@ -201,6 +203,18 @@ export function AnalyticsView({
   })();
 
   const segmenten = bouwSegmenten(segmentBron, doel.key, betrouwbaarheid, doelToets.lift);
+
+  /**
+   * Hoeveel verkeer buiten de device-uitsplitsing valt.
+   *
+   * Device wordt pas sinds kort gemeten, en de eerste versie mat het verkeerd.
+   * Zonder dit getal lijkt de tabel het hele verkeer te beschrijven terwijl hij
+   * er een fractie van beslaat - en een uitsplitsing waarvan je niet weet hoe
+   * compleet hij is, is erger dan geen uitsplitsing.
+   */
+  const dek = dekking.find((d) => d.test_id === test.id);
+  const buitenBeeld = Number(dek?.zonder_device ?? 0);
+  const inBeeld = Number(dek?.met_device ?? 0);
 
   /**
    * Het doelaantal, uit de opzet en niet uit wat er toevallig gemeten is.
@@ -731,6 +745,19 @@ export function AnalyticsView({
               <Leeg>{DIMENSIES.find((d) => d.key === dim)?.leeg}</Leeg>
             ) : (
               <>
+                {/* Zonder dit getal lijkt de tabel het hele verkeer te
+                    beschrijven. Bij een test die al liep voordat device
+                    gemeten werd, beslaat hij daar een fractie van. */}
+                {dim === "device" && buitenBeeld > 0 && (
+                  <div style={{ padding: "0 18px 12px" }}>
+                    <Banner tone="info">
+                      Covers {heel(inBeeld)} of {heel(inBeeld + buitenBeeld)} visitors.{" "}
+                      {heel(buitenBeeld)} were measured before device tracking was in place, so
+                      they cannot be split up — that history does not come back, but everything
+                      from here on does.
+                    </Banner>
+                  </div>
+                )}
                 {segmenten.some((s) => s.tegendraads) && (
                   <div style={{ padding: "0 18px 12px" }}>
                     <Banner tone="warn">
