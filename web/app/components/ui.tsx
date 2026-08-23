@@ -189,3 +189,38 @@ export function Vergelijk({
     </article>
   );
 }
+
+/**
+ * Tab bar.
+ *
+ * The analytics screen used to be one long column: to compare two figures you
+ * had to scroll past everything in between, which is exactly when a comparison
+ * stops being one. Splitting it means each view fits on a screen and you can
+ * flick between them instead of hunting.
+ */
+export function Tabs<T extends string>({
+  value, options, onChange,
+}: {
+  value: T;
+  options: { key: T; label: string; telling?: number }[];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="tabs" role="tablist">
+      {options.map((o) => (
+        <button
+          key={o.key}
+          type="button"
+          role="tab"
+          aria-selected={o.key === value}
+          onClick={() => onChange(o.key)}
+        >
+          {o.label}
+          {o.telling !== undefined && o.telling > 0 && (
+            <span className="tabs__telling num">{o.telling}</span>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}

@@ -75,8 +75,8 @@ export function Lijn({
                 stroke="var(--line-loud)" />
         )}
 
-        <path className="series" d={pad2("control")} stroke="var(--control)" />
-        <path className="series" d={pad2("test")} stroke="var(--test)" />
+        <path className="series" pathLength={1} d={pad2("control")} stroke="var(--control)" />
+        <path className="series series--test" pathLength={1} d={pad2("test")} stroke="var(--test)" />
 
         {hover !== null && (
           <>

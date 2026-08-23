@@ -623,3 +623,126 @@ code {
 .funnel__lane { display: flex; align-items: center; gap: 8px; }
 .funnel__bar--smal { min-width: 4px; }
 .funnel__buiten { font-size: 11.5px; font-weight: 700; color: var(--ink-2); }
+
+/* ══════════════════════════════════════════════════════════ beweging
+   Animaties dienen hier één doel: laten zien dat iets nieuw is of
+   veranderd. Alles is kort en klein — een dashboard dat je tien keer per
+   dag opent moet niet elke keer een voorstelling geven.
+
+   Alles staat uit voor wie dat in zijn systeem heeft aangegeven; dat is
+   geen vinkje maar een medische instelling voor mensen die misselijk
+   worden van beweging. */
+
+@keyframes rijs {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes verschijn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* pathLength="1" op het pad normaliseert de lengte naar 1, zodat dit werkt
+   zonder de echte lengte te meten - die verschilt per dataset. */
+@keyframes tekenLijn {
+  from { stroke-dashoffset: 1; }
+  to   { stroke-dashoffset: 0; }
+}
+
+@keyframes tel {
+  from { opacity: 0; transform: translateY(4px) scale(.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Kaarten komen na elkaar binnen, niet allemaal tegelijk: dat leest als
+   een lijst die zich vult in plaats van een scherm dat knippert. */
+.stack > *, .grid > * { animation: rijs .34s var(--ease-out) both; }
+.stack > *:nth-child(2), .grid > *:nth-child(2) { animation-delay: .04s; }
+.stack > *:nth-child(3), .grid > *:nth-child(3) { animation-delay: .08s; }
+.stack > *:nth-child(4), .grid > *:nth-child(4) { animation-delay: .12s; }
+.stack > *:nth-child(n+5), .grid > *:nth-child(n+5) { animation-delay: .16s; }
+
+/* Het grote getal telt niet op, maar komt wel binnen — optellen suggereert
+   precisie die er bij een lopende test niet is. */
+.kpi__value, .compare__value, .verdict__cijfer { animation: tel .4s var(--ease-out) both; }
+
+/* De grafieklijn tekent zichzelf, zodat je ziet welke kant hij op loopt
+   voordat je de getallen leest. */
+.chart .series {
+  stroke-dasharray: 1;
+  animation: tekenLijn .9s var(--ease-out) both;
+}
+.chart .series--test { animation-delay: .12s; }
+
+.tabinhoud { animation: verschijn .22s var(--ease-out) both; }
+
+.card { transition: box-shadow .2s var(--ease-out); }
+.picker__item { transition: border-color .15s, background-color .15s, transform .15s var(--ease-out); }
+.picker__item:active { transform: scale(.995); }
+
+.delta, .badge, .pill { transition: background-color .2s, color .2s; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+/* ═════════════════════════════════════════════════════════ compacter
+   Het analytics-scherm was één lange sliert waarin je moest scrollen om
+   twee getallen te vergelijken. Strakkere maten, en de inhoud verdeeld
+   over tabs. */
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--r-md);
+  background: var(--wash);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+
+.tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-3);
+  white-space: nowrap;
+  transition: color .15s, background-color .15s;
+}
+.tabs button:hover { color: var(--ink-2); }
+.tabs button[aria-selected="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(21, 20, 27, .08);
+}
+.tabs__telling {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--wash);
+  color: var(--ink-3);
+}
+.tabs button[aria-selected="true"] .tabs__telling { background: var(--veil); color: var(--iris); }
+
+/* De uitslag bovenaan, compact genoeg om naast de cijfers te passen. */
+.verdict { display: flex; align-items: center; gap: 26px; flex-wrap: wrap; }
+.verdict__cijfer { font-size: 40px; font-weight: 700; letter-spacing: -.035em; line-height: 1; }
+.verdict__naast { font-size: 16px; font-weight: 600; color: var(--ink-2); }
+.verdict__tekst { flex: 1; min-width: 260px; font-size: 13px; color: var(--ink-2); }
+
+.stack--strak { gap: 16px; }
+.card__head--strak { padding: 16px 20px 12px; }
+.card__body--strak { padding: 0 20px 20px; }

@@ -4,7 +4,7 @@ import { PageHead } from "~/components/shell";
 import { Lijn, Trechter } from "~/components/charts";
 import {
   Badge, Banner, Card, CardHead, Delta, IconCart, IconCheck, IconCoins,
-  Kpi, Leeg, Legend, Segmented, Track, Vergelijk,
+  Kpi, Leeg, Legend, Segmented, Tabs, Track, Vergelijk,
 } from "~/components/ui";
 import {
   bedragVerschil, beperkTotDagen, combineer, dagReeks, geld, heel, korteDatum, looptDagen, ondertekend, procent,
@@ -39,7 +39,8 @@ export function AnalyticsView({
   const [gekozen, setGekozen] = useState<number | null>(null);
   const testId = gekozen ?? uitUrl ?? tests[0]?.id ?? null;
   const setTestId = (id: number) => { setGekozen(id); setParams({ test: String(id) }, { replace: true }); };
-  const [tab, setTab] = useState<"results" | "forecast">("results");
+  type Tab = "verdict" | "orders" | "segments" | "forecast";
+  const [tab, setTab] = useState<Tab>("verdict");
   const [metric, setMetric] = useState<Metric>("rpv");
   const [range, setRange] = useState<Range>("14");
 
@@ -129,14 +130,6 @@ export function AnalyticsView({
           (days !== null ? " · running for " + days + " days" : "")}
         actie={
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <Segmented
-              value={tab}
-              onChange={setTab}
-              options={[
-                { key: "results" as const, label: "Results" },
-                { key: "forecast" as const, label: "Forecast" },
-              ]}
-            />
             <Badge status={test.status} />
             {tests.length > 1 && (
               <select value={String(test.id)} onChange={(e) => setTestId(Number(e.target.value))}
@@ -150,6 +143,19 @@ export function AnalyticsView({
         }
       />
 
+      <div style={{ marginBottom: 18 }}>
+        <Tabs
+          value={tab}
+          onChange={setTab}
+          options={[
+            { key: "verdict" as Tab, label: "Verdict" },
+            { key: "orders" as Tab, label: "Orders", telling: oc.orders + ot.orders },
+            { key: "segments" as Tab, label: "Segments" },
+            ...(test.is_subscription ? [{ key: "forecast" as Tab, label: "Forecast" }] : []),
+          ]}
+        />
+      </div>
+
       {tab === "forecast" ? (
         <ForecastView
           test={test}
@@ -159,7 +165,8 @@ export function AnalyticsView({
           testOrders={ot}
         />
       ) : (
-      <div className="stack">
+      <div className="stack stack--strak tabinhoud">
+        {tab === "verdict" && (<>
         {/* ── the verdict ──────────────────────────────────────────────── */}
         <Card>
           <CardHead
@@ -199,11 +206,24 @@ export function AnalyticsView({
                 </div>
                 <Track value={progress} color="var(--iris-lit)" />
                 <p className="small muted" style={{ marginTop: 8 }}>
-                  At the current pace that is roughly{" "}
-                  {days && days > 0 && smallest > 0
-                    ? Math.ceil((target - smallest) / (smallest / days))
-                    : "?"}{" "}
-                  more days. Stopping earlier means deciding on noise.
+                  {(() => {
+                    /* A tiny difference needs an enormous sample, and printing
+                       "1924 more days" reads as a broken number rather than as
+                       the message it is: this difference is too small to prove.
+                       Past six months the honest answer is to say so. */
+                    if (!days || days <= 0 || smallest <= 0) return "Too early to estimate how long this needs.";
+                    const nog = Math.ceil((target - smallest) / (smallest / days));
+                    if (nog > 180) {
+                      return "At this pace that is over six months — the difference is small enough that " +
+                        "proving it costs more traffic than it is worth. Consider testing a bigger price gap.";
+                    }
+                    if (nog > 60) {
+                      return "At this pace that is roughly " + Math.round(nog / 30) + " more months. " +
+                        "Stopping earlier means deciding on noise.";
+                    }
+                    return "At this pace that is roughly " + nog + " more days. Stopping earlier means " +
+                      "deciding on noise.";
+                  })()}
                 </p>
               </div>
             )}
@@ -283,6 +303,9 @@ export function AnalyticsView({
           </div>
         </Card>
 
+        </>)}
+
+        {tab === "orders" && (<>
         <div className="grid grid--2">
           {/* ── funnel ─────────────────────────────────────────────────── */}
           <Card>
@@ -475,6 +498,9 @@ export function AnalyticsView({
           </Card>
         )}
 
+        </>)}
+
+        {tab === "segments" && (<>
         {/* ── per currency ─────────────────────────────────────────────── */}
         {valutas.length > 0 && (
           <Card>
@@ -575,6 +601,7 @@ export function AnalyticsView({
             {ord.afgekapt && " Order history was truncated at the page limit, so these numbers are incomplete."}
           </Banner>
         )}
+        </>)}
       </div>
       )}
     </main>
