@@ -6,11 +6,17 @@
   Fill in app_base below with the URL of the app.
 
   Every page, not just product pages: a URL test can run on a landing page or a
-  collection, and those never render the product object.
+  collection, and a theme test runs on all of them.
 
   Placing it in the head matters. The redirect should happen before the page
   paints, otherwise the visitor briefly sees the version they were not meant to
   get.
+
+  THIS SNIPPET GOES IN EVERY THEME YOU TEST
+  A theme test serves the test group an unpublished theme. If that theme does
+  not carry this snippet, the test group is never measured and never sent back,
+  and the dashboard shows a test with traffic on one side only — which reads as
+  "the variant converts nothing" while in fact nothing is being counted.
 
   HOW IT WORKS
   1. Fetch the running tests from the app.
@@ -21,6 +27,8 @@
        price     - go to the duplicate product's URL
        template  - reload the same URL with ?view=<suffix>
        url       - go from the first path to the second
+       theme     - reload with ?preview_theme_id=<id>, which Shopify then keeps
+                   for the rest of the session
   4. Report view and add-to-cart, and write the group into the cart so orders
      can be attributed to it later.
 
@@ -40,6 +48,21 @@
 
 {%- assign app_base = 'https://abtest-shopify.vercel.app' -%}
 
+{%- comment -%}
+  Shopify's preview bar on an unpublished theme.
+
+  A visitor in the test group of a theme test is browsing an unpublished theme,
+  and Shopify puts its preview bar at the bottom of every page. Leaving it there
+  tells the visitor they are in a test and makes the store look broken, so it
+  goes away on unpublished themes.
+
+  The trade-off: when you preview a theme yourself, you lose the bar too. The
+  theme editor is unaffected. Remove this block if you would rather keep it.
+{%- endcomment -%}
+{%- unless theme.role == 'main' -%}
+<style>#preview-bar-iframe, #PBarNextFrameWrapper { display: none !important; }</style>
+{%- endunless -%}
+
 <script>
 (function () {
   var APP = {{ app_base | json }};
@@ -47,6 +70,12 @@
   var PRODUCT_ID = {{ product.id | default: 0 | json }};
   var MARKET = {{ localization.market.handle | default: '' | json }};
   var CURRENCY = {{ cart.currency.iso_code | default: shop.currency | json }};
+
+  /* Which theme is rendering this. Read from Liquid and not from
+     window.Shopify.theme, because that object is created by
+     content_for_header, which has not run yet this early in the head. */
+  var THEME_ID = {{ theme.id | default: 0 | json }};
+  var THEME_ROLE = {{ theme.role | default: '' | json }};
 
   var COOKIE = "_pt_v";
   var CACHE = "_pt_cfg";
@@ -107,21 +136,36 @@
     } catch (e) { /* a failed measurement must never hold up the store */ }
   }
 
-  /* The group travels into the order through the cart, which is how revenue is
-     attributed later. Attribution by product would be wrong: the original is
-     also sold through ads, email and upsells whose visitors were never part of
-     the test. */
-  function tagCart(testId, cohort) {
+  /**
+   * The group travels into the order through the cart, which is how revenue is
+   * attributed later. Attribution by product would be wrong: the original is
+   * also sold through ads, email and upsells whose visitors were never part of
+   * the test.
+   *
+   * One key per test (_pt_<id>), because a visitor can be in more than one at
+   * the same time — a theme test covers every page, so it overlaps with any
+   * product test that happens to run underneath it. The older _pt_test and
+   * _pt_cohort pair is still written for the first test of the page view, so
+   * tests that were already running keep being attributed the way they were.
+   */
+  var teTaggen = {};
+  function noteerCohort(testId, cohort) {
+    teTaggen["_pt_" + testId] = cohort;
+    if (!teTaggen._pt_test) {
+      teTaggen._pt_test = String(testId);
+      teTaggen._pt_cohort = cohort;
+    }
+  }
+  function tagCart() {
+    var keys = Object.keys(teTaggen);
+    if (!keys.length) return;
+    teTaggen._pt_market = MARKET;
+    teTaggen._pt_visitor = visitor;
     try {
       fetch("/cart/update.js", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          attributes: {
-            _pt_cohort: cohort, _pt_test: String(testId),
-            _pt_market: MARKET, _pt_visitor: visitor
-          }
-        })
+        body: JSON.stringify({ attributes: teTaggen })
       }).catch(function () {});
     } catch (e) {}
   }
@@ -135,13 +179,17 @@
    * either. Reported at most once every two seconds, so a double click does
    * not count as two people.
    */
-  function watchAddToCart(testId, cohort) {
+  var atcHaakt = false;
+  function watchAddToCart(paren) {
+    if (atcHaakt) return;
+    atcHaakt = true;
+
     var laatst = 0;
     var meld = function () {
       var nu = Date.now();
       if (nu - laatst < 2000) return;
       laatst = nu;
-      report(testId, cohort, "atc");
+      for (var i = 0; i < paren.length; i++) report(paren[i][0], paren[i][1], "atc");
     };
     var isAdd = function (u) { return typeof u === "string" && u.indexOf("/cart/add") !== -1; };
 
@@ -170,10 +218,14 @@
     }
   }
 
+  var gemeten = [];
   function meet(testId, cohort) {
     report(testId, cohort, "view");
-    tagCart(testId, cohort);
-    watchAddToCart(testId, cohort);
+    noteerCohort(testId, cohort);
+    gemeten.push([testId, cohort]);
+    /* Falsy on purpose: measuring does not end the page view, only a redirect
+       does. A visitor can sit in a theme test and a price test at once. */
+    return false;
   }
 
   /* ─────────────────────────────────────────────────────── per test type ─ */
@@ -228,18 +280,50 @@
     return true;
   }
 
+  /**
+   * Whole-theme test.
+   *
+   * ?preview_theme_id=<id> makes Shopify serve an unpublished theme, strip the
+   * parameter from the URL, and keep serving that theme for the rest of the
+   * session. Verified on a live store, on the home page and on a deep product
+   * URL.
+   *
+   * That session is Shopify's, not ours, and it is shorter than our own cookie.
+   * When it lapses the visitor lands back on the published theme, and this runs
+   * again and sends them straight back — same group, because the assignment is
+   * derived from the visitor id rather than stored. The cost is one extra
+   * redirect at the start of a session, not a visitor who switches sides.
+   */
+  function doeTheme(t) {
+    if (THEME_ID === t.themeId) return meet(t.id, "test");
+
+    /* Some other unpublished theme: somebody is previewing a theme by hand.
+       Hijacking that preview would make the test impossible to check. */
+    if (THEME_ROLE !== "main") return false;
+
+    var cohort = bucket(visitor + ":" + t.id) < t.splitPct ? "test" : "control";
+    if (cohort === "control") return meet(t.id, "control");
+
+    var params = new URLSearchParams(window.location.search);
+    params.set("preview_theme_id", String(t.themeId));
+    window.location.replace(window.location.pathname + "?" + params.toString() + window.location.hash);
+    return true;
+  }
+
   function handle(data) {
     var tests = (data && data.tests) || [];
     for (var i = 0; i < tests.length; i++) {
       var t = tests[i];
       var raak = false;
-      if (t.type === "url") raak = doeUrl(t);
+      if (t.type === "theme") raak = doeTheme(t);
+      else if (t.type === "url") raak = doeUrl(t);
       else if (t.type === "template") raak = doeTemplate(t);
       else raak = doePrice(t);
-      /* One test per page view. Two redirects would fight each other and the
-         visitor would end up somewhere neither test intended. */
+      /* A redirect ends the page view: a second one would fight the first and
+         the visitor would end up somewhere neither test intended. */
       if (raak) return;
     }
+    if (gemeten.length) { tagCart(); watchAddToCart(gemeten); }
   }
 
   /* Cached config first, so a returning visitor is handled without waiting for

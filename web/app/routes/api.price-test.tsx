@@ -42,7 +42,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       .from("price_tests")
       .select(
         "id, test_type, control_product_id, test_product_id, test_product_handle, " +
-        "template_suffix, control_url, test_url, split_pct, variant_map",
+        "template_suffix, control_url, test_url, test_theme_id, split_pct, variant_map",
       )
       .eq("shop", shop)
       .eq("status", "running");
@@ -56,6 +56,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         if (type === "url") {
           if (!row.control_url || !row.test_url) return null;
           return { id: row.id, type, splitPct, controlPath: row.control_url, testPath: row.test_url };
+        }
+
+        if (type === "theme") {
+          const themeId = parseInt(String(row.test_theme_id ?? "").split("/").pop() || "", 10);
+          if (!Number.isFinite(themeId)) return null;
+          return { id: row.id, type, splitPct, themeId };
         }
 
         const controlProductId = gidToNum(row.control_product_id);

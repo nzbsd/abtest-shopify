@@ -854,36 +854,101 @@ tbody tr:hover { background: var(--wash); }
   display: grid;
   gap: 10px;
   margin-top: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
 }
 
 .typekaart {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 14px;
+  gap: 3px;
+  padding: 13px 14px 12px;
   text-align: left;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: var(--surface);
-  transition: border-color .15s, background-color .15s, transform .15s var(--ease-out);
+  transition: border-color .15s, background-color .15s, transform .15s var(--ease-out),
+              box-shadow .15s;
 }
 .typekaart:hover { border-color: var(--line-loud); transform: translateY(-1px); }
 .typekaart[aria-pressed="true"] {
   border-color: var(--iris-lit);
-  background: var(--veil);
-  box-shadow: 0 0 0 1px var(--iris-lit);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--iris-lit), var(--shadow-card);
 }
 
-.typekaart__naam { font-size: 14px; font-weight: 700; letter-spacing: -.02em; }
-.typekaart__kort { font-size: 12px; font-weight: 600; color: var(--ink-2); }
-.typekaart__uitleg { font-size: 12px; color: var(--ink-3); line-height: 1.45; }
+/* Het diagram: control links, variant rechts. Alleen de gekozen kaart laat het
+   op volle sterkte zien - anders trekken vier tekeningen tegelijk de aandacht
+   weg van de tekst eronder. */
+.typekaart__fig {
+  width: 52px;
+  height: 32px;
+  margin-bottom: 5px;
+  opacity: .55;
+  transition: opacity .15s;
+}
+.typekaart:hover .typekaart__fig,
+.typekaart[aria-pressed="true"] .typekaart__fig { opacity: 1; }
+
+.typekaart__naam { font-size: 13.5px; font-weight: 700; letter-spacing: -.02em; }
+.typekaart__kort { font-size: 11.5px; font-weight: 600; color: var(--ink-2); }
+.typekaart__uitleg { font-size: 11.5px; color: var(--ink-3); line-height: 1.45; margin-top: 2px; }
 .typekaart__mech {
-  margin-top: 6px;
-  font-size: 11.5px;
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
   font-weight: 600;
   color: var(--iris);
 }
+
+/* Kiezen uit wat er al is: templates, thema's. Compacter dan de productkiezer,
+   want een naam en een bestandsnaam is alles wat er te tonen valt. */
+.keuzeraster {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}
+.keuze {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 11px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  transition: border-color .15s, box-shadow .15s, background-color .15s;
+}
+.keuze:hover { border-color: var(--line-loud); }
+.keuze[aria-pressed="true"] {
+  border-color: var(--iris-lit);
+  box-shadow: 0 0 0 1px var(--iris-lit);
+}
+.keuze--vast { cursor: default; background: var(--wash); }
+.keuze__naam { font-size: 12.5px; font-weight: 650; letter-spacing: -.01em; }
+.keuze__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.keuze__meta code { font-size: 10.5px; }
+
+/* Een knop die als tekstlink hoort te lezen: "of typ er zelf een". */
+.linkje {
+  font: inherit;
+  color: var(--iris);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.linkje:hover { color: var(--iris-lit); }
 
 /* Review */
 .review {

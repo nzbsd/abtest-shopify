@@ -10,6 +10,22 @@ import type { OrderCijfers, OrderResultaat } from "~/lib/orders.server";
 import { toetsOmzetPerBezoeker } from "~/lib/stats";
 import { gezondheid } from "~/lib/health";
 import type { PriceTest } from "~/lib/priceTest.server";
+import { typeInfo } from "~/lib/testTypes";
+
+/**
+ * Wat er in deze test verschilt, in één regel.
+ *
+ * Stond hier eerst hard als "duplicate <handle>", wat op een thema- of
+ * url-test een lege of misleidende regel opleverde.
+ */
+function watVarieert(t: PriceTest): string {
+  switch (t.test_type) {
+    case "template": return "template ?view=" + (t.template_suffix ?? "?");
+    case "url":      return (t.control_url ?? "?") + " → " + (t.test_url ?? "?");
+    case "theme":    return "theme " + (t.test_theme_name ?? "variant") + ", every page";
+    default:         return "duplicate " + (t.test_product_handle ?? "?");
+  }
+}
 
 /**
  * Startscherm: alles wat loopt in één blik.
@@ -91,10 +107,10 @@ export function OverviewView({
           return (
             <Card key={t.id}>
               <CardHead
-                title={t.control_title || t.control_product_id}
+                title={t.naam || t.control_title || t.test_theme_name || typeInfo(t.test_type).naam}
                 sub={
                   (dagen !== null ? "running for " + dagen + " day" + (dagen === 1 ? "" : "s") : "started") +
-                  " · " + t.split_pct + "% in the test group · duplicate " + t.test_product_handle
+                  " · " + t.split_pct + "% in the test group · " + watVarieert(t)
                 }
                 action={
                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>

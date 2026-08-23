@@ -7,6 +7,7 @@ import { matchVariants, prijsVergelijking, type ProductInfo } from "~/lib/varian
 import type { PriceTest } from "~/lib/priceTest.server";
 import { typeInfo, watOntbreekt } from "~/lib/testTypes";
 import { Wizard } from "./wizard";
+import type { ThemaInfo, TemplateInfo } from "~/lib/themes.server";
 
 /* ── product picker ─────────────────────────────────────────────────────── */
 
@@ -187,10 +188,12 @@ function LtvInstelling({
 /* ── screen ─────────────────────────────────────────────────────────────── */
 
 export function TestsView({
-  tests, producten, fout, winkelUrl, basis,
+  tests, producten, templates, themas, fout, winkelUrl, basis,
 }: {
   tests: PriceTest[];
   producten: ProductInfo[];
+  templates: TemplateInfo[];
+  themas: ThemaInfo[];
   fout: string | null;
   /** Public storefront URL, for preview links from a saved test. */
   winkelUrl: string | null;
@@ -280,6 +283,8 @@ export function TestsView({
         {open && (
           <Wizard
             producten={producten}
+            templates={templates}
+            themas={themas}
             winkelUrl={winkelUrl}
             onKlaar={() => setOpen(false)}
           />

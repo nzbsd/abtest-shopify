@@ -5,7 +5,11 @@ import {
 } from "./priceTest.server";
 import type { DagRij, StatRij } from "./analytics";
 import { bundleProductIds, preflight, type Bevinding } from "./preflight.server";
-import { normaliseerPad } from "./testTypes";
+import { normaliseerPad, type TestType } from "./testTypes";
+import {
+  themaLijst, themaLijstMetSnippet, productTemplates, snippetInThema,
+  type ThemaInfo, type TemplateInfo,
+} from "./themes.server";
 import { orderCijfers, type OrderResultaat } from "./orders.server";
 
 /**
@@ -122,22 +126,44 @@ async function winkelDomein(admin: any): Promise<string | null> {
 export async function testsData(
   admin: any,
   shop: string | null,
-): Promise<{ shop: string | null; fout: string | null; tests: PriceTest[]; producten: ProductInfo[]; winkelUrl: string | null }> {
+): Promise<{
+  shop: string | null; fout: string | null; tests: PriceTest[]; producten: ProductInfo[];
+  winkelUrl: string | null; themas: ThemaInfo[]; templates: TemplateInfo[];
+}> {
+  const leegAntwoord = {
+    tests: [] as PriceTest[], producten: [] as ProductInfo[], winkelUrl: null,
+    themas: [] as ThemaInfo[], templates: [] as TemplateInfo[],
+  };
+
   const { fout } = await shopOfFout(shop);
-  if (fout || !shop) return { shop: null, fout, tests: [], producten: [], winkelUrl: null };
+  if (fout || !shop) return { shop: null, fout, ...leegAntwoord };
 
   try {
     // De productenlijst mag falen zonder dat het scherm omvalt: zonder Shopify
     // kun je geen nieuwe test aanmaken, maar bestaande tests wél stoppen. Dat
     // is precies het moment waarop je die knop nodig hebt.
-    const [tests, producten, winkelUrl] = await Promise.all([
+    //
+    // Voor thema's geldt hetzelfde, en daar is het waarschijnlijker: read_themes
+    // is later toegevoegd, dus een winkel die de scope nog niet goedgekeurd
+    // heeft krijgt een lege lijst in plaats van een kapot scherm.
+    const [tests, producten, winkelUrl, themas] = await Promise.all([
       loadTests(shop),
       lijstProducten(admin).catch(() => [] as ProductInfo[]),
       winkelDomein(admin).catch(() => null),
+      themaLijstMetSnippet(admin).catch(() => [] as ThemaInfo[]),
     ]);
-    return { shop, fout: null, tests, producten, winkelUrl };
+
+    // Templates komen uit het live thema: dat is het thema waarop de
+    // template-test draait, dus een suffix uit een ander thema zou nergens
+    // bestaan.
+    const live = themas.find((t) => t.rol === "MAIN");
+    const templates = live
+      ? await productTemplates(admin, live.id).catch(() => [] as TemplateInfo[])
+      : [];
+
+    return { shop, fout: null, tests, producten, winkelUrl, themas, templates };
   } catch (e: any) {
-    return { shop, fout: e?.message ?? "Database error", tests: [], producten: [], winkelUrl: null };
+    return { shop, fout: e?.message ?? "Database error", ...leegAntwoord };
   }
 }
 
@@ -152,7 +178,7 @@ export async function testsAction(
 
   try {
     if (intent === "save") {
-      const type = String(form.get("testType") || "price") as "price" | "template" | "url";
+      const type = String(form.get("testType") || "price") as TestType;
       const split = parseInt(String(form.get("split") || "50"), 10);
       if (!Number.isFinite(split) || split < 1 || split > 99) {
         throw new Error("Percentage must be between 1 and 99.");
@@ -171,7 +197,20 @@ export async function testsAction(
       let rij: any;
       let bericht = "";
 
-      if (type === "url") {
+      if (type === "theme") {
+        const themeId = String(form.get("themeId") || "").trim();
+        const themeName = String(form.get("themeName") || "").trim();
+        if (!themeId) throw new Error("No theme chosen.");
+        rij = {
+          ...gedeeld,
+          test_theme_id: themeId,
+          test_theme_name: themeName || null,
+          // Geen product en geen pad: een thema-test hangt aan de hele winkel.
+          control_product_id: null,
+          test_product_id: null,
+        };
+        bericht = "Test saved: live theme against " + (themeName || "the chosen theme") + ".";
+      } else if (type === "url") {
         const a = normaliseerPad(String(form.get("controlUrl") || ""));
         const b = normaliseerPad(String(form.get("testUrl") || ""));
         if (!a || !b) throw new Error("Both URLs are required.");
@@ -223,6 +262,135 @@ export async function testsAction(
       if (error) throw new Error(error.message);
       return { ok: true, bericht };
     }
+    if (intent === "start" || intent === "stop") {
+      const id = Number(form.get("id"));
+
+      // Starten splitst echt verkeer, dus eerst controleren. Stoppen wordt
+      // nooit geblokkeerd: als er iets mis is, ís stoppen de oplossing.
+      if (intent === "start" && String(form.get("force") || "") !== "1") {
+        const { data: rij } = await supabase
+          .from("price_tests")
+          .select(
+            "test_type, control_product_id, test_product_id, template_suffix, " +
+            "test_theme_id, test_theme_name",
+          )
+          .eq("id", id).eq("shop", shop).maybeSingle<{
+            test_type: string | null;
+            control_product_id: string | null;
+            test_product_id: string | null;
+            template_suffix: string | null;
+            test_theme_id: string | null;
+            test_theme_name: string | null;
+          }>();
+
+        const soort = String(rij?.test_type || "price");
+
+        /**
+         * Thema-test: staat het snippet in het testthema?
+         *
+         * Zonder snippet browst de testgroep dat thema zonder ooit gemeten te
+         * worden. Het dashboard laat dan verkeer aan één kant zien, en dat
+         * leest als "de variant converteert niets" terwijl er niets geteld
+         * wordt. Dat is precies het soort stille mislukking waar een test
+         * dagen aan verspilt.
+         */
+        if (rij && soort === "theme" && rij.test_theme_id) {
+          const heeft = await snippetInThema(admin, String(rij.test_theme_id));
+          if (heeft === false) {
+            return {
+              ok: false,
+              bericht:
+                "Not started — the theme \"" + (rij.test_theme_name || "you chose") + "\" does " +
+                "not have the Experli snippet. The test group would browse it without ever " +
+                "being measured. Add the snippet to that theme, then start again.",
+            };
+          }
+        }
+
+        /**
+         * Template-test: bestaat die suffix echt?
+         *
+         * Een onbekende ?view= faalt niet zichtbaar - Shopify valt terug op de
+         * standaardpagina. Beide groepen zien dan hetzelfde en de test meet
+         * netjes een verschil van nul.
+         */
+        if (rij && soort === "template" && rij.template_suffix) {
+          const themas = await themaLijst(admin).catch(() => [] as ThemaInfo[]);
+          const live = themas.find((t) => t.rol === "MAIN");
+          const lijst = live
+            ? await productTemplates(admin, live.id).catch(() => [] as TemplateInfo[])
+            : [];
+          if (lijst.length && !lijst.some((t) => t.suffix === rij.template_suffix)) {
+            return {
+              ok: false,
+              bericht:
+                "Not started — your live theme has no template called product." +
+                rij.template_suffix + ". Shopify would quietly serve the default page instead, " +
+                "so both groups would see exactly the same thing.",
+            };
+          }
+        }
+
+        // De productcontrole vergelijkt twee producten met elkaar en slaat dus
+        // alleen op een prijstest; bij de andere types is er hooguit één.
+        if (rij && soort === "price" && rij.control_product_id && rij.test_product_id) {
+          const [control, test, bundelIds] = await Promise.all([
+            resolveProduct(admin, rij.control_product_id),
+            resolveProduct(admin, rij.test_product_id),
+            bundleProductIds(),
+          ]);
+
+          if (control && test) {
+            const bevindingen = preflight({
+              control,
+              test,
+              controlSellingPlans: control.sellingPlanGroups ?? 0,
+              testSellingPlans: test.sellingPlanGroups ?? 0,
+              bundleProductIds: bundelIds,
+            });
+            const blokkerend = bevindingen.filter((b) => b.niveau === "block");
+            if (blokkerend.length) {
+              return {
+                ok: false,
+                bericht:
+                  "Not started — " + blokkerend.length + " problem(s) would make this test " +
+                  "meaningless or cost you money:\n\n" +
+                  blokkerend.map((b) => "• " + b.titel + ". " + b.uitleg).join("\n\n"),
+                bevindingen,
+              };
+            }
+            if (bevindingen.length) {
+              // Waarschuwingen blokkeren niet, maar reizen wel mee terug zodat
+              // het scherm ze naast de gestarte test kan tonen.
+              const nieuw = {
+                status: "running", started_at: new Date().toISOString(), stopped_at: null,
+              };
+              const { error } = await supabase
+                .from("price_tests").update(nieuw).eq("id", id).eq("shop", shop);
+              if (error) throw new Error(error.message);
+              return {
+                ok: true,
+                bericht: "Test started, with " + bevindingen.length + " thing(s) worth checking.",
+                bevindingen,
+              };
+            }
+          }
+        }
+      }
+
+      const nieuw = intent === "start"
+        ? { status: "running", started_at: new Date().toISOString(), stopped_at: null }
+        : { status: "stopped", stopped_at: new Date().toISOString() };
+      const { error } = await supabase.from("price_tests").update(nieuw).eq("id", id).eq("shop", shop);
+      if (error) throw new Error(error.message);
+      return {
+        ok: true,
+        bericht: intent === "start"
+          ? "Test started. Part of your traffic now gets the variant."
+          : "Test stopped. Everyone sees the original again.",
+      };
+    }
+
     // Abonnementsinstellingen kunnen ook op een lopende test: ze veranderen
     // alleen hoe er gerekend wordt, niet wat bezoekers te zien krijgen.
     if (intent === "settings") {

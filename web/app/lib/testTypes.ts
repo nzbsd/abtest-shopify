@@ -11,7 +11,7 @@
  * bespoke theme code it stops being configuration and becomes a deploy.
  */
 
-export type TestType = "price" | "template" | "url";
+export type TestType = "price" | "template" | "url" | "theme";
 
 export type TypeInfo = {
   key: TestType;
@@ -47,8 +47,8 @@ export const TYPES: TypeInfo[] = [
       "layout, images, copy, or a different set of blocks. Nothing is duplicated, so there is " +
       "nothing to keep in sync afterwards.",
     voorbereiding:
-      "Create an alternate product template in your theme, for example product.new-design. " +
-      "The part after the dot is what you enter here.",
+      "Pick one of the alternate product templates already in your theme. If you want a new one, " +
+      "duplicate a template in the theme editor first — it will show up in the list.",
     mechaniek: "Test group gets ?view=<suffix> on the same URL.",
   },
   {
@@ -63,6 +63,19 @@ export const TYPES: TypeInfo[] = [
       "Both pages have to exist and be reachable. Keep the variant out of your navigation so it " +
       "only gets traffic from this test.",
     mechaniek: "Test group is sent from the first URL to the second.",
+  },
+  {
+    key: "theme",
+    naam: "Theme",
+    kort: "A whole theme against the live one",
+    uitleg:
+      "The test group browses an unpublished theme — every page, not just one. Use this for a " +
+      "redesign or a big structural change. It is the widest test there is, which also makes it " +
+      "the hardest to learn from: when it wins you know that it wins, not why.",
+    voorbereiding:
+      "The unpublished theme needs the Experli snippet too, otherwise the test group is never " +
+      "measured. Experli checks this before it lets you start.",
+    mechaniek: "Test group is served the unpublished theme for the whole session.",
   },
 ];
 
@@ -83,6 +96,7 @@ export function watOntbreekt(t: {
   template_suffix?: string | null;
   control_url?: string | null;
   test_url?: string | null;
+  test_theme_id?: string | null;
 }): string | null {
   switch (t.test_type ?? "price") {
     case "price":
@@ -97,6 +111,9 @@ export function watOntbreekt(t: {
       if (!t.control_url) return "No original URL entered.";
       if (!t.test_url) return "No variant URL entered.";
       if (t.control_url === t.test_url) return "Both URLs are the same.";
+      return null;
+    case "theme":
+      if (!t.test_theme_id) return "No theme chosen.";
       return null;
     default:
       return "Unknown test type.";

@@ -112,11 +112,22 @@ export async function orderCijfers(
   const hit = cache.get(test.id);
   if (!opnieuw && hit && Date.now() - hit.at < CACHE_MS) return hit.data;
 
-  // Bij een template- of url-test is er maar één product: beide groepen kopen
-  // hetzelfde. De toewijzing loopt dan volledig op de cohort-tag, en dat werkte
-  // al zo - het product is alleen nog het filter op welke orders we ophalen.
-  const controlNum = numOf(test.control_product_id || "");
-  const testNum = test.test_product_id ? numOf(test.test_product_id) : controlNum;
+  /**
+   * Hangt deze test aan een product?
+   *
+   * Prijs- en template-tests wel: daar is de vraag wat één bepaald product doet,
+   * dus filteren we de orders daarop en tellen we alleen die regels mee.
+   *
+   * Url- en thema-tests niet. Die veranderen een pagina of de hele winkel, en
+   * de bezoeker kan vervolgens van alles kopen; de uitkomst is de héle order.
+   * Op een product filteren zou daar een deel van het effect wegsnijden - en
+   * erger, control_product_id bevat bij een url-test een pad en bij een
+   * thema-test niets, dus het filter werd "product_id:NaN" en leverde nul
+   * orders op zonder ook maar iets te melden.
+   */
+  const productGebonden = test.test_type === "price" || test.test_type === "template";
+  const controlNum = productGebonden ? numOf(test.control_product_id || "") : "";
+  const testNum = productGebonden && test.test_product_id ? numOf(test.test_product_id) : controlNum;
 
   const uit: OrderResultaat = {
     control: leeg(), test: leeg(), perVariant: {}, perDag: {}, perValuta: {},
@@ -126,10 +137,12 @@ export async function orderCijfers(
   // Only from the moment the test started. Orders before that belong to no
   // group and would only add noise on the control side.
   const sinds = test.started_at || test.created_at || new Date(Date.now() - 30 * 864e5).toISOString();
-  const producten = controlNum === testNum
-    ? "product_id:" + controlNum
-    : "(product_id:" + controlNum + " OR product_id:" + testNum + ")";
-  const q = "created_at:>=" + new Date(sinds).toISOString() + " AND " + producten;
+  const producten = !productGebonden
+    ? ""
+    : controlNum === testNum
+      ? " AND product_id:" + controlNum
+      : " AND (product_id:" + controlNum + " OR product_id:" + testNum + ")";
+  const q = "created_at:>=" + new Date(sinds).toISOString() + producten;
 
   let cursor: string | null = null;
 
@@ -151,28 +164,39 @@ export async function orderCijfers(
       for (const a of order?.customAttributes || []) {
         if (a?.key) attrs[String(a.key)] = String(a.value ?? "");
       }
-      if (String(attrs["_pt_test"] || "") !== String(test.id)) { uit.ongetagd += 1; continue; }
-      const getagd = attrs["_pt_cohort"];
+      // Eerst de sleutel van deze test zelf. Een bezoeker kan in meer dan één
+      // test zitten - een thema-test loopt over elke pagina en overlapt dus met
+      // elke producttest eronder - en dan kan het oude _pt_test/_pt_cohort-paar
+      // er maar één dragen. Dat paar blijft de terugval, zodat orders van vóór
+      // deze verandering toegewezen blijven.
+      const eigen = attrs["_pt_" + test.id];
+      const oud = String(attrs["_pt_test"] || "") === String(test.id) ? attrs["_pt_cohort"] : undefined;
+      const getagd = eigen ?? oud;
       if (getagd !== "control" && getagd !== "test") { uit.ongetagd += 1; continue; }
       const cohort: "control" | "test" = getagd;
 
       let cents = 0;
       let units = 0;
       let sub = false;
-      let variantNaam = "(default)";
+      // Zonder product is er ook geen variant om op te splitsen: de tabel
+      // krijgt dan één regel die zegt dat het om de hele order gaat, in plaats
+      // van een uitsplitsing te suggereren die er niet is.
+      let variantNaam = productGebonden ? "(default)" : "(whole order)";
 
       for (const li of order?.lineItems?.nodes || []) {
-        const pid = numOf(li?.product?.id || "");
-        const isControl = pid === controlNum;
-        const isTest = pid === testNum;
-        if (!isControl && !isTest) continue;
+        if (productGebonden) {
+          const pid = numOf(li?.product?.id || "");
+          if (pid !== controlNum && pid !== testNum) continue;
+        }
 
         const qty = Number(li?.quantity) || 0;
         cents += Math.round(parseFloat(li?.discountedTotalSet?.shopMoney?.amount || "0") * 100);
         units += qty;
         if (li?.sellingPlan?.sellingPlanId) sub = true;
-        if (li?.variantTitle) variantNaam = String(li.variantTitle);
-        else if (li?.title) variantNaam = String(li.title);
+        if (productGebonden) {
+          if (li?.variantTitle) variantNaam = String(li.variantTitle);
+          else if (li?.title) variantNaam = String(li.title);
+        }
       }
 
       // Nothing of the tested product in this order - the tag was set on an

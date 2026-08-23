@@ -21,8 +21,8 @@ export { matchVariants, prijsVergelijking } from "./variants";
 export type PriceTest = {
   id: number;
   shop: string;
-  /** price | template | url - zie testTypes.ts */
-  test_type: "price" | "template" | "url";
+  /** price | template | url | theme - zie testTypes.ts */
+  test_type: "price" | "template" | "url" | "theme";
   /** Vrije naam, want het product zegt niets als er drie tests op draaien. */
   naam: string | null;
   hypothese: string | null;
@@ -31,7 +31,11 @@ export type PriceTest = {
   /** Alleen bij een url-test. */
   control_url: string | null;
   test_url: string | null;
-  control_product_id: string;
+  /** Alleen bij een thema-test: het onuitgegeven thema voor de testgroep. */
+  test_theme_id: string | null;
+  test_theme_name: string | null;
+  /** Leeg bij een thema-test - die hangt aan geen enkel product. */
+  control_product_id: string | null;
   control_product_handle: string | null;
   control_title: string | null;
   test_product_id: string | null;

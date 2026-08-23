@@ -4,6 +4,58 @@ import { Banner, Card, Delta } from "~/components/ui";
 import { geld } from "~/lib/analytics";
 import { matchVariants, prijsVergelijking, type ProductInfo } from "~/lib/variants";
 import { TYPES, normaliseerPad, type TestType } from "~/lib/testTypes";
+import type { ThemaInfo, TemplateInfo } from "~/lib/themes.server";
+
+/**
+ * A small diagram per test type: control on the left, variant on the right.
+ *
+ * The four names alone do not say much — "page design" and "page versus page"
+ * sound like the same thing until you see that one keeps the URL and the other
+ * does not. A three-second glance at a picture settles that faster than the
+ * paragraph underneath it.
+ */
+function TypeDiagram({ soort }: { soort: TestType }) {
+  const blad = (x: number, gevuld: boolean) => (
+    <rect x={x} y={4} width={18} height={24} rx={3}
+          fill={gevuld ? "var(--iris-pale)" : "var(--wash)"}
+          stroke={gevuld ? "var(--iris)" : "var(--line-loud)"} strokeWidth={1.2} />
+  );
+  return (
+    <svg className="typekaart__fig" viewBox="0 0 52 32" aria-hidden="true">
+      {blad(1, false)}
+      {blad(33, true)}
+      <path d="M22 16h8" stroke="var(--ink-3)" strokeWidth={1.2} strokeLinecap="round" />
+      <path d="M27 13l3 3-3 3" fill="none" stroke="var(--ink-3)" strokeWidth={1.2}
+            strokeLinecap="round" strokeLinejoin="round" />
+      {soort === "price" && (
+        <text x={42} y={20} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--iris)">$</text>
+      )}
+      {soort === "template" && (
+        <>
+          <rect x={36} y={8} width={12} height={5} rx={1.2} fill="var(--iris)" opacity={0.55} />
+          <rect x={36} y={15} width={7} height={3} rx={1} fill="var(--iris)" opacity={0.35} />
+          <rect x={36} y={20} width={12} height={3} rx={1} fill="var(--iris)" opacity={0.35} />
+          <rect x={4} y={8} width={12} height={3} rx={1} fill="var(--ink-3)" opacity={0.3} />
+          <rect x={4} y={13} width={12} height={9} rx={1.2} fill="var(--ink-3)" opacity={0.18} />
+        </>
+      )}
+      {soort === "url" && (
+        <>
+          <rect x={4} y={24} width={8} height={2} rx={1} fill="var(--ink-3)" opacity={0.4} />
+          <rect x={36} y={24} width={11} height={2} rx={1} fill="var(--iris)" opacity={0.6} />
+        </>
+      )}
+      {soort === "theme" && (
+        <>
+          <rect x={30} y={2} width={18} height={24} rx={3} fill="var(--wash)" stroke="var(--line-loud)" strokeWidth={1} opacity={0.6} />
+          <rect x={33} y={4} width={18} height={24} rx={3} fill="var(--iris-pale)" stroke="var(--iris)" strokeWidth={1.2} />
+          <rect x={36} y={8} width={12} height={4} rx={1.2} fill="var(--iris)" opacity={0.5} />
+          <rect x={36} y={14} width={12} height={9} rx={1.2} fill="var(--iris)" opacity={0.25} />
+        </>
+      )}
+    </svg>
+  );
+}
 
 /**
  * Setting up a test, as a sequence rather than a wall.
@@ -117,12 +169,174 @@ function Kiezer({
   );
 }
 
+/* ── template picker ─────────────────────────────────────────────────────── */
+
+/**
+ * The alternate product templates already in the theme.
+ *
+ * This used to be a text field. On this store the theme carries fourteen
+ * alternate templates, so typing the suffix meant remembering one exactly —
+ * and a typo does not fail loudly: Shopify falls back to the default template,
+ * so the test group quietly sees the same page as the control group and the
+ * test measures nothing while looking perfectly healthy.
+ *
+ * Typing is still allowed for a template that is not there yet, but it is the
+ * exception rather than the default.
+ */
+function TemplateKiezer({
+  templates, waarde, onKies, previewBasis,
+}: {
+  templates: TemplateInfo[];
+  waarde: string;
+  onKies: (s: string) => void;
+  previewBasis: string | null;
+}) {
+  const [handmatig, setHandmatig] = useState(false);
+  const bekend = templates.some((t) => t.suffix === waarde);
+
+  if (handmatig || (!templates.length && !bekend)) {
+    return (
+      <div className="field" style={{ maxWidth: 340 }}>
+        <span className="field__label">Template suffix</span>
+        <input type="text" value={waarde} placeholder="new-design"
+               onChange={(e) => onKies(e.target.value)} />
+        <span className="field__hint">
+          The part after the dot in <code>product.new-design.json</code>.
+          {templates.length > 0 && (
+            <> <button type="button" className="linkje" onClick={() => setHandmatig(false)}>
+              Pick from the theme instead
+            </button></>
+          )}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="field">
+      <span className="field__label">Template for the test group</span>
+      <div className="keuzeraster">
+        {templates.map((t) => {
+          const aan = t.suffix === waarde;
+          return (
+            <button key={t.suffix} type="button" className="keuze" aria-pressed={aan}
+                    onClick={() => onKies(t.suffix)}>
+              <span className="keuze__naam">{t.suffix}</span>
+              <span className="keuze__meta"><code>product.{t.suffix}.{t.soort}</code></span>
+            </button>
+          );
+        })}
+      </div>
+      <span className="field__hint">
+        {templates.length} alternate template{templates.length === 1 ? "" : "s"} in your live theme.
+        {" "}
+        <button type="button" className="linkje" onClick={() => setHandmatig(true)}>
+          Enter one by hand
+        </button>
+      </span>
+      {waarde && previewBasis && (
+        <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+          <a className="btn btn--sm" target="_blank" rel="noreferrer" href={previewBasis}>
+            Preview control
+          </a>
+          <a className="btn btn--sm btn--iris" target="_blank" rel="noreferrer"
+             href={previewBasis + (previewBasis.includes("?") ? "&" : "?") + "view=" + encodeURIComponent(waarde)}>
+            Preview variant
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── theme picker ────────────────────────────────────────────────────────── */
+
+function ThemaKiezer({
+  themas, waarde, onKies, winkelUrl,
+}: {
+  themas: ThemaInfo[];
+  waarde: ThemaInfo | null;
+  onKies: (t: ThemaInfo | null) => void;
+  winkelUrl: string | null;
+}) {
+  const live = themas.find((t) => t.rol === "MAIN") || null;
+  const keuzes = themas.filter((t) => t.rol !== "MAIN");
+
+  if (!themas.length) {
+    return (
+      <Banner tone="warn">
+        No themes could be read. Experli needs the <code>read_themes</code> permission — open the
+        app from Shopify once to approve it.
+      </Banner>
+    );
+  }
+
+  return (
+    <>
+      <div className="field">
+        <span className="field__label">Control — your live theme</span>
+        <div className="keuze keuze--vast">
+          <span className="keuze__naam">{live?.naam ?? "(unknown)"}</span>
+          <span className="keuze__meta">published · every visitor sees this today</span>
+        </div>
+      </div>
+
+      <div className="field">
+        <span className="field__label">Test group gets</span>
+        <div className="keuzeraster">
+          {keuzes.map((t) => {
+            const aan = waarde?.id === t.id;
+            return (
+              <button key={t.id} type="button" className="keuze" aria-pressed={aan}
+                      onClick={() => onKies(aan ? null : t)}>
+                <span className="keuze__naam">{t.naam}</span>
+                <span className="keuze__meta">
+                  {/* Null means "could not check", which is not the same as
+                      missing — no point alarming anyone about ignorance. */}
+                  {t.snippet === false && <span className="pill pill--draft">no snippet</span>}
+                  {t.snippet === true && <span className="pill pill--active">ready</span>}
+                  {t.bijgewerkt && <span>edited {t.bijgewerkt.slice(0, 10)}</span>}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        {!keuzes.length && (
+          <span className="field__hint">There are no unpublished themes to test against.</span>
+        )}
+      </div>
+
+      {waarde && (
+        <>
+          {waarde.snippet === false && (
+            <Banner tone="error">
+              <strong>{waarde.naam}</strong> does not have the Experli snippet. The test group
+              would browse it without ever being measured. Add the snippet to that theme first —
+              Start is blocked until it is there.
+            </Banner>
+          )}
+          {winkelUrl && (
+            <div style={{ marginTop: 10 }}>
+              <a className="btn btn--sm btn--iris" target="_blank" rel="noreferrer"
+                 href={winkelUrl.replace(/\/+$/, "") + "/?preview_theme_id=" + waarde.num}>
+                Preview {waarde.naam}
+              </a>
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
 /* ── wizard ──────────────────────────────────────────────────────────────── */
 
 export function Wizard({
-  producten, winkelUrl, onKlaar,
+  producten, templates, themas, winkelUrl, onKlaar,
 }: {
   producten: ProductInfo[];
+  templates: TemplateInfo[];
+  themas: ThemaInfo[];
   winkelUrl: string | null;
   onKlaar: () => void;
 }) {
@@ -139,6 +353,7 @@ export function Wizard({
   const [suffix, setSuffix] = useState("");
   const [controlUrl, setControlUrl] = useState("");
   const [testUrl, setTestUrl] = useState("");
+  const [thema, setThema] = useState<ThemaInfo | null>(null);
   const [split, setSplit] = useState("50");
   const [abo, setAbo] = useState(false);
   const [cycles, setCycles] = useState("1.8");
@@ -154,6 +369,7 @@ export function Wizard({
   const setupKlaar =
     type === "price" ? Boolean(control && test && koppeling?.pairs.length)
     : type === "template" ? Boolean(control && suffix.trim())
+    : type === "theme" ? Boolean(thema)
     : Boolean(controlUrl.trim() && testUrl.trim() &&
               normaliseerPad(controlUrl) !== normaliseerPad(testUrl));
 
@@ -169,6 +385,7 @@ export function Wizard({
     if (type === "price") { fd.set("control", control!.id); fd.set("test", test!.id); }
     if (type === "template") { fd.set("control", control!.id); fd.set("templateSuffix", suffix.trim()); }
     if (type === "url") { fd.set("controlUrl", controlUrl); fd.set("testUrl", testUrl); }
+    if (type === "theme") { fd.set("themeId", thema!.id); fd.set("themeName", thema!.naam); }
     fetcher.submit(fd, { method: "post" });
     onKlaar();
   };
@@ -184,7 +401,7 @@ export function Wizard({
             <div className="tabinhoud">
               <h3 className="wizard__kop">What do you want to test?</h3>
               <p className="wizard__sub">
-                All three split visitors the same way and measure the same things. Only what the
+                They all split visitors the same way and measure the same things. Only what the
                 test group is shown differs.
               </p>
 
@@ -197,6 +414,7 @@ export function Wizard({
                     aria-pressed={type === t.key}
                     onClick={() => setType(t.key)}
                   >
+                    <TypeDiagram soort={t.key} />
                     <span className="typekaart__naam">{t.naam}</span>
                     <span className="typekaart__kort">{t.kort}</span>
                     <span className="typekaart__uitleg">{t.uitleg}</span>
@@ -271,22 +489,23 @@ export function Wizard({
                     <Kiezer label="Product" hint="Both groups buy this, at the same price."
                             products={producten} picked={control} onPick={setControl} />
                   </div>
-                  <div className="field" style={{ maxWidth: 340 }}>
-                    <span className="field__label">Template suffix</span>
-                    <input type="text" value={suffix} placeholder="new-design"
-                           onChange={(e) => setSuffix(e.target.value)} />
-                    <span className="field__hint">
-                      The part after the dot in <code>product.new-design.liquid</code>. The test
-                      group gets <code>?view={suffix.trim() || "…"}</code> on the same URL.
-                    </span>
-                  </div>
-                  {control && suffix.trim() && winkelUrl && (
-                    <a className="btn btn--sm" target="_blank" rel="noreferrer"
-                       href={winkelUrl.replace(/\/+$/, "") + "/products/" + control.handle + "?view=" + suffix.trim()}>
-                      Preview the variant
-                    </a>
-                  )}
+                  <TemplateKiezer
+                    templates={templates}
+                    waarde={suffix}
+                    onKies={setSuffix}
+                    previewBasis={
+                      control && winkelUrl
+                        ? winkelUrl.replace(/\/+$/, "") + "/products/" + control.handle
+                        : null
+                    }
+                  />
                 </>
+              )}
+
+              {type === "theme" && (
+                <div style={{ marginTop: 16 }}>
+                  <ThemaKiezer themas={themas} waarde={thema} onKies={setThema} winkelUrl={winkelUrl} />
+                </div>
               )}
 
               {type === "url" && (
@@ -379,8 +598,8 @@ export function Wizard({
                 <div className="review__rij">
                   <span className="review__label"><span className="swatch swatch--control" /> Control</span>
                   <span>
-                    {type === "url"
-                      ? <code>{normaliseerPad(controlUrl)}</code>
+                    {type === "url" ? <code>{normaliseerPad(controlUrl)}</code>
+                      : type === "theme" ? <>{themas.find((t) => t.rol === "MAIN")?.naam ?? "live theme"} <span className="muted">— published</span></>
                       : <>{control?.title} <span className="muted">— unchanged</span></>}
                   </span>
                 </div>
@@ -390,6 +609,7 @@ export function Wizard({
                     {type === "price" && <>{test?.title} <code>{test?.handle}</code></>}
                     {type === "template" && <>same product, <code>?view={suffix.trim()}</code></>}
                     {type === "url" && <code>{normaliseerPad(testUrl)}</code>}
+                    {type === "theme" && <>{thema?.naam} <span className="muted">— every page</span></>}
                   </span>
                 </div>
                 <div className="review__rij">
