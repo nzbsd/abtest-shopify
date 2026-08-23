@@ -15,6 +15,7 @@ import {
   benodigdeBezoekers, pTekst, toetsAandeel, toetsConversie, toetsOmzetPerBezoeker, uitslagTekst,
 } from "~/lib/stats";
 import type { PriceTest } from "~/lib/priceTest.server";
+import { ForecastView } from "./forecast";
 
 type Metric = "rpv" | "cr" | "orders" | "visitors";
 type Range = "7" | "14" | "30" | "0";
@@ -38,6 +39,7 @@ export function AnalyticsView({
   const [gekozen, setGekozen] = useState<number | null>(null);
   const testId = gekozen ?? uitUrl ?? tests[0]?.id ?? null;
   const setTestId = (id: number) => { setGekozen(id); setParams({ test: String(id) }, { replace: true }); };
+  const [tab, setTab] = useState<"results" | "forecast">("results");
   const [metric, setMetric] = useState<Metric>("rpv");
   const [range, setRange] = useState<Range>("14");
 
@@ -127,6 +129,14 @@ export function AnalyticsView({
           (days !== null ? " · running for " + days + " days" : "")}
         actie={
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <Segmented
+              value={tab}
+              onChange={setTab}
+              options={[
+                { key: "results" as const, label: "Results" },
+                { key: "forecast" as const, label: "Forecast" },
+              ]}
+            />
             <Badge status={test.status} />
             {tests.length > 1 && (
               <select value={String(test.id)} onChange={(e) => setTestId(Number(e.target.value))}
@@ -140,6 +150,15 @@ export function AnalyticsView({
         }
       />
 
+      {tab === "forecast" ? (
+        <ForecastView
+          test={test}
+          controlVisitors={c.visitors}
+          testVisitors={t.visitors}
+          controlOrders={oc}
+          testOrders={ot}
+        />
+      ) : (
       <div className="stack">
         {/* ── the verdict ──────────────────────────────────────────────── */}
         <Card>
@@ -557,6 +576,7 @@ export function AnalyticsView({
           </Banner>
         )}
       </div>
+      )}
     </main>
   );
 }

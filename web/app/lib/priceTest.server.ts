@@ -32,6 +32,11 @@ export type PriceTest = {
   split_pct: number;
   started_at: string | null;
   stopped_at: string | null;
+  /** Abonnementsproduct? Zet de LTV-voorspelling aan. */
+  is_subscription: boolean;
+  /** Aanname: gemiddeld aantal facturatiecycli per klant, eerste order inbegrepen. */
+  avg_cycles: number | null;
+  avg_cycles_test: number | null;
   created_at?: string;
 };
 

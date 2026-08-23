@@ -178,6 +178,8 @@ export async function testsAction(
         test_title: test.title,
         variant_map: pairs,
         split_pct: split,
+        is_subscription: String(form.get("isSubscription") || "") === "1",
+        avg_cycles: parseFloat(String(form.get("cycles") || "")) || null,
       });
       if (error) throw new Error(error.message);
 
@@ -253,6 +255,30 @@ export async function testsAction(
         bericht: intent === "start"
           ? "Test started. The test group is now sent to the duplicate."
           : "Test stopped. Everyone sees the original again.",
+      };
+    }
+
+    // Abonnementsinstellingen kunnen ook op een lopende test: ze veranderen
+    // alleen hoe er gerekend wordt, niet wat bezoekers te zien krijgen.
+    if (intent === "settings") {
+      const id = Number(form.get("id"));
+      const aan = String(form.get("isSubscription") || "") === "1";
+      const cycles = parseFloat(String(form.get("cycles") || ""));
+
+      if (aan && (!Number.isFinite(cycles) || cycles < 1 || cycles > 60)) {
+        throw new Error("Average cycles must be between 1 and 60.");
+      }
+
+      const { error } = await supabase
+        .from("price_tests")
+        .update({ is_subscription: aan, avg_cycles: aan ? cycles : null })
+        .eq("id", id).eq("shop", shop);
+      if (error) throw new Error(error.message);
+      return {
+        ok: true,
+        bericht: aan
+          ? "Lifetime settings saved. The forecast now assumes " + cycles + " cycles per customer."
+          : "Lifetime forecast turned off for this test.",
       };
     }
 
