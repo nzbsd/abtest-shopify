@@ -1,6 +1,6 @@
 import { useFetcher } from "@remix-run/react";
 import { useMemo, useState } from "react";
-import { Banner, Card, Delta, Modal } from "~/components/ui";
+import { Banner, Card, Delta, Modal, Segmented } from "~/components/ui";
 import { geld } from "~/lib/analytics";
 import { matchVariants, prijsVergelijking, type ProductInfo } from "~/lib/variants";
 import { TYPES, normaliseerPad, type TestType } from "~/lib/testTypes";
@@ -56,6 +56,27 @@ function TypeDiagram({ soort }: { soort: TestType }) {
         </>
       )}
     </svg>
+  );
+}
+
+/**
+ * Wat een metriek aan verkeer kost, als drie streepjes.
+ *
+ * Stond hier eerst als "NEEDS A LOT OF TRAFFIC" in hoofdletters, en dat was
+ * het luidste op het scherm terwijl het het minst belangrijke is. Drie
+ * streepjes lezen in één oogopslag en - belangrijker - ze zijn over de rijen
+ * heen te vergelijken zonder ze te lezen. Alles op dit scherm gaat over
+ * dezelfde ruil: hoeveel zekerheid je eist en wat dat kost.
+ */
+function Meter({ niveau }: { niveau: "kort" | "middel" | "lang" }) {
+  const hoog = niveau === "kort" ? 1 : niveau === "middel" ? 2 : 3;
+  return (
+    <span className={"meter meter--" + niveau}
+          title={hoog === 1 ? "Settles fast" : hoog === 2 ? "Medium traffic" : "Needs a lot of traffic"}>
+      {[1, 2, 3].map((n) => (
+        <span key={n} className={"meter__streep" + (n <= hoog ? " meter__streep--aan" : "")} />
+      ))}
+    </span>
   );
 }
 
@@ -751,102 +772,135 @@ export function Wizard({
 
           {/* ── 3. goal ─────────────────────────────────────────────────── */}
           {stap === 2 && (
-            <div className="tabinhoud">
+            <div className="tabinhoud doel">
               <h3 className="wizard__kop">What decides the winner</h3>
               <p className="wizard__sub">
-                Pick this now, not when the numbers are in. Choosing afterwards means choosing the
-                metric that happens to look good — with five metrics on screen, roughly one in four
-                tests shows a “winner” that is pure chance.
+                Locked in now, before the numbers are in — decide afterwards and you will pick
+                whichever one happens to look good.
               </p>
 
-              <div className="metriekrij">
+              {/* De keuze is een lijst en geen raster: er wordt er één gekozen
+                  en vier afgewezen, en de gekozen draagt zijn eigen uitleg in
+                  plaats van een losse grijze slab eronder. */}
+              <div className="doel__lijst">
                 {METRICS.map((m) => {
                   const aan = metric === m.key;
                   return (
-                    <button key={m.key} type="button" className="metriek" aria-pressed={aan}
+                    <button key={m.key} type="button" className="doelrij" aria-pressed={aan}
                             onClick={() => {
                               setMetric(m.key);
                               setGuardrails((g) => g.filter((x) => x !== m.key));
                             }}>
-                      <span className="metriek__naam">{m.naam}</span>
-                      <span className="metriek__kort">{m.kort}</span>
-                      <span className={"metriek__duur metriek__duur--" + m.duur}>
-                        {m.duur === "kort" ? "settles fast"
-                          : m.duur === "middel" ? "medium traffic"
-                          : "needs a lot of traffic"}
+                      <span className="doelrij__vink" aria-hidden />
+                      <span className="doelrij__body">
+                        <span className="doelrij__regel">
+                          <span className="doelrij__naam">{m.naam}</span>
+                          <span className="doelrij__kort">{m.kort}</span>
+                          <Meter niveau={m.duur} />
+                        </span>
+                        {aan && (
+                          <span className="doelrij__uitleg">
+                            {m.uitleg}
+                            <em>{m.toetsnaam}</em>
+                          </span>
+                        )}
                       </span>
                     </button>
                   );
                 })}
               </div>
 
-              <div className="uitlegvak">
-                <strong>{metricInfo(metric).naam}.</strong> {metricInfo(metric).uitleg}
-                <span className="uitlegvak__toets">{metricInfo(metric).toetsnaam}</span>
+              {/* Betrouwbaarheid en effectgrootte zijn niet twee losse velden
+                  maar twee knoppen op hetzelfde apparaat, en dat apparaat heeft
+                  een uitkomst: wat dit je aan verkeer kost. Die uitkomst stond
+                  eerder als banner onderaan - de pointe op de laatste regel. */}
+              <div className="doel__onder">
+              <div className="paneel">
+                <div className="paneel__knoppen">
+                  <div className="field">
+                    <span className="field__label">How sure do you need to be</span>
+                    <Segmented
+                      value={confidence}
+                      options={[
+                        { key: "90", label: "90%" },
+                        { key: "95", label: "95%" },
+                        { key: "99", label: "99%" },
+                      ]}
+                      onChange={setConfidence}
+                    />
+                    <span className="field__hint">
+                      {confidence === "90" ? "Quicker answers, more false alarms. Fine for cheap, reversible changes."
+                        : confidence === "99" ? "Slowest and strictest. For changes that are expensive to undo."
+                        : "The usual choice."}
+                    </span>
+                  </div>
+
+                  <div className="field">
+                    <span className="field__label">Smallest lift worth finding</span>
+                    <div className="stapper">
+                      <button type="button" onClick={() => setMde(String(Math.max(1, Number(mde) - 1)))}
+                              aria-label="Less">−</button>
+                      <input type="number" min={1} max={100} value={mde}
+                             onChange={(e) => setMde(e.target.value)} className="num" />
+                      <span className="stapper__eenheid">%</span>
+                      <button type="button" onClick={() => setMde(String(Math.min(100, Number(mde) + 1)))}
+                              aria-label="More">+</button>
+                    </div>
+                    <span className="field__hint">
+                      Halving this roughly quadruples the traffic you need.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="uitlezing">
+                  {raming ? (
+                    <>
+                      <span className="uitlezing__getal num">{raming.n.toLocaleString("en-US")}</span>
+                      <span className="uitlezing__eenheid">visitors per group</span>
+                      <span className="uitlezing__voet">
+                        to detect a {mde}% change in {raming.m.naam.toLowerCase()} at {confidence}% confidence
+                      </span>
+                      {raming.n > 40000 && (
+                        <span className="uitlezing__let">
+                          That is a lot. Test a bigger change, or pick a metric that moves earlier.
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <span className="uitlezing__getal uitlezing__getal--leeg">—</span>
+                      <span className="uitlezing__eenheid">visitors per group</span>
+                      <span className="uitlezing__voet">
+                        {metricInfo(metric).naam} is sized from the spread in your own data, so this
+                        fills in after a day of traffic. Expect more than a rate-based metric needs.
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
 
-              <div className="field" style={{ marginTop: 14 }}>
-                <span className="field__label">Guardrails — must not get worse</span>
-                <div className="pilrij">
+              <div className="field doel__guard">
+                <span className="field__label">Guardrails</span>
+                <p className="field__hint" style={{ marginTop: 0, marginBottom: 8 }}>
+                  These do not have to win — they only must not measurably lose.
+                </p>
+                <div className="doel__lijst doel__lijst--klein">
                   {METRICS.filter((m) => m.key !== metric).map((m) => (
-                    <button key={m.key} type="button" className="pilkeuze"
+                    <button key={m.key} type="button" className="doelrij doelrij--vink"
                             aria-pressed={guardrails.includes(m.key)}
                             onClick={() => wissel(guardrails, setGuardrails, m.key)}>
-                      {m.naam}
+                      <span className="doelrij__vink" aria-hidden />
+                      <span className="doelrij__body">
+                        <span className="doelrij__regel">
+                          <span className="doelrij__naam">{m.naam}</span>
+                          <span className="doelrij__kort">{m.kort}</span>
+                        </span>
+                      </span>
                     </button>
                   ))}
                 </div>
-                <span className="field__hint">
-                  Checked the other way round: a guardrail does not have to win, it only must not
-                  measurably lose. On a price test, subscription share is the usual one — more
-                  revenue today is a poor trade against fewer subscribers.
-                </span>
               </div>
-
-              <div className="row" style={{ marginTop: 4 }}>
-                <div className="field">
-                  <span className="field__label">Confidence</span>
-                  <div className="pilrij">
-                    {["90", "95", "99"].map((c) => (
-                      <button key={c} type="button" className="pilkeuze" aria-pressed={confidence === c}
-                              onClick={() => setConfidence(c)}>{c}%</button>
-                    ))}
-                  </div>
-                  <span className="field__hint">
-                    {confidence === "90" ? "Quicker answers, more false alarms. Fine for cheap, reversible changes."
-                      : confidence === "99" ? "Slowest and strictest. For changes that are expensive to undo."
-                      : "The usual choice."}
-                  </span>
-                </div>
-                <div className="field">
-                  <span className="field__label">Smallest lift worth finding</span>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <input type="number" min={1} max={100} step={1} value={mde}
-                           onChange={(e) => setMde(e.target.value)} style={{ maxWidth: 110 }} />
-                    <span className="muted">%</span>
-                  </div>
-                  <span className="field__hint">
-                    Halving this roughly quadruples the traffic you need. Be honest about what would
-                    actually change your mind.
-                  </span>
-                </div>
               </div>
-
-              {raming && (
-                <Banner tone="info">
-                  At a {(raming.basis * 100).toFixed(0)}% baseline, finding a {mde}% change in{" "}
-                  {raming.m.naam.toLowerCase()} takes roughly{" "}
-                  <strong>{raming.n.toLocaleString("en-US")}</strong> visitors per group.
-                  {raming.n > 40000 && " That is a lot — consider a bigger change, or a metric that moves earlier."}
-                </Banner>
-              )}
-              {!raming && (
-                <Banner tone="info">
-                  {metricInfo(metric).naam} needs the spread of your actual data to size, so the
-                  target appears once the test has run for a day. Expect it to need more traffic
-                  than a rate-based metric.
-                </Banner>
-              )}
             </div>
           )}
 

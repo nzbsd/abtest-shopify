@@ -1054,66 +1054,215 @@ tbody tr:hover { background: var(--wash); }
 .lijst__meta--pillen { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 2px; }
 .lijst__meta code { font-size: 10.5px; }
 
-/* ── doelmetriek ────────────────────────────────────────────────────────── */
+/* ── de doelstap ────────────────────────────────────────────────────────────
+   Alles hier gaat over dezelfde ruil: hoeveel zekerheid je eist en wat dat
+   aan verkeer kost. Vandaar één visuele taal - de meter - op de metriekrijen
+   én in het paneel eronder.
+   ────────────────────────────────────────────────────────────────────────── */
 
-.metriekrij {
-  display: grid;
-  gap: 8px;
+.doel { display: flex; flex-direction: column; gap: 14px; }
+
+.doel__lijst {
   margin-top: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-}
-.metriek {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: 10px 12px;
-  text-align: left;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
+  overflow: hidden;
   background: var(--surface);
-  transition: border-color .15s, box-shadow .15s;
 }
-.metriek:hover { border-color: var(--line-loud); }
-.metriek[aria-pressed="true"] {
-  border-color: var(--iris-lit);
-  box-shadow: 0 0 0 1px var(--iris-lit);
+/* Paneel en guardrails naast elkaar: de metriekrijen gebruiken de breedte
+   toch niet, en onder elkaar viel de Continue-knop onder de vouw. */
+.doel__onder {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 15px;
+  align-items: start;
 }
-.metriek__naam { font-size: 12.5px; font-weight: 700; letter-spacing: -.01em; }
-.metriek__kort { font-size: 11px; color: var(--ink-3); }
+@media (max-width: 900px) { .doel__onder { grid-template-columns: 1fr; } }
 
-/* Hoeveel verkeer een metriek vraagt. Niet met kleur als waardeoordeel - een
-   trage metriek is niet slechter, hij kost alleen meer geduld. */
-.metriek__duur {
-  margin-top: 5px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .02em;
-  text-transform: uppercase;
-  background: var(--wash);
-  color: var(--ink-3);
-}
-.metriek__duur--kort   { background: var(--up-bg); color: var(--up); }
-.metriek__duur--lang   { background: var(--veil); color: var(--iris); }
+.doel__lijst--klein { margin-top: 0; }
+.doel__lijst--klein .doelrij { padding: 7px 13px; }
+.doel__lijst--klein .doelrij__naam { font-weight: 600; }
 
-.uitlegvak {
-  margin-top: 10px;
+.doelrij {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  width: 100%;
   padding: 11px 13px;
-  border-radius: var(--r-md);
-  background: var(--wash);
-  font-size: 12px;
-  color: var(--ink-2);
-  line-height: 1.5;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  transition: background-color .13s;
 }
-.uitlegvak strong { color: var(--ink); }
-.uitlegvak__toets {
+.doelrij:last-child { border-bottom: 0; }
+.doelrij:hover { background: var(--wash); }
+.doelrij[aria-pressed="true"] { background: var(--veil); }
+.doelrij:active { transform: none; }
+
+/* Het vinkje draagt de hele selectiestaat. Geen tweede signaal nodig: de
+   achtergrond verschuift al mee, en twee signalen voor één ding is ruis. */
+.doelrij__vink {
+  flex: none;
+  position: relative;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line-loud);
+  background: var(--surface);
+  transition: border-color .13s, background-color .13s;
+}
+.doelrij--vink .doelrij__vink { border-radius: var(--r-xs); }
+.doelrij:hover .doelrij__vink { border-color: var(--ink-4); }
+.doelrij[aria-pressed="true"] .doelrij__vink {
+  border-color: var(--iris);
+  background: var(--iris);
+}
+.doelrij[aria-pressed="true"] .doelrij__vink::after {
+  content: "";
+  position: absolute;
+  left: 4.5px; top: 1.5px;
+  width: 4px; height: 8px;
+  border: solid #fff;
+  border-width: 0 1.8px 1.8px 0;
+  transform: rotate(43deg);
+}
+
+.doelrij__body { flex: 1; min-width: 0; }
+.doelrij__regel { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+.doelrij__naam { font-size: 13px; font-weight: 650; letter-spacing: -.012em; color: var(--ink); }
+.doelrij__kort { font-size: 11.5px; color: var(--ink-3); }
+
+/* De uitleg hoort bij de gekozen regel, niet in een losse grijze slab eronder.
+   Zo blijft "waarom deze" op de plek waar je hem koos. */
+.doelrij__uitleg {
   display: block;
   margin-top: 6px;
-  font-size: 11px;
+  padding-left: 1px;
+  max-width: 68ch;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  animation: schuifIn .2s var(--ease-out) both;
+}
+.doelrij__uitleg em {
+  display: block;
+  margin-top: 5px;
+  font-style: normal;
+  font-size: 10.5px;
+  letter-spacing: .02em;
   color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
+}
+
+/* De meter: drie streepjes voor wat een metriek aan verkeer kost. */
+.meter { display: inline-flex; align-items: flex-end; gap: 2px; margin-left: auto; flex: none; }
+.meter__streep {
+  width: 3px;
+  border-radius: 1px;
+  background: var(--line-loud);
+  transition: background-color .13s;
+}
+.meter__streep:nth-child(1) { height: 5px; }
+.meter__streep:nth-child(2) { height: 8px; }
+.meter__streep:nth-child(3) { height: 11px; }
+.meter__streep--aan { background: var(--ink-4); }
+.doelrij[aria-pressed="true"] .meter__streep--aan { background: var(--iris); }
+
+/* Het instrument: twee knoppen en één uitlezing. */
+.paneel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(200px, auto);
+  gap: 16px;
+  align-items: stretch;
+  padding: 14px 15px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+.paneel__knoppen { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.paneel .field { margin: 0; }
+
+/* De uitlezing is ingelegd, niet verheven: het is een uitkomst, geen knop. */
+.uitlezing {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 13px 15px;
+  border-radius: var(--r-md);
+  background: var(--wash);
+}
+.uitlezing__getal {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -.035em;
+  line-height: 1.15;
+  color: var(--ink);
+}
+.uitlezing__getal--leeg { color: var(--ink-4); }
+.uitlezing__eenheid {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.uitlezing__voet {
+  margin-top: 8px;
+  max-width: 30ch;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+.uitlezing__let {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line-loud);
+  max-width: 30ch;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--test);
+}
+
+/* Plus en min naast het getal: sleutelen aan een percentage is stappen, niet
+   typen, en de eenheid hoort in de control te staan en niet ernaast. */
+.stapper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line-loud);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  overflow: hidden;
+}
+.stapper button {
+  width: 30px;
+  height: 32px;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--ink-3);
+  background: none;
+  border: 0;
+  transition: background-color .13s, color .13s;
+}
+.stapper button:hover { background: var(--wash); color: var(--ink); }
+.stapper input {
+  width: 46px;
+  height: 32px;
+  padding: 0;
+  text-align: right;
+  font-size: 13.5px;
+  font-weight: 650;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.stapper input::-webkit-outer-spin-button,
+.stapper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.stapper input { -moz-appearance: textfield; }
+.stapper__eenheid { padding: 0 7px 0 2px; font-size: 12px; font-weight: 600; color: var(--ink-3); }
+
+@media (max-width: 720px) {
+  .paneel { grid-template-columns: 1fr; }
+  .uitlezing { min-width: 0; }
 }
 
 /* Guardrails onder de uitslag. Een stip per stuk, want de vraag is niet
