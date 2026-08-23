@@ -293,7 +293,7 @@ export function AnalyticsView({
         }
       />
 
-      <div style={{ marginBottom: 18 }}>
+      <div style={{ marginBottom: 20 }}>
         <Tabs
           value={tab}
           onChange={setTab}
@@ -348,11 +348,11 @@ export function AnalyticsView({
                  " at " + betrouwbaarheid + "% confidence"}
           />
           <div className="card__body">
-            <div style={{ display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap", marginBottom: 14 }}>
-              <span className="num" style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-.035em" }}>
+            <div className="rij" style={{ marginBottom: 16 }}>
+              <span className="cijfer">
                 {ondertekend(doelToets.lift)}
               </span>
-              <span className="num" style={{ fontSize: 14.5, fontWeight: 600, color: "var(--ink-2)" }}>
+              <span className="cijfer cijfer--sm">
                 {doel.vorm === "geld"
                   ? geld(doel.waarde(cIn)) + " → " + geld(doel.waarde(tIn))
                   : doel.waarde(cIn).toFixed(2) + "% → " + doel.waarde(tIn).toFixed(2) + "%"}
@@ -410,8 +410,8 @@ export function AnalyticsView({
             )}
 
             {target > 0 && progress < 1 && (
-              <div style={{ marginTop: 18 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 7 }}>
+              <div style={{ marginTop: 20 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                   <span className="small muted">Towards the size you planned for: a {mde}% change</span>
                   <span className="small num muted">
                     {heel(behaald)} of {heel(target)} {noemerNaam(doel.key)} per group
@@ -486,7 +486,7 @@ export function AnalyticsView({
           <CardHead
             title="Daily trend"
             action={
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
                 <Segmented
                   value={metric}
                   onChange={setMetric}
@@ -511,7 +511,7 @@ export function AnalyticsView({
             }
           />
           <div className="card__body">
-            <div style={{ marginBottom: 14 }}><Legend /></div>
+            <div style={{ marginBottom: 16 }}><Legend /></div>
             <Lijn punten={points} formatteer={format[metric]} />
           </div>
         </Card>
@@ -540,7 +540,7 @@ export function AnalyticsView({
                 ]}
               />
               {c.atc + t.atc === 0 && (
-                <p className="small muted" style={{ marginTop: 14 }}>
+                <p className="small muted" style={{ marginTop: 16 }}>
                   Add-to-cart is not measured on this theme: it adds to the cart with JavaScript,
                   so no form submit happens for the snippet to notice. Visitors and orders are
                   unaffected.
@@ -607,19 +607,19 @@ export function AnalyticsView({
                     </Banner>
                   </div>
                 )}
-                <div className="grid grid--2" style={{ gap: 14 }}>
+                <div className="grid grid--2" style={{ gap: 16 }}>
                   {([["control", "Control", oc], ["test", "Test", ot]] as const).map(([k, label, o]) => (
                     <div key={k}>
                       <div className="legend__item" style={{ marginBottom: 8 }}>
                         <span className={"swatch swatch--" + k} />{label}
                       </div>
-                      <p className="num" style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-.03em" }}>
+                      <p className="cijfer cijfer--mid">
                         {procent(subAandeel(o), 1)}
                       </p>
                       <p className="small muted" style={{ marginTop: 4 }}>
                         {heel(o.subOrders)} of {heel(o.orders)} orders
                       </p>
-                      <div style={{ marginTop: 10 }}>
+                      <div style={{ marginTop: 12 }}>
                         <Track
                           value={subAandeel(o) / 100}
                           color={k === "control" ? "var(--control)" : "var(--test)"}

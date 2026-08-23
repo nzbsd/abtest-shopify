@@ -121,7 +121,7 @@ function Picker({
         placeholder="Search by name or handle"
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        style={{ marginBottom: 10 }}
+        style={{ marginBottom: 12 }}
       />
       <div className="picker">
         {!visible.length && <p className="small muted" style={{ padding: 8 }}>No products found.</p>}
@@ -173,7 +173,7 @@ function LtvInstelling({
       </label>
 
       {aan && (
-        <div className="field" style={{ maxWidth: 300, marginTop: 14, marginBottom: 0 }}>
+        <div className="field" style={{ maxWidth: 300, marginTop: 16, marginBottom: 0 }}>
           <span className="field__label">Average billing cycles per customer</span>
           <input type="number" step="0.1" min={1} max={60} value={cycles}
                  onChange={(e) => setCycles(e.target.value)} />
@@ -280,7 +280,7 @@ export function TestsView({
         {fout && (
           <Banner tone="error">
             <strong>Configuration incomplete.</strong>
-            <div style={{ marginTop: 6 }}><code>{fout}</code></div>
+            <div style={{ marginTop: 8 }}><code>{fout}</code></div>
           </Banner>
         )}
 
@@ -312,7 +312,7 @@ export function TestsView({
               return (
                 <div className="test-row" key={t.id}>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                       <strong>{t.naam || t.control_title || t.control_product_id}</strong>
                       <span className="typepil">{typeInfo(t.test_type).naam}</span>
                       <Badge status={t.status} />
@@ -353,7 +353,7 @@ export function TestsView({
                       )}
                     </div>
                     {watOntbreekt(t) && (
-                      <p className="small" style={{ marginTop: 6, color: "var(--down)" }}>
+                      <p className="small" style={{ marginTop: 8, color: "var(--down)" }}>
                         {watOntbreekt(t)}
                       </p>
                     )}
@@ -368,7 +368,7 @@ export function TestsView({
                         )}
                       </p>
                     )}
-                    <p className="small muted" style={{ marginTop: 6 }}>
+                    <p className="small muted" style={{ marginTop: 8 }}>
                       {t.split_pct}% in the test group · {heel((t.variant_map || []).length)} variant(s) matched
                       {days !== null && t.status === "running" ? " · running for " + days + " days" : ""}
                     </p>

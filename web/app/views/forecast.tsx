@@ -31,8 +31,8 @@ export function ForecastView({
             <strong style={{ display: "block", marginBottom: 8, color: "var(--ink)" }}>
               Lifetime forecast is off for this test
             </strong>
-            A price test measures the first order. For a subscription that is the smaller half of
-            the answer: a customer paying more per cycle is worth more every cycle, so a price that
+            A test measures the first order. For a subscription product that is the smaller half
+            of the answer: a customer paying more per cycle is worth more every cycle, so a price that
             loses a little conversion can still win by a distance.
             <br /><br />
             Turn it on under Tests and enter how many billing cycles an average customer lasts.
@@ -64,11 +64,11 @@ export function ForecastView({
           sub="First-order revenue multiplied out over the assumed lifetime, spread across every visitor."
         />
         <div className="card__body">
-          <div style={{ display: "flex", alignItems: "baseline", gap: 18, flexWrap: "wrap", marginBottom: 16 }}>
-            <span className="num" style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-.035em" }}>
+          <div className="rij" style={{ marginBottom: 16 }}>
+            <span className="cijfer">
               {ondertekend(f.verschilPct)}
             </span>
-            <span className="num" style={{ fontSize: 14.5, fontWeight: 600, color: "var(--ink-2)" }}>
+            <span className="cijfer cijfer--sm">
               {bedragVerschil(f.verschilPerBezoeker)} per visitor
             </span>
           </div>
@@ -97,32 +97,32 @@ export function ForecastView({
       {/* ── the number that actually decides it ───────────────────────────── */}
       <Card>
         <CardHead
-          title="How much retention the higher price can afford to lose"
-          sub="The question a price test cannot answer directly — but it can tell you where the line sits."
+          title="How much retention the variant can afford to lose"
+          sub="A test that runs for weeks cannot measure what happens over months. It can tell you where the line sits, which is enough to decide with."
         />
         <div className="card__body">
           {f.omslagCycles === null ? (
             <Leeg>No subscription orders in the test group yet, so there is no lifetime to project.</Leeg>
           ) : (
             <>
-              <div style={{ display: "flex", gap: 32, flexWrap: "wrap", marginBottom: 18 }}>
+              <div className="rij rij--ruim" style={{ marginBottom: 20 }}>
                 <div>
-                  <p className="small muted">Break-even lifetime</p>
-                  <p className="num" style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-.03em", marginTop: 4 }}>
+                  <span className="cijferlabel">Break-even lifetime</span>
+                  <p className="cijfer cijfer--mid">
                     {f.omslagCycles.toFixed(1)}
                   </p>
-                  <p className="small muted" style={{ marginTop: 4 }}>cycles</p>
+                  <span className="cijferlabel" style={{ marginTop: 4, marginBottom: 0 }}>cycles</span>
                 </div>
                 <div>
-                  <p className="small muted">You assume</p>
-                  <p className="num" style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-.03em", marginTop: 4 }}>
+                  <span className="cijferlabel">You assume</span>
+                  <p className="cijfer cijfer--mid">
                     {cycles.toFixed(1)}
                   </p>
-                  <p className="small muted" style={{ marginTop: 4 }}>cycles</p>
+                  <span className="cijferlabel" style={{ marginTop: 4, marginBottom: 0 }}>cycles</span>
                 </div>
                 {f.margeOpRetentie !== null && (
                   <div style={{ marginLeft: "auto", textAlign: "right" }}>
-                    <p className="small muted">Room to lose retention</p>
+                    <span className="cijferlabel">Room to lose retention</span>
                     <div style={{ marginTop: 8 }}>
                       <Delta waarde={f.margeOpRetentie} />
                     </div>
@@ -134,7 +134,7 @@ export function ForecastView({
                 <Track value={Math.min(f.margeOpRetentie / 100, 1)} color="var(--up)" />
               )}
 
-              <p style={{ marginTop: 14, fontSize: 13, color: "var(--ink-2)" }}>
+              <p style={{ marginTop: 16, fontSize: 13, color: "var(--ink-2)" }}>
                 {forecastTekst(f, cycles)}
               </p>
             </>

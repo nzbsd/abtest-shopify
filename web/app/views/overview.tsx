@@ -137,7 +137,7 @@ export function OverviewView({
                   " · " + t.split_pct + "% in the test group · " + watVarieert(t)
                 }
                 action={
-                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                     <Badge status={t.status} />
                     <Link className="btn btn--sm" to={basis + "/analytics?test=" + t.id}>Details</Link>
                   </div>
@@ -156,26 +156,26 @@ export function OverviewView({
                     </Banner>
                   </div>
                 )}
-                <div style={{ display: "flex", gap: 28, flexWrap: "wrap", alignItems: "baseline", marginBottom: 16 }}>
+                <div className="rij rij--ruim" style={{ marginBottom: 16 }}>
                   <div>
-                    <p className="small muted">{doel.naam}</p>
-                    <p className="num" style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-.03em", marginTop: 2 }}>
+                    <span className="cijferlabel">{doel.naam}</span>
+                    <p className="cijfer cijfer--mid">
                       {ondertekend(toets.lift)}
                     </p>
                   </div>
                   <div>
-                    <p className="small muted">Control</p>
-                    <p className="num" style={{ fontSize: 14.5, fontWeight: 600, marginTop: 4 }}>
+                    <span className="cijferlabel">Control</span>
+                    <p className="cijfer cijfer--sm">
                       {doel.vorm === "geld" ? geld(doel.waarde(cIn)) : procent(doel.waarde(cIn))}
                     </p>
                   </div>
                   <div>
-                    <p className="small muted">Test</p>
-                    <p className="num" style={{ fontSize: 14.5, fontWeight: 600, marginTop: 4 }}>
+                    <span className="cijferlabel">Test</span>
+                    <p className="cijfer cijfer--sm">
                       {doel.vorm === "geld" ? geld(doel.waarde(tIn)) : procent(doel.waarde(tIn))}
                     </p>
                   </div>
-                  <div style={{ marginLeft: "auto" }}>
+                  <div className="rij--eind">
                     <Delta waarde={toets.lift} />
                   </div>
                 </div>
@@ -215,7 +215,7 @@ export function OverviewView({
                 return (
                   <div className="test-row" key={t.id}>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                         <strong>{t.control_title || t.control_product_id}</strong>
                         <Badge status={t.status} />
                       </div>

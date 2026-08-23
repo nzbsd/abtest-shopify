@@ -159,7 +159,7 @@ function Kiezer({
           </span>
         </span>
         {gekozen && (
-          <span style={{ display: "flex", gap: 6, flex: "none" }}>
+          <span style={{ display: "flex", gap: 8, flex: "none" }}>
             {p.url && <a className="btn btn--sm" href={p.url} target="_blank" rel="noreferrer">Preview</a>}
             <button type="button" className="btn btn--sm" onClick={() => onPick(null)}>Change</button>
           </span>
@@ -275,7 +275,7 @@ function TemplateKiezer({
               <span className="duel__sub">
                 served as <code>?view={waarde}</code>
               </span>
-              <span style={{ display: "flex", gap: 6 }}>
+              <span style={{ display: "flex", gap: 8 }}>
                 {previewBasis && (
                   <a className="btn btn--sm btn--iris" target="_blank" rel="noreferrer"
                      href={previewUrl(waarde)!}>Preview</a>
@@ -333,7 +333,7 @@ function TemplateKiezer({
 
           {keuzes.length > 6 && (
             <input type="search" placeholder="Search templates" value={zoek}
-                   onChange={(e) => setZoek(e.target.value)} style={{ marginBottom: 10 }} />
+                   onChange={(e) => setZoek(e.target.value)} style={{ marginBottom: 12 }} />
           )}
 
           <div className="lijst">
@@ -354,7 +354,7 @@ function TemplateKiezer({
               </div>
             ))}
             {!gefilterd.length && keuzes.length > 0 && (
-              <p className="small muted" style={{ padding: 10 }}>Nothing matches that.</p>
+              <p className="small muted" style={{ padding: 12 }}>Nothing matches that.</p>
             )}
           </div>
         </Modal>
@@ -439,7 +439,7 @@ function ThemaKiezer({
                   ? "unpublished — snippet missing"
                   : "unpublished — served for the whole session"}
               </span>
-              <span style={{ display: "flex", gap: 6 }}>
+              <span style={{ display: "flex", gap: 8 }}>
                 {preview(waarde.num) && (
                   <a className="btn btn--sm btn--iris" target="_blank" rel="noreferrer"
                      href={preview(waarde.num)!}>Preview</a>
@@ -481,7 +481,7 @@ function ThemaKiezer({
         >
           {keuzes.length > 6 && (
             <input type="search" placeholder="Search themes" value={zoek}
-                   onChange={(e) => setZoek(e.target.value)} style={{ marginBottom: 10 }} />
+                   onChange={(e) => setZoek(e.target.value)} style={{ marginBottom: 12 }} />
           )}
           <div className="lijst">
             {gefilterd.map((t) => (
@@ -505,7 +505,7 @@ function ThemaKiezer({
               </div>
             ))}
             {!gefilterd.length && (
-              <p className="small muted" style={{ padding: 10 }}>Nothing matches that.</p>
+              <p className="small muted" style={{ padding: 12 }}>Nothing matches that.</p>
             )}
           </div>
         </Modal>
@@ -687,16 +687,16 @@ export function Wizard({
                   </div>
 
                   {koppeling && (
-                    <div style={{ marginTop: 18 }}>
+                    <div style={{ marginTop: 20 }}>
                       {zelfdePrijs && (
-                        <div style={{ marginBottom: 10 }}>
+                        <div style={{ marginBottom: 12 }}>
                           <Banner tone="warn">
                             Both products have the same price — there is nothing to measure yet.
                           </Banner>
                         </div>
                       )}
                       {koppeling.unmatched.length > 0 && (
-                        <div style={{ marginBottom: 10 }}>
+                        <div style={{ marginBottom: 12 }}>
                           <Banner tone="error">
                             <strong>Not matched:</strong> {koppeling.unmatched.join(", ")}. Those
                             variants fall outside the test.

@@ -1573,3 +1573,45 @@ tbody tr:hover { background: var(--wash); }
   font-weight: 700;
   color: var(--ink);
 }
+
+/* ── getallen en rijen ──────────────────────────────────────────────────────
+   Hetzelfde uitslaggetal stond op vijf schermen in vijf maten: 30, 24 en 22,
+   per scherm anders opgeschreven met inline stijlen. Niet omdat dat ergens zo
+   bedoeld was, maar omdat er geen maat lag om naar te grijpen. Eén schaal per
+   ROL, niet per scherm.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* De uitslag van een scherm: één per pagina, en hij hoort te winnen. */
+.cijfer {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -.035em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+/* Een kengetal binnen een kaart. */
+.cijfer--mid { font-size: 22px; letter-spacing: -.03em; }
+/* Een waarde naast een label, in een rij met meer waarden. */
+.cijfer--sm { font-size: 14.5px; font-weight: 600; letter-spacing: -.01em; }
+.cijfer--leeg { color: var(--ink-4); }
+
+/* Label boven een cijfer. Klein, rustig, en altijd dezelfde afstand eronder -
+   dat laatste stond overal als losse marginTop van 2 of 4. */
+.cijferlabel {
+  display: block;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-bottom: 3px;
+}
+
+/* De rij waarin die cijfers naast elkaar staan. Vervangt twintig keer
+   display:flex met een eigen gap en flexWrap. */
+.rij {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 16px;
+}
+.rij--ruim { gap: 28px; }
+.rij--mid { align-items: center; }
+.rij--eind { margin-left: auto; }
