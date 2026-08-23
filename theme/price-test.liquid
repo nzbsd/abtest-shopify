@@ -495,6 +495,28 @@
     var hierPad = pad();
     var tech = techniek();
 
+    /**
+     * Put the session id in the cart, once per session.
+     *
+     * This is how an order gets linked back to the visit that produced it.
+     * theme.liquid does not render on the order status page, so nothing can be
+     * measured there; the cart is the only thing that travels from the shop
+     * into the order. The orders/create webhook reads it back.
+     *
+     * It also beats a pixel on the thank-you page: the amount then comes from
+     * Shopify rather than from JavaScript an ad blocker can stop.
+     */
+    try {
+      if (!sessionStorage.getItem("_pt_cart_" + sessie.id)) {
+        sessionStorage.setItem("_pt_cart_" + sessie.id, "1");
+        fetch("/cart/update.js", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ attributes: { _pt_sess: sessie.id } })
+        }).catch(function () {});
+      }
+    } catch (e) {}
+
     stuur({
       shop: SHOP, sid: sessie.id, vid: visitor, t: "view", path: hierPad,
       ref: document.referrer || "", country: COUNTRY, device: DEVICE,

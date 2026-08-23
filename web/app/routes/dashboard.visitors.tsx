@@ -3,18 +3,23 @@ import { useLoaderData } from "@remix-run/react";
 import { SiteView } from "~/views/site";
 import { Banner } from "~/components/ui";
 import { vereisLogin, winkelDomein } from "~/lib/dashboardAuth.server";
-import { siteData, type SiteBereik } from "~/lib/site.server";
+import { siteData, type SiteBereik, type Vergelijking } from "~/lib/site.server";
+import { leesFilters } from "~/lib/siteFilters";
 
 export const meta = () => [{ title: "Visitors · Experli" }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await vereisLogin(request);
   const shop = await winkelDomein();
-  if (!shop) return json({ shop: null, data: null });
+  if (!shop) return json({ data: null, filters: [] });
 
-  const d = new URL(request.url).searchParams.get("d");
+  const p = new URL(request.url).searchParams;
+  const d = p.get("d");
   const bereik = (["1", "7", "30", "90"].includes(String(d)) ? d : "7") as SiteBereik;
-  return json({ shop, data: await siteData(shop, bereik) });
+  const vergelijking = (p.get("v") === "jaar" ? "jaar" : "vorige") as Vergelijking;
+  const filters = leesFilters(p.get("f"));
+
+  return json({ data: await siteData(shop, bereik, filters, vergelijking), filters });
 };
 
 export default function Route() {
@@ -29,5 +34,5 @@ export default function Route() {
       </main>
     );
   }
-  return <SiteView data={d.data} shop={d.shop} />;
+  return <SiteView data={d.data} filters={d.filters} />;
 }

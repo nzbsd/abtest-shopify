@@ -1655,41 +1655,6 @@ tbody tr:hover { background: var(--wash); }
 @keyframes klop { 0%, 100% { opacity: 1 } 50% { opacity: .35 } }
 @media (prefers-reduced-motion: reduce) { .live__stip { animation: none } }
 
-/* Een lijst waarin de balk de verhouding draagt en niet een los getal ernaast.
-   De balk zit áchter de tekst, want een balk naast de naam duwt de namen in
-   een smalle kolom en dan lees je ze niet meer. */
-.balklijst { padding: 4px 0; }
-.balkrij {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 7px 16px;
-  font-size: 12.5px;
-}
-.balkrij__vulling {
-  position: absolute;
-  inset: 2px auto 2px 8px;
-  border-radius: var(--r-xs);
-  background: var(--iris-pale);
-  z-index: 0;
-}
-.balkrij__naam {
-  position: relative;
-  z-index: 1;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.balkrij__aantal {
-  position: relative;
-  z-index: 1;
-  font-weight: 650;
-  color: var(--ink-2);
-}
-
 /* Een stap in de trechter: naam, aantal, en hoeveel er van de vorige stap
    overbleef. Dat laatste is het cijfer waar het om gaat. */
 .stapregel { margin-bottom: 14px; }
@@ -1706,3 +1671,181 @@ tbody tr:hover { background: var(--wash); }
 .stapregel__cijfers { display: flex; align-items: baseline; gap: 10px; }
 /* Onder de helft doorvallen is geen detail meer; dat mag opvallen. */
 .stapregel__val { color: var(--test); font-weight: 650; }
+
+/* ── lijsten waarvan elke rij een filter is ─────────────────────────────────
+   De balk zit áchter de tekst en binnen de rij. Ernaast duwt hij de namen in
+   een smalle kolom; op de volle rijbreedte liep hij het kader uit, want de
+   rij heeft padding en de balk rekende daar niet mee. Nu absoluut binnen de
+   padding, met overflow:hidden op de lijst als vangnet.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.balklijst {
+  padding: 4px 0;
+  overflow: hidden;
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
+}
+
+.balkrij {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 16px;
+  font-size: 12.5px;
+  text-align: left;
+  background: none;
+  border: 0;
+  transition: background-color .12s;
+}
+.balkrij:hover { background: var(--wash); }
+.balkrij[aria-pressed="true"] { background: var(--veil); }
+.balkrij[aria-pressed="true"] .balkrij__naam { font-weight: 650; color: var(--iris); }
+.balkrij--stil { cursor: default; }
+.balkrij--stil:hover { background: none; }
+
+/* Binnen de padding, zodat hij nooit tegen de rand aankomt. */
+.balkrij__vulling {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 12px;
+  max-width: calc(100% - 24px);
+  border-radius: var(--r-xs);
+  background: var(--iris-pale);
+  z-index: 0;
+  transition: width .2s var(--ease-out);
+}
+.balkrij[aria-pressed="true"] .balkrij__vulling { background: var(--iris-lit); opacity: .22; }
+
+.balkrij__naam {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.balkrij__naam code { font-size: 11.5px; }
+.balkrij__delta { position: relative; z-index: 1; flex: none; color: var(--ink-3); }
+.balkrij__aantal {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  font-weight: 650;
+  color: var(--ink-2);
+}
+
+.meer {
+  display: block;
+  width: 100%;
+  padding: 9px 16px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: none;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--iris);
+  text-align: left;
+}
+.meer:hover { background: var(--wash); }
+
+/* Tabbladen binnen een kaartkop: dezelfde vraag, andere dimensie. */
+.minitabs { display: inline-flex; gap: 2px; padding: 2px; border-radius: var(--r-sm); background: var(--wash); }
+.minitabs button {
+  padding: 4px 9px;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: none;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-3);
+  white-space: nowrap;
+  transition: background-color .12s, color .12s;
+}
+.minitabs button:hover { color: var(--ink-2); }
+.minitabs button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-card); }
+
+/* De regel boven de lijsten: waarop lees je ze, en dat ze klikbaar zijn. */
+.lijstkop {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 2px 2px 0;
+}
+.lijstkop__label { font-size: 11.5px; font-weight: 650; color: var(--ink-2); }
+.lijstkop__hint { margin-left: auto; }
+
+/* Actieve filters. Elke chip is zijn eigen knop: klikken haalt hem weg.
+   Heet bewust niet .chip: die klasse was al in gebruik voor het icoonvlak van
+   een KPI, en die kreeg daardoor de pil-opmaak van een filter. */
+.filterchips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.filterchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--iris);
+  background: var(--iris-pale);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--iris);
+  transition: background-color .12s;
+}
+.filterchip:hover { background: var(--iris-lit); color: #fff; border-color: var(--iris-lit); }
+.filterchip:hover .filterchip__sleutel { color: rgba(255,255,255,.75); }
+.filterchip__sleutel { font-weight: 500; color: var(--ink-3); }
+.filterchip__weg { font-size: 14px; line-height: 1; opacity: .7; }
+
+/* Staafjes met de vorige periode erachter. Geen lijngrafiek: bij een
+   uurverdeling zijn het losse bakken en geen doorlopende reeks, en een lijn
+   suggereert daar een verloop dat er niet is. */
+.staafjes {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 150px;
+  padding-top: 4px;
+}
+.staaf {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.staaf__vorige,
+.staaf__nu {
+  position: absolute;
+  bottom: 0;
+  border-radius: 2px 2px 0 0;
+  transition: height .25s var(--ease-out);
+}
+.staaf__vorige { left: 0; right: 0; background: var(--line-loud); }
+.staaf__nu     { left: 0; right: 0; background: var(--iris-lit); }
+.staaf:hover .staaf__nu { background: var(--iris); }
+.staafjes__as {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 10.5px;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+
+/* De tabstrook onder de kaartkop. Horizontaal scrollbaar in plaats van
+   krimpend: liever een strook waar je doorheen veegt dan vier onleesbaar
+   samengeperste labels. */
+.tabstrook {
+  padding: 0 18px 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabstrook::-webkit-scrollbar { display: none; }
+.tabstrook .minitabs { min-width: min-content; }
+.card__title, .card__sub { overflow-wrap: anywhere; }

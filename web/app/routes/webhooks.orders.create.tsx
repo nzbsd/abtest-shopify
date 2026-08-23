@@ -26,6 +26,36 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const { shop, payload, topic } = await authenticate.webhook(request);
   if (topic !== "ORDERS_CREATE") return new Response(null, { status: 200 });
 
+  /**
+   * De order koppelen aan het bezoek dat hem opleverde.
+   *
+   * Staat los van alles hieronder, want dit gaat over de bezoekersanalytics en
+   * niet over een test - het geldt voor élke order, ook als er geen test loopt.
+   *
+   * Het sessie-id komt uit de cart-attributen die het thema-snippet er bij de
+   * eerste pagina in zet. Dat is de enige route: theme.liquid rendert niet op
+   * de order-status pagina, dus daar valt niets te meten. En het bedrag komt
+   * hier van Shopify, niet uit JavaScript dat een adblocker kan tegenhouden.
+   *
+   * Rebills tellen niet mee, om dezelfde reden als bij de tests: die zijn
+   * maanden geleden afgesproken en horen bij geen enkel bezoek van vandaag.
+   */
+  try {
+    const attrsAlle: Record<string, string> = {};
+    for (const a of (payload as any)?.note_attributes || []) {
+      if (a?.name) attrsAlle[String(a.name)] = String(a.value ?? "");
+    }
+    const sess = attrsAlle["_pt_sess"];
+    const bron = String((payload as any)?.source_name || "");
+
+    if (sess && bron === "web") {
+      const cents = Math.round(parseFloat((payload as any)?.total_price || "0") * 100);
+      await supabase.rpc("site_order", { p_sessie: sess, p_cents: cents });
+    }
+  } catch {
+    // Een mislukte koppeling mag de rest van deze webhook niet meenemen.
+  }
+
   try {
     const { data: tests } = await supabase
       .from("price_tests")
