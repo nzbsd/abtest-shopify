@@ -4,12 +4,14 @@ import { AnalyticsView } from "~/views/analytics";
 import { Banner } from "~/components/ui";
 import { vereisLogin, winkelDomein } from "~/lib/dashboardAuth.server";
 import { analyticsData } from "~/lib/pageData.server";
+import { adminVoorShop } from "~/lib/adminVoorShop.server";
 
 export const meta = () => [{ title: "Analytics · Price Test" }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await vereisLogin(request);
-  return json(await analyticsData(await winkelDomein()));
+  const shop = await winkelDomein();
+  return json(await analyticsData(await adminVoorShop(shop), shop));
 };
 
 export default function Route() {
@@ -25,5 +27,5 @@ export default function Route() {
       </main>
     );
   }
-  return <AnalyticsView tests={d.tests} stats={d.stats} daily={d.daily} orders={d.orders} varianten={d.varianten} />;
+  return <AnalyticsView tests={d.tests} stats={d.stats} daily={d.daily} orders={d.orders} />;
 }

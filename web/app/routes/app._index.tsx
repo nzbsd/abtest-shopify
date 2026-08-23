@@ -6,8 +6,8 @@ import { authenticate } from "~/shopify.server";
 import { overzichtData } from "~/lib/pageData.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-  return json(await overzichtData(session.shop));
+  const { session, admin } = await authenticate.admin(request);
+  return json(await overzichtData(admin, session.shop));
 };
 
 export default function Route() {
@@ -23,5 +23,5 @@ export default function Route() {
       </main>
     );
   }
-  return <OverviewView tests={d.tests} stats={d.stats} basis="/app" />;
+  return <OverviewView tests={d.tests} stats={d.stats} orders={d.orders} basis="/app" />;
 }

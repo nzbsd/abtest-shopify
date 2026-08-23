@@ -7,9 +7,10 @@ import {
   Kpi, Leeg, Legend, Segmented, Track,
 } from "~/components/ui";
 import {
-  beperkTotDagen, dagReeks, geld, heel, looptDagen, ondertekend, procent,
-  telOp, type DagRij, type OrderRij, type StatRij, type VariantRij,
+  beperkTotDagen, combineer, dagReeks, geld, heel, korteDatum, looptDagen, ondertekend, procent,
+  telOp, type DagRij, type StatRij,
 } from "~/lib/analytics";
+import type { OrderCijfers, OrderResultaat } from "~/lib/orders.server";
 import {
   benodigdeBezoekers, pTekst, toetsAandeel, toetsConversie, toetsOmzetPerBezoeker, uitslagTekst,
 } from "~/lib/stats";
@@ -18,14 +19,18 @@ import type { PriceTest } from "~/lib/priceTest.server";
 type Metric = "rpv" | "cr" | "orders" | "visitors";
 type Range = "7" | "14" | "30" | "0";
 
+const GEEN: OrderCijfers = {
+  orders: 0, units: 0, revenueCents: 0, revenueSqCents: 0, subOrders: 0, subRevenueCents: 0,
+};
+
 export function AnalyticsView({
-  tests, stats, daily, orders = [], varianten = [],
+  tests, stats, daily, orders = {},
 }: {
   tests: PriceTest[];
   stats: StatRij[];
   daily: DagRij[];
-  orders?: OrderRij[];
-  varianten?: VariantRij[];
+  /** Per test-id de ordercijfers zoals ze bij Shopify staan. */
+  orders?: Record<number, OrderResultaat>;
 }) {
   // ?test= in the URL so a link from the Tests screen opens the right one.
   const [params, setParams] = useSearchParams();
@@ -50,8 +55,12 @@ export function AnalyticsView({
   const ownStats = stats.filter((r) => r.test_id === test.id);
   const ownDaily = beperkTotDagen(daily.filter((r) => r.test_id === test.id), Number(range));
 
-  const c = telOp(ownStats, "control");
-  const t = telOp(ownStats, "test");
+  const ord = orders[test.id];
+  const oc = ord?.control ?? GEEN;
+  const ot = ord?.test ?? GEEN;
+
+  const c = combineer(telOp(ownStats, "control"), oc);
+  const t = combineer(telOp(ownStats, "test"), ot);
 
   const revenueTest = toetsOmzetPerBezoeker(c, t);
   const convTest = toetsConversie(c, t);
@@ -65,7 +74,30 @@ export function AnalyticsView({
   const smallest = Math.min(c.visitors, t.visitors);
 
   const days = looptDagen(test.started_at);
-  const points = dagReeks(ownDaily, metric);
+  /* Days come from two places: visitors from our own events, orders and money
+     from Shopify. Merged here so one chart can switch between them. */
+  const points = (() => {
+    const bezoekersReeks = dagReeks(ownDaily, metric === "rpv" || metric === "orders" ? "visitors" : metric);
+    if (metric !== "rpv" && metric !== "orders") return bezoekersReeks;
+
+    const dagen = Array.from(new Set([
+      ...bezoekersReeks.map((p) => p.dag),
+      ...Object.keys(ord?.perDag ?? {}),
+    ])).sort().filter((d) => !Number(range) || d >= new Date(Date.now() - Number(range) * 864e5).toISOString().slice(0, 10));
+
+    return dagen.map((dag) => {
+      const bez = bezoekersReeks.find((p) => p.dag === dag);
+      const o = ord?.perDag?.[dag];
+      const waarde = (co: "control" | "test") => {
+        const g = o?.[co];
+        if (!g) return 0;
+        if (metric === "orders") return g.orders;
+        const v = co === "control" ? bez?.control ?? 0 : bez?.test ?? 0;
+        return v ? g.revenueCents / 100 / v : 0;
+      };
+      return { dag, control: waarde("control"), test: waarde("test") };
+    });
+  })();
 
   const format: Record<Metric, (v: number) => string> = {
     rpv: geld,
@@ -76,22 +108,13 @@ export function AnalyticsView({
 
   const markets = Array.from(new Set(ownStats.map((r) => r.market || "—"))).sort();
 
-  /* Order composition: subscription share, units, tiers. */
-  const ord = (co: string): OrderRij =>
-    orders.find((r) => r.test_id === test.id && r.cohort === co) ?? {
-      test_id: test.id, cohort: co, orders: 0, sub_orders: 0, eenmalig_orders: 0,
-      revenue_cents: 0, sub_revenue_cents: 0, units: 0, units_per_order: 0,
-    };
-  const oc = ord("control");
-  const ot = ord("test");
+  const subToets = toetsAandeel(oc.subOrders, oc.orders, ot.subOrders, ot.orders);
+  const subAandeel = (o: OrderCijfers) => (o.orders ? (o.subOrders / o.orders) * 100 : 0);
+  const subOmzetAandeel = (o: OrderCijfers) =>
+    o.revenueCents ? (o.subRevenueCents / o.revenueCents) * 100 : 0;
 
-  const subToets = toetsAandeel(oc.sub_orders, oc.orders, ot.sub_orders, ot.orders);
-  const subAandeel = (o: OrderRij) => (o.orders ? (o.sub_orders / o.orders) * 100 : 0);
-  const subOmzetAandeel = (o: OrderRij) =>
-    o.revenue_cents ? (o.sub_revenue_cents / o.revenue_cents) * 100 : 0;
-
-  const eigenVarianten = varianten.filter((r) => r.test_id === test.id);
-  const variantNamen = Array.from(new Set(eigenVarianten.map((r) => r.variant_title))).sort();
+  const variantNamen = Object.keys(ord?.perVariant ?? {}).sort();
+  const valutas = Object.keys(ord?.perValuta ?? {}).sort();
   const heeftOrders = oc.orders + ot.orders > 0;
 
   return (
@@ -229,13 +252,26 @@ export function AnalyticsView({
             <CardHead title="Funnel" sub="On the right, the share that made it from the previous step: control / test." />
             <div className="card__body">
               <div style={{ marginBottom: 16 }}><Legend /></div>
+              {/* The cart step only appears when it is actually measured. This
+                  store uses a JS cart, so no form submit fires and add-to-cart
+                  stays at zero; a row of zeroes would read as "nobody adds to
+                  cart" rather than "we do not know". */}
               <Trechter
                 stappen={[
                   { label: "Visitors", control: c.visitors, test: t.visitors },
-                  { label: "Added to cart", control: c.atc, test: t.atc },
+                  ...(c.atc + t.atc > 0
+                    ? [{ label: "Added to cart", control: c.atc, test: t.atc }]
+                    : []),
                   { label: "Orders", control: c.orders, test: t.orders },
                 ]}
               />
+              {c.atc + t.atc === 0 && (
+                <p className="small muted" style={{ marginTop: 14 }}>
+                  Add-to-cart is not measured on this theme: it adds to the cart with JavaScript,
+                  so no form submit happens for the snippet to notice. Visitors and orders are
+                  unaffected.
+                </p>
+              )}
             </div>
           </Card>
 
@@ -292,7 +328,7 @@ export function AnalyticsView({
                         {procent(subAandeel(o), 1)}
                       </p>
                       <p className="small muted" style={{ marginTop: 4 }}>
-                        {heel(o.sub_orders)} of {heel(o.orders)} orders
+                        {heel(o.subOrders)} of {heel(o.orders)} orders
                       </p>
                       <div style={{ marginTop: 10 }}>
                         <Track
@@ -338,7 +374,7 @@ export function AnalyticsView({
                           </td>
                           <td>{heel(o.orders)}</td>
                           <td>{heel(o.units)}</td>
-                          <td>{Number(o.units_per_order || 0).toFixed(2)}</td>
+                          <td>{o.orders ? (o.units / o.orders).toFixed(2) : "—"}</td>
                           <td><strong>{geld(g.aov)}</strong></td>
                         </tr>
                       ),
@@ -366,9 +402,8 @@ export function AnalyticsView({
                 </thead>
                 <tbody>
                   {variantNamen.map((naam) => {
-                    const rij = (co: string) =>
-                      eigenVarianten.find((r) => r.variant_title === naam && r.cohort === co);
-                    const rc = rij("control"), rt = rij("test");
+                    const paar = ord?.perVariant?.[naam];
+                    const rc = paar?.control, rt = paar?.test;
                     const oc2 = Number(rc?.orders || 0), ot2 = Number(rt?.orders || 0);
                     return (
                       <tr key={naam}>
@@ -377,7 +412,7 @@ export function AnalyticsView({
                         <td>{oc.orders ? procent((oc2 / oc.orders) * 100, 0) : "—"}</td>
                         <td>{heel(ot2)}</td>
                         <td>{ot.orders ? procent((ot2 / ot.orders) * 100, 0) : "—"}</td>
-                        <td>{geld(Number(rt?.revenue_cents || 0) / 100)}</td>
+                        <td>{geld(Number(rt?.revenueCents || 0) / 100)}</td>
                       </tr>
                     );
                   })}
@@ -387,42 +422,37 @@ export function AnalyticsView({
           </Card>
         )}
 
-        {/* ── per market ───────────────────────────────────────────────── */}
-        {markets.length > 0 && (
+        {/* ── per currency ─────────────────────────────────────────────── */}
+        {valutas.length > 0 && (
           <Card>
             <CardHead
-              title="Per market"
-              sub="Individual markets have far fewer visitors each, so read these as direction rather than verdict."
+              title="Per currency"
+              sub="Each market prices in its own currency, so this is the market split. Far fewer visitors each, so read it as direction rather than verdict."
             />
             <div className="card__body card__body--flush table-scroll">
               <table>
                 <thead>
                   <tr>
-                    <th>Market</th><th>Visitors control</th><th>/ visitor</th>
-                    <th>Visitors test</th><th>/ visitor</th><th>Difference</th>
+                    <th>Currency</th><th>Orders control</th><th>Revenue control</th>
+                    <th>Orders test</th><th>Revenue test</th><th>Avg order value</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {markets.map((m) => {
-                    const rows = (co: string) =>
-                      ownStats.filter((r) => (r.market || "—") === m && r.cohort === co);
-                    const gc = telOp(rows("control"), "control");
-                    const gt = telOp(rows("test"), "test");
-                    const d = gc.rpv > 0 ? ((gt.rpv - gc.rpv) / gc.rpv) * 100 : 0;
-                    const thin = gc.visitors < 100 || gt.visitors < 100;
+                  {valutas.map((v) => {
+                    const paar = ord?.perValuta?.[v];
+                    const gc = paar?.control ?? GEEN;
+                    const gt = paar?.test ?? GEEN;
+                    const aovC = gc.orders ? gc.revenueCents / 100 / gc.orders : 0;
+                    const aovT = gt.orders ? gt.revenueCents / 100 / gt.orders : 0;
                     return (
-                      <tr key={m}>
-                        <td>{m}</td>
-                        <td>{heel(gc.visitors)}</td>
-                        <td>{geld(gc.rpv)}</td>
-                        <td>{heel(gt.visitors)}</td>
-                        <td>{geld(gt.rpv)}</td>
+                      <tr key={v}>
+                        <td>{v}</td>
+                        <td>{heel(gc.orders)}</td>
+                        <td>{geld(gc.revenueCents / 100)}</td>
+                        <td>{heel(gt.orders)}</td>
+                        <td>{geld(gt.revenueCents / 100)}</td>
                         <td>
-                          {gc.rpv > 0
-                            ? thin
-                              ? <span className="delta delta--flat num" title="Too few visitors for this to mean anything">{ondertekend(d)}</span>
-                              : <Delta waarde={d} />
-                            : <span className="muted">—</span>}
+                          {aovC > 0 ? <Delta waarde={((aovT - aovC) / aovC) * 100} /> : <span className="muted">—</span>}
                         </td>
                       </tr>
                     );
@@ -431,6 +461,52 @@ export function AnalyticsView({
               </table>
             </div>
           </Card>
+        )}
+
+        {/* Visitors still come from our own measurement, and those do carry a
+           market handle. Kept separate rather than merged, because mixing a
+           market-based count with a currency-based one in one table invites
+           exactly the wrong comparison. */}
+        {markets.length > 0 && (
+          <Card>
+            <CardHead title="Visitors per market" sub="From our own measurement on the storefront." />
+            <div className="card__body card__body--flush table-scroll">
+              <table>
+                <thead><tr><th>Market</th><th>Control</th><th>Test</th><th>Split</th></tr></thead>
+                <tbody>
+                  {markets.map((m) => {
+                    const rows = (co: string) =>
+                      ownStats.filter((r) => (r.market || "—") === m && r.cohort === co);
+                    const gc = telOp(rows("control"), "control");
+                    const gt = telOp(rows("test"), "test");
+                    const tot = gc.visitors + gt.visitors;
+                    return (
+                      <tr key={m}>
+                        <td>{m}</td>
+                        <td>{heel(gc.visitors)}</td>
+                        <td>{heel(gt.visitors)}</td>
+                        <td>{tot ? procent((gt.visitors / tot) * 100, 0) + " test" : "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
+
+        {ord && (ord.rebillsOvergeslagen > 0 || ord.afgekapt) && (
+          <Banner tone="info">
+            {ord.rebillsOvergeslagen > 0 && (
+              <>
+                <strong>{heel(ord.rebillsOvergeslagen)} subscription renewals excluded.</strong>{" "}
+                A renewal was agreed months ago and says nothing about the price being tested. The
+                original has an existing subscriber base and the duplicate does not, so counting
+                them would hand the control group orders the test group can never have.
+              </>
+            )}
+            {ord.afgekapt && " Order history was truncated at the page limit, so these numbers are incomplete."}
+          </Banner>
         )}
       </div>
     </main>

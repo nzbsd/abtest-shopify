@@ -155,3 +155,27 @@ export const ondertekend = (v: number, decimalen = 1) =>
 export function korteDatum(d: string) {
   return new Date(d).toLocaleDateString("en-US", { day: "numeric", month: "short" });
 }
+
+/**
+ * Visitors from our own events, orders and revenue from Shopify.
+ *
+ * Two sources on purpose. Visitors only exist in our measurement — Shopify has
+ * no idea who looked. Orders exist in Shopify and reading them there means the
+ * dashboard cannot be wrong about money, and fills in retroactively instead of
+ * only from the moment a bug was fixed.
+ */
+export function combineer(
+  bezoekersKant: Groep,
+  o: { orders: number; revenueCents: number; revenueSqCents: number },
+): Groep {
+  const v = bezoekersKant.visitors;
+  return {
+    ...bezoekersKant,
+    orders: o.orders,
+    revenueCents: o.revenueCents,
+    revenueSqCents: o.revenueSqCents,
+    rpv: v ? o.revenueCents / 100 / v : 0,
+    cr: v ? (o.orders / v) * 100 : 0,
+    aov: o.orders ? o.revenueCents / 100 / o.orders : 0,
+  };
+}

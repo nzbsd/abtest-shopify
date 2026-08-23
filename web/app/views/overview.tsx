@@ -4,8 +4,9 @@ import {
   Badge, Banner, Card, CardHead, Delta, IconCoins, IconFlask, IconUsers, Kpi, Leeg, Track,
 } from "~/components/ui";
 import {
-  geld, heel, looptDagen, ondertekend, procent, telOp, type StatRij,
+  combineer, geld, heel, looptDagen, ondertekend, procent, telOp, type StatRij,
 } from "~/lib/analytics";
+import type { OrderCijfers, OrderResultaat } from "~/lib/orders.server";
 import { toetsOmzetPerBezoeker } from "~/lib/stats";
 import { gezondheid } from "~/lib/health";
 import type { PriceTest } from "~/lib/priceTest.server";
@@ -17,19 +18,26 @@ import type { PriceTest } from "~/lib/priceTest.server";
  * veertig bezoekers hoort er niet hetzelfde uit te zien als een test die
  * klaar is om op te besluiten, ook al is de lift toevallig gelijk.
  */
+const GEEN: OrderCijfers = {
+  orders: 0, units: 0, revenueCents: 0, revenueSqCents: 0, subOrders: 0, subRevenueCents: 0,
+};
+
 export function OverviewView({
-  tests, stats, basis,
+  tests, stats, basis, orders = {},
 }: {
   tests: PriceTest[];
   stats: StatRij[];
   basis: string;
+  /** Per test-id de ordercijfers zoals ze bij Shopify staan. */
+  orders?: Record<number, OrderResultaat>;
 }) {
   const lopend = tests.filter((t) => t.status === "running");
   const rest = tests.filter((t) => t.status !== "running");
 
   const alleBezoekers = stats.reduce((a, r) => a + (Number(r.visitors) || 0), 0);
-  const alleOrders = stats.reduce((a, r) => a + (Number(r.orders) || 0), 0);
-  const alleOmzet = stats.reduce((a, r) => a + (Number(r.revenue_cents) || 0), 0);
+  const alleCijfers = Object.values(orders);
+  const alleOrders = alleCijfers.reduce((a, o) => a + o.control.orders + o.test.orders, 0);
+  const alleOmzet = alleCijfers.reduce((a, o) => a + o.control.revenueCents + o.test.revenueCents, 0);
 
   return (
     <main className="page">
@@ -71,8 +79,9 @@ export function OverviewView({
 
         {lopend.map((t) => {
           const eigen = stats.filter((r) => r.test_id === t.id);
-          const c = telOp(eigen, "control");
-          const te = telOp(eigen, "test");
+          const o = orders[t.id];
+          const c = combineer(telOp(eigen, "control"), o?.control ?? GEEN);
+          const te = combineer(telOp(eigen, "test"), o?.test ?? GEEN);
           const toets = toetsOmzetPerBezoeker(c, te);
           const dagen = looptDagen(t.started_at);
           const gezond = gezondheid(t, stats);
@@ -150,7 +159,11 @@ export function OverviewView({
             <div className="card__body card__body--flush">
               {rest.map((t) => {
                 const eigen = stats.filter((r) => r.test_id === t.id);
-                const toets = toetsOmzetPerBezoeker(telOp(eigen, "control"), telOp(eigen, "test"));
+                const o = orders[t.id];
+                const toets = toetsOmzetPerBezoeker(
+                  combineer(telOp(eigen, "control"), o?.control ?? GEEN),
+                  combineer(telOp(eigen, "test"), o?.test ?? GEEN),
+                );
                 return (
                   <div className="test-row" key={t.id}>
                     <div style={{ minWidth: 0 }}>

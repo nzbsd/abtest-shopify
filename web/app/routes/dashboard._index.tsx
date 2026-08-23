@@ -4,12 +4,14 @@ import { OverviewView } from "~/views/overview";
 import { Banner } from "~/components/ui";
 import { vereisLogin, winkelDomein } from "~/lib/dashboardAuth.server";
 import { overzichtData } from "~/lib/pageData.server";
+import { adminVoorShop } from "~/lib/adminVoorShop.server";
 
 export const meta = () => [{ title: "Overview · Price Test" }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await vereisLogin(request);
-  return json(await overzichtData(await winkelDomein()));
+  const shop = await winkelDomein();
+  return json(await overzichtData(await adminVoorShop(shop), shop));
 };
 
 export default function Route() {
@@ -25,5 +27,5 @@ export default function Route() {
       </main>
     );
   }
-  return <OverviewView tests={d.tests} stats={d.stats} basis="/dashboard" />;
+  return <OverviewView tests={d.tests} stats={d.stats} orders={d.orders} basis="/dashboard" />;
 }

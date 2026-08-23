@@ -3,8 +3,9 @@ import { configProbleem } from "./dashboardAuth.server";
 import {
   lijstProducten, loadTests, matchVariants, resolveProduct, type ProductInfo, type PriceTest,
 } from "./priceTest.server";
-import type { DagRij, OrderRij, StatRij, VariantRij } from "./analytics";
+import type { DagRij, StatRij } from "./analytics";
 import { bundleProductIds, preflight, type Bevinding } from "./preflight.server";
+import { orderCijfers, type OrderResultaat } from "./orders.server";
 
 /**
  * De gegevens achter de schermen, één keer.
@@ -33,35 +34,61 @@ async function shopOfFout(shop: string | null): Promise<{ fout: string | null }>
   return { fout: null };
 }
 
-export async function overzichtData(shop: string | null): Promise<BasisData> {
+export async function overzichtData(
+  admin: any,
+  shop: string | null,
+): Promise<BasisData & { orders: Record<number, OrderResultaat> }> {
   const { fout } = await shopOfFout(shop);
-  if (fout || !shop) return { shop: null, fout, tests: [], stats: [] };
+  if (fout || !shop) return { shop: null, fout, tests: [], stats: [], orders: {} };
 
   try {
     const [tests, stats] = await Promise.all([
       loadTests(shop),
       supabase.from("price_test_stats").select("*").eq("shop", shop),
     ]);
-    return { shop, fout: null, tests, stats: (stats.data || []) as StatRij[] };
+    return {
+      shop, fout: null, tests,
+      stats: (stats.data || []) as StatRij[],
+      orders: await ordersPerTest(admin, tests),
+    };
   } catch (e: any) {
-    return { shop, fout: e?.message ?? "Database error", tests: [], stats: [] };
+    return { shop, fout: e?.message ?? "Database error", tests: [], stats: [], orders: {} };
   }
 }
 
+/**
+ * Ordercijfers per test, opgehaald bij Shopify.
+ *
+ * Faalt er een, dan blijft de rest staan: zonder Shopify kun je nog steeds
+ * bezoekers en de opzet zien, en dat is beter dan een leeg scherm.
+ */
+async function ordersPerTest(
+  admin: any,
+  tests: PriceTest[],
+): Promise<Record<number, OrderResultaat>> {
+  if (!admin) return {};
+  const uit: Record<number, OrderResultaat> = {};
+  await Promise.all(
+    tests.map(async (t) => {
+      try { uit[t.id] = await orderCijfers(admin, t); } catch { /* laat deze test leeg */ }
+    }),
+  );
+  return uit;
+}
+
 export async function analyticsData(
+  admin: any,
   shop: string | null,
-): Promise<BasisData & { daily: DagRij[]; orders: OrderRij[]; varianten: VariantRij[] }> {
-  const leeg = { tests: [], stats: [], daily: [], orders: [], varianten: [] };
+): Promise<BasisData & { daily: DagRij[]; orders: Record<number, OrderResultaat> }> {
+  const leeg = { tests: [], stats: [], daily: [], orders: {} };
   const { fout } = await shopOfFout(shop);
   if (fout || !shop) return { shop: null, fout, ...leeg };
 
   try {
-    const [tests, stats, daily, orders, varianten] = await Promise.all([
+    const [tests, stats, daily] = await Promise.all([
       loadTests(shop),
       supabase.from("price_test_stats").select("*").eq("shop", shop),
       supabase.from("price_test_daily").select("*").eq("shop", shop).order("dag"),
-      supabase.from("price_test_orders").select("*").eq("shop", shop),
-      supabase.from("price_test_variants").select("*").eq("shop", shop),
     ]);
     return {
       shop,
@@ -69,8 +96,7 @@ export async function analyticsData(
       tests,
       stats: (stats.data || []) as StatRij[],
       daily: (daily.data || []) as DagRij[],
-      orders: (orders.data || []) as OrderRij[],
-      varianten: (varianten.data || []) as VariantRij[],
+      orders: await ordersPerTest(admin, tests),
     };
   } catch (e: any) {
     return { shop, fout: e?.message ?? "Database error", ...leeg };

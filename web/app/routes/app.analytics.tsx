@@ -6,8 +6,8 @@ import { authenticate } from "~/shopify.server";
 import { analyticsData } from "~/lib/pageData.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-  return json(await analyticsData(session.shop));
+  const { session, admin } = await authenticate.admin(request);
+  return json(await analyticsData(admin, session.shop));
 };
 
 export default function Route() {
@@ -23,5 +23,5 @@ export default function Route() {
       </main>
     );
   }
-  return <AnalyticsView tests={d.tests} stats={d.stats} daily={d.daily} orders={d.orders} varianten={d.varianten} />;
+  return <AnalyticsView tests={d.tests} stats={d.stats} daily={d.daily} orders={d.orders} />;
 }
