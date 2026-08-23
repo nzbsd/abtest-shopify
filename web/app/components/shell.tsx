@@ -24,9 +24,12 @@ export function Shell({
   children: ReactNode;
 }) {
   const nav = [
+    // Volgorde zoals je ze gebruikt: kijken wat er loopt, iets opzetten,
+    // de uitslag lezen. Analytics stond in het midden, tussen twee schermen
+    // waar je heen gaat vóórdat er iets te lezen valt.
     { to: basis, label: "Overview", Icon: IconGrid, end: true },
-    { to: basis + "/analytics", label: "Analytics", Icon: IconChart, end: false },
     { to: basis + "/tests", label: "Tests", Icon: IconFlask, end: false },
+    { to: basis + "/analytics", label: "Analytics", Icon: IconChart, end: false },
   ];
 
   if (embedded) {
@@ -52,8 +55,8 @@ export function Shell({
 
         <div className="rail__foot">
           {shop && <span className="rail__shop num">{shop}</span>}
-          <Form method="post" action="/dashboard/logout" style={{ marginTop: 14 }}>
-            <button className="btn btn--sm" type="submit" style={{ width: "100%", justifyContent: "center" }}>
+          <Form method="post" action="/dashboard/logout" style={{ marginTop: 12 }}>
+            <button className="btn btn--sm btn--vol" type="submit">
               Sign out
             </button>
           </Form>

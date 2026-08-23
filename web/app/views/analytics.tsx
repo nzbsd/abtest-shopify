@@ -541,9 +541,11 @@ export function AnalyticsView({
               />
               {c.atc + t.atc === 0 && (
                 <p className="small muted" style={{ marginTop: 16 }}>
-                  Add-to-cart is not measured on this theme: it adds to the cart with JavaScript,
-                  so no form submit happens for the snippet to notice. Visitors and orders are
-                  unaffected.
+                  No add-to-cart measured yet. The snippet watches for the request itself — through
+                  fetch as well as XMLHttpRequest — so a theme that adds to the cart with
+                  JavaScript is covered. If this stays empty while orders come in, the theme is
+                  probably still running an older version of the snippet. Visitors and orders are
+                  unaffected either way.
                 </p>
               )}
             </div>

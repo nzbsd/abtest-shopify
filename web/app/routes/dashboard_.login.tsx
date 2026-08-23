@@ -66,10 +66,11 @@ export default function Login() {
   return (
     <main className="login">
       <div className="card login__card">
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 22 }}>
+        <div className="merk">
           <span className="rail__mark"><span /></span>
-          <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-.03em" }}>Experli</span>
+          <span className="merk__naam">Experli</span>
         </div>
+        <p className="merk__sub">A/B tests for your storefront.</p>
 
         {!ingesteld && (
           <div style={{ marginBottom: 16 }}>
@@ -92,8 +93,7 @@ export default function Login() {
             <span className="field__label">Password</span>
             <input name="wachtwoord" type="password" autoFocus autoComplete="current-password" />
           </div>
-          <button className="btn btn--iris" type="submit" disabled={bezig}
-                  style={{ width: "100%", justifyContent: "center" }}>
+          <button className="btn btn--iris btn--vol" type="submit" disabled={bezig}>
             {bezig ? "Working…" : "Sign in"}
           </button>
         </Form>
