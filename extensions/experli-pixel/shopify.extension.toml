@@ -1,0 +1,22 @@
+api_version = "2026-07"
+
+[[extensions]]
+name = "Experli events"
+handle = "experli-pixel"
+type = "web_pixel_extension"
+runtime_context = "strict"
+
+  [extensions.settings]
+  type = "object"
+
+    [extensions.settings.fields.endpoint]
+    name = "Endpoint"
+    description = "Waar de gebeurtenissen heen gaan."
+    type = "single_line_text_field"
+    validations = [{ name = "min", value = "1" }]
+
+    [extensions.settings.fields.shop]
+    name = "Shop"
+    description = "Het winkeldomein, zodat het meetpunt weet van wie dit komt."
+    type = "single_line_text_field"
+    validations = [{ name = "min", value = "1" }]

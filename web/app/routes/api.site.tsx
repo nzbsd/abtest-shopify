@@ -92,7 +92,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Gedragssignalen: toevoegen aan de cart en naar de kassa gaan. Die zijn
     // op dit thema niet uit de URL te zien - de cart is een drawer en de kassa
     // rendert het thema niet - dus ze komen als eigen signaal binnen.
-    if (body?.t === "atc" || body?.t === "checkout") {
+    // De kassastappen komen van de web pixel, de eerste twee ook van het
+    // thema. Dezelfde ingang, dezelfde RPC: het is één sessie.
+    if (["atc", "checkout", "contact", "verzending", "betaling", "afgerekend"]
+          .includes(String(body?.t))) {
       await supabase.rpc("site_signaal", {
         p_sessie: sessie, p_soort: String(body.t), p_nu: nu,
       });

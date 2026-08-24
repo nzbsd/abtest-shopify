@@ -41,6 +41,16 @@ export type Kern = {
    */
   deedAtc: number;
   gingCheckout: number;
+  /**
+   * De stappen ín de kassa, van de web pixel.
+   *
+   * Themacode draait daar niet, dus dit is het enige zicht erop. Ze zijn nul
+   * voor elke sessie van vóór de pixel, en in regio's waar toestemming nodig is
+   * blijven ze nul zolang die niet gegeven is.
+   */
+  deedContact: number;
+  deedVerzending: number;
+  deedBetaling: number;
 };
 
 /** Eén rij in een lijstje, met alles wat de metriekwisselaar kan tonen. */
@@ -112,6 +122,7 @@ export type SiteData = {
 
 const LEEG: Kern = {
   bezoekers: 0, nieuwe: 0, sessies: 0, pageviews: 0, bounces: 0, duurMs: 0,
+  deedContact: 0, deedVerzending: 0, deedBetaling: 0,
   orders: 0, omzetCents: 0, zagCollectie: 0, zagProduct: 0, zagCart: 0, zagCheckout: 0,
   deedAtc: 0, gingCheckout: 0,
 };
@@ -140,6 +151,9 @@ function telKernUitDagen(rijen: any[]): Kern {
     uit.zagCheckout += Number(r.zag_checkout) || 0;
     uit.deedAtc += Number(r.deed_atc) || 0;
     uit.gingCheckout += Number(r.ging_checkout) || 0;
+    uit.deedContact += Number(r.deed_contact) || 0;
+    uit.deedVerzending += Number(r.deed_verzending) || 0;
+    uit.deedBetaling += Number(r.deed_betaling) || 0;
   }
   return uit;
 }
@@ -251,6 +265,9 @@ export async function siteData(
     zagCheckout: Number(r?.zag_checkout) || 0,
     deedAtc: Number(r?.deed_atc) || 0,
     gingCheckout: Number(r?.ging_checkout) || 0,
+    deedContact: Number(r?.deed_contact) || 0,
+    deedVerzending: Number(r?.deed_verzending) || 0,
+    deedBetaling: Number(r?.deed_betaling) || 0,
   });
 
   /**

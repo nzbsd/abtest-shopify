@@ -6,18 +6,22 @@ import { Shell } from "~/components/shell";
 import { authenticate } from "~/shopify.server";
 import { maakSsoToken } from "~/lib/dashboardAuth.server";
 import { bewaarWinkelLand } from "~/lib/live.server";
+import { zetPixelAan } from "~/lib/pixel.server";
 
 export const links: LinksFunction = () => [{ rel: "stylesheet", href: styles }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
-  // Waar de winkel staat, hooguit één keer per dag opgehaald en bewaard zodat
-  // het losse dashboard er ook bij kan.
+  // Twee dingen die hooguit één keer per dag echt werk doen en verder een
+  // indexlookup zijn: waar de winkel staat (voor de bogen op de bol) en of de
+  // web pixel aanstaat (voor de kassastappen).
   //
-  // Wél afwachten. Een belofte die je laat lopen wordt op Vercel afgekapt zodra
-  // het antwoord de deur uit is, en dan gebeurt het dus nooit. De dagcontrole
-  // is één indexlookup; alleen die ene keer per dag kost het echt iets.
-  await bewaarWinkelLand(admin, session.shop);
+  // Wél afwachten, allebei. Een belofte die je laat lopen wordt op Vercel
+  // afgekapt zodra het antwoord de deur uit is, en dan gebeurt het dus nooit.
+  await Promise.all([
+    bewaarWinkelLand(admin, session.shop),
+    zetPixelAan(admin, session.shop),
+  ]);
   const basis = (process.env.SHOPIFY_APP_URL || "").replace(/\/+$/, "");
   // Kortlevend kaartje om hetzelfde dashboard in een eigen venster te openen,
   // zonder daar opnieuw een wachtwoord te hoeven intypen.

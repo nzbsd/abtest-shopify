@@ -30,7 +30,9 @@ api_version = "2026-07"
 # testprijs staat op het duplicaat, dat jij zelf in Shopify beheert.
 # read_products om producten en varianten te koppelen, read_orders voor de
 # omzet per testgroep.
-scopes = "read_products,read_orders,read_themes"
+# write_pixels en read_customer_events zijn voor de web pixel: die meet wat er
+# in de kassa gebeurt, waar themacode niet draait.
+scopes = "read_products,read_orders,read_themes,write_pixels,read_customer_events"
 optional_scopes = [ ]
 use_legacy_install_flow = false
 

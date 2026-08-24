@@ -82,6 +82,10 @@
      kassa zijn het per definitie met elkaar eens. */
   var COUNTRY = {{ localization.country.iso_code | default: '' | json }};
 
+  /* Is er iemand ingelogd? Dat is de enige identiteit die een gewiste cookie,
+     een ander apparaat en Safari's bewaartermijn overleeft. */
+  var KLANT = {{ customer.id | default: '' | json }};
+
   /**
    * Device uit screen.width, en niet uit window.innerWidth.
    *
@@ -140,9 +144,32 @@
      geteld. Alles las "returning" en de lijst zei dus niets. */
   var EERSTE_BEZOEK = !visitor;
   if (!visitor) {
-    visitor = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
-    writeCookie(COOKIE, visitor, 180);
+    /* Geen cookie, maar wel een ingelogde klant? Dan is zijn id een betere
+       sleutel dan een willekeurig getal: die is voor deze persoon altijd
+       hetzelfde, dus hij komt na een gewiste cookie of op een tweede apparaat
+       in dezelfde testgroep terug.
+
+       Alleen als de cookie ontbreekt. Is hij er wel, dan blijft hij staan -
+       anders zou inloggen halverwege een bezoek je in de andere groep kunnen
+       zetten, en dan verandert de prijs voor je ogen. */
+    visitor = KLANT
+      ? "c" + KLANT
+      : Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
   }
+
+  /**
+   * Elke keer opnieuw schrijven, niet alleen als hij ontbreekt.
+   *
+   * Safari kapt cookies die JavaScript zet af op zeven dagen, en die klok
+   * begint op het moment van schrijven. Alleen schrijven bij afwezigheid maakt
+   * er "zeven dagen na het eerste bezoek" van: wie elke dag langskomt raakt op
+   * dag acht alsnog zijn testgroep kwijt. Elke keer schrijven maakt er "zeven
+   * dagen na het laatste bezoek" van, en dat is een heel ander getal - bij deze
+   * winkel komt 58 procent van de sessies van iemand die er al eerder was.
+   *
+   * Op Chrome en de rest verandert er niets: daar gold die 180 dagen gewoon.
+   */
+  writeCookie(COOKIE, visitor, 180);
 
   /* Stable assignment: derive 0-99 from visitor + test id. The same visitor and
      the same test always land in the same group, without storing the choice. */
@@ -408,6 +435,24 @@
     var SESSIE_MS = 1800000;   /* half an hour of inactivity ends the session,
                                   the same window every analytics tool uses */
 
+    /**
+     * Het sessie-id ook in een cookie zetten.
+     *
+     * sessionStorage is per tabblad en per herkomst, en de web pixel draait in
+     * een sandbox op de kassa - die komt er niet bij. Een cookie wel, en dan
+     * kan de pixel zijn gebeurtenissen aan dezelfde sessie hangen als de
+     * pageviews hier.
+     *
+     * Een half uur, net als de sessie zelf. Verloopt hij, dan begint er hier
+     * ook een nieuwe.
+     */
+    function sessieCookie(id) {
+      var d = new Date();
+      d.setTime(d.getTime() + SESSIE_MS);
+      document.cookie = SESSIE + "=" + id + ";expires=" + d.toUTCString() +
+        ";path=/;SameSite=Lax";
+    }
+
     function sessieId() {
       try {
         var ruw = sessionStorage.getItem(SESSIE);
@@ -416,6 +461,7 @@
           var s = JSON.parse(ruw);
           if (s && s.id && nu - s.at < SESSIE_MS) {
             sessionStorage.setItem(SESSIE, JSON.stringify({ id: s.id, at: nu, n: s.n }));
+            sessieCookie(s.id);
             return { id: s.id, nieuw: false };
           }
         }
@@ -423,6 +469,7 @@
         /* EERSTE_BEZOEK is bovenaan bepaald, vóór de cookie geschreven werd.
            Hier de cookie lezen zou altijd "returning" opleveren. */
         sessionStorage.setItem(SESSIE, JSON.stringify({ id: id, at: nu, n: EERSTE_BEZOEK }));
+        sessieCookie(id);
         return { id: id, nieuw: EERSTE_BEZOEK };
       } catch (e) {
         return { id: "x" + Math.random().toString(36).slice(2, 10), nieuw: true };

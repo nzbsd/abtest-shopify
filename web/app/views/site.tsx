@@ -258,11 +258,28 @@ export function SiteView({
    * mensen zien een product dan een collectie, omdat advertenties direct op
    * een product landen.
    */
+  /**
+   * De drie stappen ín de kassa komen van de web pixel.
+   *
+   * Ze staan er alleen als er iets gemeten is. Voor de pixel bestond, en in
+   * regio's waar toestemming nodig is en niet gegeven wordt, zijn ze nul - en
+   * drie lege balken tussen "checkout gestart" en "besteld" lezen als een
+   * trechter waar iedereen wegloopt, terwijl er gewoon niets gemeten is.
+   */
+  const kassaStappen = k.deedContact + k.deedVerzending + k.deedBetaling > 0
+    ? [
+        { label: "Entered contact details", n: k.deedContact },
+        { label: "Chose shipping", n: k.deedVerzending },
+        { label: "Reached payment", n: k.deedBetaling },
+      ]
+    : [];
+
   const stappen = [
     { label: "Sessions", n: k.sessies },
     { label: "Saw a product", n: k.zagProduct },
     { label: "Added to cart", n: k.deedAtc },
     { label: "Started checkout", n: k.gingCheckout },
+    ...kassaStappen,
     { label: "Ordered", n: k.orders },
   ];
 
