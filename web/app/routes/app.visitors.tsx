@@ -1,22 +1,11 @@
-import { json, type LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
-import { SiteView } from "~/views/site";
-import { authenticate } from "~/shopify.server";
-import { siteData, type SiteBereik, type Vergelijking } from "~/lib/site.server";
-import { leesFilters } from "~/lib/siteFilters";
+import { redirect, type LoaderFunctionArgs } from "@remix-run/node";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-  const p = new URL(request.url).searchParams;
-  const d = p.get("d");
-  const bereik = (["1", "7", "30", "90"].includes(String(d)) ? d : "7") as SiteBereik;
-  const vergelijking = (p.get("v") === "jaar" ? "jaar" : "vorige") as Vergelijking;
-  const filters = leesFilters(p.get("f"));
-
-  return json({ data: await siteData(session.shop, bereik, filters, vergelijking), filters });
-};
-
-export default function Route() {
-  const d = useLoaderData<typeof loader>();
-  return <SiteView data={d.data} filters={d.filters} />;
-}
+/**
+ * Bezoekers is de voordeur geworden, maar dit adres blijft werken.
+ *
+ * Er staan links in bladwijzers en in het admin-menu van eerdere installaties,
+ * en een 404 op een pagina die je gisteren nog gebruikte is nergens goed voor.
+ * De zoekopdracht gaat mee, zodat een gedeelde gefilterde weergave heel blijft.
+ */
+export const loader = ({ request }: LoaderFunctionArgs) =>
+  redirect("/app" + new URL(request.url).search);

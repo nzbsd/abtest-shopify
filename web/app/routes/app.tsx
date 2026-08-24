@@ -28,8 +28,8 @@ export default function EmbeddedLayout() {
           werd bij het toevoegen van Visitors vergeten - in de admin ontbrak het
           tabblad daardoor terwijl de pagina wel bestond. */}
       <ui-nav-menu>
-        <a href="/app" rel="home">Overview</a>
-        <a href="/app/visitors">Visitors</a>
+        <a href="/app" rel="home">Visitors</a>
+        <a href="/app/overview">Overview</a>
         <a href="/app/tests">Tests</a>
         <a href="/app/analytics">Analytics</a>
       </ui-nav-menu>

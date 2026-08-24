@@ -2119,7 +2119,27 @@ tbody tr:hover { background: var(--wash); }
 }
 .globe__label b { color: var(--rail-ink); font-weight: 700; font-variant-numeric: tabular-nums; }
 .globe__label i { color: #b6a2ff; font-style: normal; font-size: 10px; }
+.globe__label b + i { margin-left: -2px; }
 .globe__label--leeft { border-color: rgba(182, 162, 255, .35); }
+
+/* Middenin en niet in een hoek: als er niemand is, is dit het antwoord op de
+   vraag die je stelde, en geen voetnoot. */
+.globe__leeg {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(16, 15, 20, .72);
+  border: 1px solid var(--rail-line);
+  color: var(--rail-ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+}
 
 .globe__voet, .globe__uitleg {
   position: absolute;

@@ -27,9 +27,11 @@ export function Shell({
     // Volgorde zoals je ze gebruikt: kijken wat er loopt, iets opzetten,
     // de uitslag lezen. Analytics stond in het midden, tussen twee schermen
     // waar je heen gaat vóórdat er iets te lezen valt.
-    { to: basis, label: "Overview", Icon: IconGrid, end: true },
+    // Bezoekers staat voorop en is de voordeur: dat is wat je 's ochtends wilt
+    // zien, en het is het enige scherm dat ook iets zegt als er geen test loopt.
+    { to: basis, label: "Visitors", Icon: IconUsers, end: true },
+    { to: basis + "/overview", label: "Overview", Icon: IconGrid, end: false },
     { to: basis + "/tests", label: "Tests", Icon: IconFlask, end: false },
-    { to: basis + "/visitors", label: "Visitors", Icon: IconUsers, end: false },
     { to: basis + "/analytics", label: "Analytics", Icon: IconChart, end: false },
   ];
 

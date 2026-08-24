@@ -190,7 +190,9 @@ export function SiteView({
   filters: Filter[];
 }) {
   const [params, setParams] = useSearchParams();
-  const bereik = (params.get("d") as SiteBereik) || "7";
+  // Zelfde standaard als de loader; staan die twee uit elkaar, dan licht de
+  // verkeerde knop op bij het openen.
+  const bereik = (params.get("d") as SiteBereik) || "1";
   const vergelijking = (params.get("v") as Vergelijking) || "vorige";
   const [maat, setMaat] = useState<Maat>("sessies");
   const [grafiekMaat, setGrafiekMaat] = useState<"bezoekers" | "sessies" | "pageviews" | "orders">("bezoekers");
@@ -366,8 +368,8 @@ export function SiteView({
                   </div>
                 ))}
                 <p className="kop__hint">
-                  One beam per country, scaled to the square root of its sessions. Heads that
-                  pulse have someone on the site right now. Drag the globe to spin it.
+                  Who is on the storefront right now, by country. Dots are countries with
+                  traffic today but nobody on the site this minute. Drag the globe to spin it.
                 </p>
               </div>
 

@@ -6,11 +6,13 @@ import { LANDPOSITIES } from "~/lib/landposities";
  * De bol.
  *
  * WAAROM DIT ER IS
- * "Waar komen ze vandaan" stond al in een lijst, en een lijst is prima om af te
- * lezen. Maar bij deze winkel is het antwoord vier keer per dag anders en zit
- * negentig procent in één land - dat zie je op een bol in een oogopslag en in
- * een lijst pas na optellen. De baken staan op schaal van de wortel van het
- * aantal sessies, anders is Groot-Brittannië één staaf en de rest niets.
+ * Dit is geen kaart van waar het vandaag druk was - dat staat al in de
+ * landenlijst en in de kengetallen. Dit is wie er nú rondloopt, en dat is het
+ * enige cijfer op dit scherm dat verandert terwijl je ernaar kijkt.
+ *
+ * Baken op de wortel van het aantal mensen dat er nu is. Landen waar vandaag
+ * verkeer was maar nu niemand houden een stipje: ze horen bij het beeld, maar
+ * ze concurreren niet om de aandacht.
  *
  * WAT ER NIET IN ZIT
  * Geen texturen, geen kaartbestanden, geen netwerkverzoeken. De continenten
@@ -51,7 +53,7 @@ function stipTextuur(): HTMLCanvasElement {
 export function Globe({ punten }: { punten: GlobePunt[] }) {
   const doosRef = useRef<HTMLDivElement>(null);
   const [labels, setLabels] = useState<
-    { land: string; sessies: number; actief: number; x: number; y: number; zicht: number }[]
+    { land: string; actief: number; x: number; y: number; zicht: number }[]
   >([]);
   const [status, setStatus] = useState<"wacht" | "klaar" | "geen-webgl">("wacht");
 
@@ -100,6 +102,7 @@ export function Globe({ punten }: { punten: GlobePunt[] }) {
         setStatus("geen-webgl");
         return;
       }
+      const opruimen: (() => void)[] = [];
       renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
       renderer.setSize(doos.clientWidth, doos.clientHeight);
       doos.appendChild(renderer.domElement);
@@ -161,13 +164,23 @@ export function Globe({ punten }: { punten: GlobePunt[] }) {
       bol.add(new THREE.Points(landGeo, landMat));
 
       /* ── baken per land ─────────────────────────────────────────────────
-       * Hoogte op de wortel van het aantal sessies. Lineair zou hier één staaf
-       * van vol scherm opleveren en drieëntwintig van niets: 3.423 tegen 1.
+       * Dit gaat over wie er nú is, niet over wie er vandaag was. Dat laatste
+       * staat al in de landenlijst en in de kengetallen, en op een bol is het
+       * bovendien een dood getal: een baken dat de hele dag even hoog blijft.
+       *
+       * Landen waar op dit moment niemand rondloopt houden een klein stipje.
+       * Ze horen wel bij het bereik van vandaag, maar ze hebben geen baken en
+       * geen label - anders concurreren ze om de aandacht met waar het om gaat.
+       *
+       * Hoogte op de wortel, want ook hier is de verdeling scheef: 57 in
+       * Groot-Brittannië tegen 1 in Nederland.
        * ─────────────────────────────────────────────────────────────────── */
-      const zichtbaar = puntenRef.current
-        .filter((p) => LANDPOSITIES[p.land])
-        .sort((a, b) => b.sessies - a.sessies);
-      const top = Math.max(...zichtbaar.map((p) => p.sessies), 1);
+      const opDeKaart = puntenRef.current.filter((p) => LANDPOSITIES[p.land]);
+      const zichtbaar = opDeKaart
+        .filter((p) => p.actief > 0)
+        .sort((a, b) => b.actief - a.actief);
+      const stil = opDeKaart.filter((p) => p.actief === 0);
+      const top = Math.max(...zichtbaar.map((p) => p.actief), 1);
 
       const staafGeo = new THREE.CylinderGeometry(0.006, 0.006, 1, 6, 1, true);
       staafGeo.translate(0, 0.5, 0);   // voet op de oorsprong, niet het midden
@@ -178,7 +191,30 @@ export function Globe({ punten }: { punten: GlobePunt[] }) {
       const kopGeo = new THREE.SphereGeometry(0.017, 12, 10);
       const kopMat = new THREE.MeshBasicMaterial({ color: 0xb6a2ff });
       const koppen = new THREE.InstancedMesh(kopGeo, kopMat, Math.max(zichtbaar.length, 1));
+      // De allocatie is minstens één, want nul mag niet; het aantal dat getekend
+      // wordt is het echte aantal. Zonder dit staat er 's nachts een staafje van
+      // de identiteitsmatrix uit de noordpool te steken.
+      staven.count = zichtbaar.length;
+      koppen.count = zichtbaar.length;
       bol.add(staven, koppen);
+
+      // Waar het vandaag druk was maar nu niemand is: een stipje op de bol,
+      // gedimd genoeg om niet voor een baken door te gaan.
+      if (stil.length) {
+        const stilPos: number[] = [];
+        for (const p of stil) {
+          const [lat, lon] = LANDPOSITIES[p.land];
+          stilPos.push(...naarXYZ(lat, lon, 1.004));
+        }
+        const stilGeo = new THREE.BufferGeometry();
+        stilGeo.setAttribute("position", new THREE.Float32BufferAttribute(stilPos, 3));
+        const stilMat = new THREE.PointsMaterial({
+          size: 0.026, sizeAttenuation: true, map: stip,
+          color: 0x6d5fa8, transparent: true, opacity: 0.85, alphaTest: 0.4, depthWrite: false,
+        });
+        bol.add(new THREE.Points(stilGeo, stilMat));
+        opruimen.push(() => { stilGeo.dispose(); stilMat.dispose(); });
+      }
 
       const omhoog = new THREE.Vector3(0, 1, 0);
       const plekken = zichtbaar.map((p) => {
@@ -187,7 +223,7 @@ export function Globe({ punten }: { punten: GlobePunt[] }) {
         return {
           ...p,
           richting,
-          hoogte: 0.05 + 0.42 * Math.sqrt(p.sessies / top),
+          hoogte: 0.07 + 0.40 * Math.sqrt(p.actief / top),
           draai: new THREE.Quaternion().setFromUnitVectors(omhoog, richting),
         };
       });
@@ -225,8 +261,17 @@ export function Globe({ punten }: { punten: GlobePunt[] }) {
        * langs +Z, precies waar de camera staat. Op het oog gokken leverde
        * Groot-Brittannië aan de bovenrand op.
        */
-      const eerste = plekken[0];
-      const d = eerste ? eerste.richting : new THREE.Vector3(0, 0, 1);
+      const drukste = [...stil].sort((x, y) => y.sessies - x.sessies)[0];
+      const d = plekken[0]
+        ? plekken[0].richting
+        // Is er niemand online, dan valt hij terug op waar het vandaag het
+        // drukst was. Anders opent hij op de Stille Oceaan zodra de winkel even
+        // stil ligt, en dat is precies het moment waarop je wilt zien wáár het
+        // eerder wel druk was.
+        : drukste
+          ? new THREE.Vector3(...naarXYZ(LANDPOSITIES[drukste.land][0],
+                                         LANDPOSITIES[drukste.land][1], 1)).normalize()
+          : new THREE.Vector3(0, 0, 1);
       let draaiY = Math.atan2(-d.x, d.z);
       let draaiX = Math.max(-1.05, Math.min(1.05, Math.atan2(d.y, Math.hypot(d.x, d.z))));
       let vaartY = 0;
@@ -318,13 +363,11 @@ export function Globe({ punten }: { punten: GlobePunt[] }) {
           const diep = naarVoren.clone().project(camera);
           const x = ((diep.x + 1) / 2) * b.width;
           const y = ((1 - diep.y) / 2) * b.height - 26;   // het label zweeft erboven
-          const tekens = p.land.length + String(p.sessies).length +
-            (p.actief > 0 ? String(p.actief).length + 5 : 0);
-          const w = 24 + 6.6 * tekens;
+          const w = 26 + 6.6 * (p.land.length + String(p.actief).length + 4);
 
           if (gezet.some((g) => Math.abs(g.x - x) < (g.w + w) / 2 && Math.abs(g.y - y) < 22)) continue;
           gezet.push({ x, y, w });
-          uit.push({ land: p.land, sessies: p.sessies, actief: p.actief, x, y: y + 26, zicht });
+          uit.push({ land: p.land, actief: p.actief, x, y: y + 26, zicht });
           if (uit.length >= 5) break;
         }
         setLabels(uit);
@@ -368,6 +411,7 @@ export function Globe({ punten }: { punten: GlobePunt[] }) {
         renderer.domElement.removeEventListener("pointermove", beweeg);
         renderer.domElement.removeEventListener("pointerup", omhoogE);
         renderer.domElement.removeEventListener("pointercancel", omhoogE);
+        for (const f of opruimen) f();
         landGeo.dispose(); landMat.dispose(); stip.dispose();
         staafGeo.dispose(); staafMat.dispose(); kopGeo.dispose(); kopMat.dispose();
         kern.geometry.dispose(); (kern.material as any).dispose();
@@ -384,7 +428,8 @@ export function Globe({ punten }: { punten: GlobePunt[] }) {
     };
   }, []);
 
-  const zonderPlek = punten.filter((p) => !LANDPOSITIES[p.land]);
+  const nuOnline = punten.reduce((n, p) => n + p.actief, 0);
+  const nuZonderPlek = punten.filter((p) => !LANDPOSITIES[p.land]).reduce((n, p) => n + p.actief, 0);
 
   return (
     <div className="globe">
@@ -393,20 +438,24 @@ export function Globe({ punten }: { punten: GlobePunt[] }) {
         labels.map((l) => (
           <span
             key={l.land}
-            className={"globe__label" + (l.actief > 0 ? " globe__label--leeft" : "")}
+            className="globe__label globe__label--leeft"
             style={{ left: l.x, top: l.y, opacity: l.zicht }}
           >
-            {l.land} <b>{l.sessies.toLocaleString("en-US")}</b>
-            {l.actief > 0 && <i>{l.actief} now</i>}
+            {l.land} <b>{l.actief.toLocaleString("en-US")}</b><i>now</i>
           </span>
         ))}
       {status === "geen-webgl" && (
         <p className="globe__uitleg">This browser has no WebGL, so the globe stays dark.</p>
       )}
-      {zonderPlek.length > 0 && (
+      {/* Om drie uur 's nachts is er niemand, en dan hoort er te staan dat er
+          niemand is - niet een bol met stippen waar je naar blijft zoeken. De
+          stippen tonen dan nog wel waar het vandaag druk was. */}
+      {status === "klaar" && nuOnline === 0 && (
+        <p className="globe__leeg">Nobody on the site right now</p>
+      )}
+      {nuZonderPlek > 0 && (
         <p className="globe__voet">
-          {zonderPlek.reduce((n, p) => n + p.sessies, 0).toLocaleString("en-US")} sessions without a
-          known country
+          {nuZonderPlek.toLocaleString("en-US")} online without a known country
         </p>
       )}
     </div>

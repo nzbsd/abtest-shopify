@@ -47,7 +47,7 @@ export function ErrorBoundary() {
           </div>
         </Banner>
         <div style={{ marginTop: 18 }}>
-          <a className="btn" href="/dashboard">Back to the overview</a>
+          <a className="btn" href="/dashboard">Back to Visitors</a>
         </div>
       </main>
     </>
