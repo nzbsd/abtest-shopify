@@ -1,19 +1,19 @@
-import { redirect, type LoaderFunctionArgs } from "@remix-run/node";
+import { type LoaderFunctionArgs } from "@remix-run/node";
 
-/*
- * De root wordt door twee heel verschillende bezoekers opgevraagd.
+/**
+ * De wortel.
  *
- * Shopify opent de app op de App-URL, dus op deze route, met shop/host/embedded
- * in de queryparameters. Die hoort naar /app te gaan, waar de ingebedde pagina
- * met de dashboardknop staat.
+ * Shopify opent de app op deze URL, met shop/host/embedded/id_token in de
+ * queryparameters. Die gaan door naar /app, waar authenticate.admin het
+ * overneemt.
  *
- * Iemand die zelf de URL intypt hoort naar /dashboard te gaan.
- *
- * Eerder ging alles naar /dashboard, en dan kreeg je binnen de Shopify-admin
- * het wachtwoordscherm te zien in plaats van de knop - de ingebedde pagina werd
- * simpelweg nooit bereikt.
+ * Alle andere bezoekers krijgen niets. Er was hier een tweede ingang - een
+ * eigen dashboard met een wachtwoord - en die is weg: deze app draait alleen
+ * binnen de Shopify-admin. Geen doorverwijzing naar een inlogscherm, want dan
+ * verraadt de app aan iedereen die de URL intypt dat er iets te halen valt en
+ * hoe het heet.
  */
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
   const vanShopify =
     url.searchParams.has("shop") ||
@@ -21,6 +21,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     url.searchParams.has("embedded") ||
     url.searchParams.has("id_token");
 
-  if (vanShopify) throw redirect("/app?" + url.searchParams.toString());
-  throw redirect("/dashboard");
+  if (vanShopify) {
+    return new Response(null, {
+      status: 302,
+      headers: { Location: "/app?" + url.searchParams.toString() },
+    });
+  }
+
+  return new Response("Not found", {
+    status: 404,
+    headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" },
+  });
 };

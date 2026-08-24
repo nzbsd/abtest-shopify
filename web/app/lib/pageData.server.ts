@@ -1,5 +1,5 @@
 import supabase from "~/db.server";
-import { configProbleem } from "./dashboardAuth.server";
+import { configProbleem } from "./config.server";
 import {
   lijstProducten, loadTests, matchVariants, resolveProduct, type ProductInfo, type PriceTest,
 } from "./priceTest.server";

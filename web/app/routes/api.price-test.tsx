@@ -104,9 +104,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   } catch (e: any) {
     // On doubt return no tests: the visitor then simply sees the normal page
     // instead of half a test.
-    return new Response(JSON.stringify({ tests: [], error: e?.message ?? "error" }), {
-      status: 200,
-      headers,
-    });
+    //
+    // De reden gaat naar de log en niet naar het antwoord. Dit eindpunt staat
+    // open voor iedereen die het shopdomein raadt, en een databasefout die
+    // letterlijk teruggegeven wordt vertelt een vreemde welke tabellen er zijn
+    // en waar het misgaat. Voor de bezoeker maakt het niets uit: die krijgt in
+    // beide gevallen gewoon de normale pagina.
+    console.error("price-test config", e?.message ?? e);
+    return new Response(JSON.stringify({ tests: [] }), { status: 200, headers });
   }
 };

@@ -4,7 +4,6 @@ import { boundary } from "@shopify/shopify-app-remix/server";
 import styles from "~/styles/dashboard.css?url";
 import { Shell } from "~/components/shell";
 import { authenticate } from "~/shopify.server";
-import { maakSsoToken } from "~/lib/dashboardAuth.server";
 import { bewaarWinkelLand } from "~/lib/live.server";
 import { zetPixelAan } from "~/lib/pixel.server";
 
@@ -22,35 +21,25 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     bewaarWinkelLand(admin, session.shop),
     zetPixelAan(admin, session.shop),
   ]);
-  const basis = (process.env.SHOPIFY_APP_URL || "").replace(/\/+$/, "");
-  // Kortlevend kaartje om hetzelfde dashboard in een eigen venster te openen,
-  // zonder daar opnieuw een wachtwoord te hoeven intypen.
-  return json({ shop: session.shop, losseUrl: basis + "/dashboard/sso?t=" + maakSsoToken(session.shop) });
+  return json({ shop: session.shop });
 };
 
 export default function EmbeddedLayout() {
-  const { shop, losseUrl } = useLoaderData<typeof loader>();
+  const { shop } = useLoaderData<typeof loader>();
   return (
     <>
       {/* App Bridge levert het menu in de admin-balk. Een custom element en geen
           React-component: dat scheelt de Polaris-afhankelijkheid, die alleen
           voor dit menu ruim 400 kB CSS zou meebrengen. */}
-      {/* Zelfde volgorde als de eigen rail: kijken wat er loopt, wie er komt,
-          iets opzetten, de uitslag lezen. Dit menu staat los van die rail en
-          werd bij het toevoegen van Visitors vergeten - in de admin ontbrak het
-          tabblad daardoor terwijl de pagina wel bestond. */}
+      {/* Volgorde: wie er komt, wat er loopt, iets opzetten, de uitslag lezen.
+          Sinds het losse dashboard weg is, is dit het enige menu dat er nog is. */}
       <ui-nav-menu>
         <a href="/app" rel="home">Visitors</a>
         <a href="/app/overview">Overview</a>
         <a href="/app/tests">Tests</a>
         <a href="/app/analytics">Analytics</a>
       </ui-nav-menu>
-      <Shell basis="/app" embedded shop={shop}>
-        <div style={{ display: "flex", justifyContent: "flex-end", padding: "14px 20px 0" }}>
-          <a className="btn btn--sm" href={losseUrl} target="_blank" rel="noreferrer">
-            Open in its own window
-          </a>
-        </div>
+      <Shell shop={shop}>
         <Outlet />
       </Shell>
     </>

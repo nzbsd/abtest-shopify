@@ -189,7 +189,8 @@ export function SiteView({
 }: {
   data: SiteData;
   filters: Filter[];
-  /** "/app" of "/dashboard" - waar het levende deel vandaan komt. */
+  /** Waar het levende deel vandaan komt. Altijd "/app" sinds het losse
+   *  dashboard weg is, maar de view hoort dat niet zelf te weten. */
   basis: string;
 }) {
   const live = useLive(basis);

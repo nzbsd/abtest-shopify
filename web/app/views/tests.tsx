@@ -204,7 +204,7 @@ export function TestsView({
   shop: string | null;
   /** Public storefront URL, for preview links from a saved test. */
   winkelUrl: string | null;
-  /** "/dashboard" or "/app" - where the results link points. */
+  /** Where the results link points. */
   basis: string;
 }) {
   const productUrl = (handle: string | null | undefined) =>
