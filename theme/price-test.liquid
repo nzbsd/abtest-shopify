@@ -132,6 +132,13 @@
   /* Visitor id: only to keep the same person in the same group and to
      de-duplicate views. No personal data. */
   var visitor = readCookie(COOKIE);
+
+  /* Eerste bezoek ooit? Dat moet HIER vastgelegd worden, want twee regels
+     verderop schrijven we de cookie en dan is het antwoord voorgoed "nee".
+     Dat ging mis: sessieId() las de cookie zelf, honderden regels later, en
+     vond hem dan altijd - 3.240 sessies op een dag, waarvan één als nieuw
+     geteld. Alles las "returning" en de lijst zei dus niets. */
+  var EERSTE_BEZOEK = !visitor;
   if (!visitor) {
     visitor = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
     writeCookie(COOKIE, visitor, 180);
@@ -413,11 +420,10 @@
           }
         }
         var id = nu.toString(36) + Math.random().toString(36).slice(2, 10);
-        /* New visitor or returning: the _pt_v cookie already existed before
-           this page if they have been here before. */
-        var eerder = document.cookie.indexOf("_pt_v=") !== -1;
-        sessionStorage.setItem(SESSIE, JSON.stringify({ id: id, at: nu, n: !eerder }));
-        return { id: id, nieuw: !eerder };
+        /* EERSTE_BEZOEK is bovenaan bepaald, vóór de cookie geschreven werd.
+           Hier de cookie lezen zou altijd "returning" opleveren. */
+        sessionStorage.setItem(SESSIE, JSON.stringify({ id: id, at: nu, n: EERSTE_BEZOEK }));
+        return { id: id, nieuw: EERSTE_BEZOEK };
       } catch (e) {
         return { id: "x" + Math.random().toString(36).slice(2, 10), nieuw: true };
       }

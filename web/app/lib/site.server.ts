@@ -1,5 +1,5 @@
 import supabase from "~/db.server";
-import { past, type Filter } from "./siteFilters";
+import { type Filter } from "./siteFilters";
 
 /**
  * De cijfers achter het bezoekersscherm.
@@ -113,40 +113,12 @@ const LEEG: Kern = {
   deedAtc: 0, gingCheckout: 0,
 };
 
-const leegRij = (naam: string): Rij => ({
-  naam, sessies: 0, bezoekers: 0, pageviews: 0, bounces: 0, duurMs: 0,
-  orders: 0, omzetCents: 0, vorigeSessies: 0,
-});
-
 const dagStart = (dagenTerug: number) => {
   const d = new Date();
   d.setUTCHours(0, 0, 0, 0);
   d.setUTCDate(d.getUTCDate() - dagenTerug);
   return d;
 };
-
-function telKern(rijen: any[]): Kern {
-  const uit = { ...LEEG };
-  const bez = new Set<string>();
-  for (const r of rijen) {
-    bez.add(String(r.visitor_id));
-    uit.sessies += 1;
-    uit.pageviews += Number(r.pageviews) || 0;
-    if ((Number(r.pageviews) || 0) <= 1) uit.bounces += 1;
-    uit.duurMs += Number(r.duur_ms) || 0;
-    uit.orders += Number(r.orders) || 0;
-    uit.omzetCents += Number(r.omzet_cents) || 0;
-    if (r.nieuw) uit.nieuwe += 1;
-    if (r.zag_collectie) uit.zagCollectie += 1;
-    if (r.zag_product) uit.zagProduct += 1;
-    if (r.zag_cart) uit.zagCart += 1;
-    if (r.zag_checkout) uit.zagCheckout += 1;
-    if (r.deed_atc) uit.deedAtc += 1;
-    if (r.ging_checkout) uit.gingCheckout += 1;
-  }
-  uit.bezoekers = bez.size;
-  return uit;
-}
 
 function telKernUitDagen(rijen: any[]): Kern {
   const uit = { ...LEEG };
@@ -170,50 +142,23 @@ function telKernUitDagen(rijen: any[]): Kern {
 }
 
 /**
- * Sessies groeperen op een dimensie.
+ * Alles wat het scherm nodig heeft, in één aanroep.
  *
- * Elke rij draagt alle metrieken mee, niet alleen het aantal. Dat is wat de
- * metriekwisselaar mogelijk maakt: van "sessies" naar "bounce rate" of
- * "conversie" wisselen is dan een andere kolom lezen en niet een nieuwe query.
+ * WAAROM DIT NIET MEER IN JAVASCRIPT GEBEURT
+ * Dit haalde alle sessierijen op en telde ze hier. PostgREST geeft er maximaal
+ * duizend terug - de "Max rows"-instelling - en die grens is stil: geen fout,
+ * gewoon duizend rijen. Deze winkel doet er drieduizend per dag.
+ *
+ * Zonder ORDER BY waren dat de duizend oudste, dus alles wat later op de dag
+ * gebeurde viel eruit. Conversie stond op nul omdat de orders van vanochtend
+ * acht uur niet in die duizend zaten. Elk getal was om dezelfde reden fout,
+ * niet alleen dat ene - het viel alleen bij conversie op, omdat nul opvalt en
+ * een plausibel ogend aantal sessies niet.
+ *
+ * Het dak verhogen was de verkeerde afslag geweest: negentigduizend rijen per
+ * keer door een serverless functie duwen om er zes getallen uit te tellen is
+ * geen oplossing maar uitstel. Nu telt Postgres en komt er één rij terug.
  */
-function groepeer(
-  rijen: any[],
-  vorigeRijen: any[],
-  sleutel: (r: any) => string | null,
-  max = 12,
-): Rij[] {
-  const m = new Map<string, Rij>();
-  const bez = new Map<string, Set<string>>();
-
-  for (const r of rijen) {
-    const k = sleutel(r);
-    if (k === null || k === "") continue;
-    const h = m.get(k) ?? leegRij(k);
-    h.sessies += 1;
-    h.pageviews += Number(r.pageviews) || 0;
-    if ((Number(r.pageviews) || 0) <= 1) h.bounces += 1;
-    h.duurMs += Number(r.duur_ms) || 0;
-    h.orders += Number(r.orders) || 0;
-    h.omzetCents += Number(r.omzet_cents) || 0;
-    m.set(k, h);
-
-    const s = bez.get(k) ?? new Set<string>();
-    s.add(String(r.visitor_id));
-    bez.set(k, s);
-  }
-
-  for (const r of vorigeRijen) {
-    const k = sleutel(r);
-    if (k === null || k === "") continue;
-    const h = m.get(k);
-    if (h) h.vorigeSessies += 1;
-  }
-
-  for (const [k, h] of m) h.bezoekers = bez.get(k)?.size ?? 0;
-
-  return Array.from(m.values()).sort((a, b) => b.sessies - a.sessies).slice(0, max);
-}
-
 export async function siteData(
   shop: string,
   bereik: SiteBereik,
@@ -222,6 +167,9 @@ export async function siteData(
 ): Promise<SiteData> {
   const dagen = Number(bereik);
   const vanaf = dagStart(dagen - 1);
+  // Morgenochtend nul uur: dan valt vandaag er in zijn geheel binnen, welk
+  // bereik er ook gekozen is.
+  const tot = dagStart(-1);
 
   /**
    * De vergelijkingsperiode.
@@ -240,215 +188,156 @@ export async function siteData(
     ? new Date(vorigeVanaf.getTime() + dagen * 864e5)
     : vanaf;
 
+  const perUur = dagen === 1;
+
+  // Eén waarde per sleutel, net als in de URL.
+  const filterObject: Record<string, string> = {};
+  for (const f of filters) filterObject[f.sleutel] = f.waarde;
+
   // Vandaag en gisteren opnieuw oprollen: de nachtelijke taak is het vangnet,
   // niet de bron. Mag falen zonder het scherm mee te nemen.
   await supabase.rpc("site_oprollen", { vanaf: dagStart(1).toISOString().slice(0, 10) })
     .then(() => undefined, () => undefined);
 
-  const halfuur = new Date(Date.now() - 30 * 60_000).toISOString();
-
-  const [sessies, vorigeSessies, dagRijen, vorigeDagRijen, recent, eersteSignaal] = await Promise.all([
-    supabase.from("site_sessies").select("*").eq("shop", shop)
-      .gte("begonnen", vanaf.toISOString()).limit(50000),
-    supabase.from("site_sessies").select("*").eq("shop", shop)
-      .gte("begonnen", vorigeVanaf.toISOString()).lt("begonnen", vorigeTot.toISOString())
-      .limit(50000),
+  const [overzicht, dagRijen, vorigeDagRijen] = await Promise.all([
+    supabase.rpc("site_overzicht", {
+      p_shop: shop,
+      p_vanaf: vanaf.toISOString(),
+      p_tot: tot.toISOString(),
+      p_vorige_vanaf: vorigeVanaf.toISOString(),
+      p_vorige_tot: vorigeTot.toISOString(),
+      p_per_uur: perUur,
+      p_filters: filterObject,
+      p_max: 12,
+    }),
     supabase.from("site_dag").select("*").eq("shop", shop)
       .gte("dag", vanaf.toISOString().slice(0, 10)).order("dag"),
     supabase.from("site_dag").select("*").eq("shop", shop)
       .gte("dag", vorigeVanaf.toISOString().slice(0, 10))
       .lt("dag", vorigeTot.toISOString().slice(0, 10)),
-    supabase.from("site_sessies").select("laatst").eq("shop", shop)
-      .gte("laatst", halfuur).limit(5000),
-    // Het allereerste gedragssignaal ooit. Eén rij, en het antwoord verandert
-    // nooit meer zodra het er is.
-    supabase.from("site_sessies").select("begonnen").eq("shop", shop)
-      .eq("deed_atc", true).order("begonnen", { ascending: true }).limit(1),
   ]);
 
-  const alle = sessies.data ?? [];
-  const s = filters.length ? alle.filter((r) => past(r, filters)) : alle;
-  const v = filters.length
-    ? (vorigeSessies.data ?? []).filter((r) => past(r, filters))
-    : (vorigeSessies.data ?? []);
+  const o = (overzicht.data ?? {}) as any;
+
+  /** snake_case uit Postgres naar de vorm die het scherm leest. */
+  const naarKern = (r: any): Kern => ({
+    bezoekers: Number(r?.bezoekers) || 0,
+    nieuwe: Number(r?.nieuwe) || 0,
+    sessies: Number(r?.sessies) || 0,
+    pageviews: Number(r?.pageviews) || 0,
+    bounces: Number(r?.bounces) || 0,
+    duurMs: Number(r?.duur_ms) || 0,
+    orders: Number(r?.orders) || 0,
+    omzetCents: Number(r?.omzet_cents) || 0,
+    zagCollectie: Number(r?.zag_collectie) || 0,
+    zagProduct: Number(r?.zag_product) || 0,
+    zagCart: Number(r?.zag_cart) || 0,
+    zagCheckout: Number(r?.zag_checkout) || 0,
+    deedAtc: Number(r?.deed_atc) || 0,
+    gingCheckout: Number(r?.ging_checkout) || 0,
+  });
 
   /**
-   * Komt het uit sessies of uit dagtotalen?
-   *
-   * Sessies zodra er gefilterd wordt - dan kán het niet anders. Anders zodra
-   * het bereik binnen de bewaartermijn valt, want daar zijn ze preciezer:
-   * unieke bezoekers over meerdere dagen kun je uit dagtotalen niet halen
-   * zonder dezelfde persoon dubbel te tellen.
+   * Voorbij de bewaartermijn is er geen sessiedetail meer, alleen dagtotalen.
+   * Filteren kan daar niet op, dus dat pad geldt alleen ongefilterd.
    */
-  const uitSessies = filters.length > 0 || dagen <= 30 || alle.length > 0;
-  const kern = uitSessies ? telKern(s) : telKernUitDagen(dagRijen.data ?? []);
+  const uitSessies = filters.length > 0 || dagen <= 30 || !(dagRijen.data ?? []).length;
+  const kern = uitSessies ? naarKern(o.kern) : telKernUitDagen(dagRijen.data ?? []);
   const vorige = uitSessies
-    ? (v.length ? telKern(v) : null)
+    ? (o.vorige ? naarKern(o.vorige) : null)
     : ((vorigeDagRijen.data ?? []).length ? telKernUitDagen(vorigeDagRijen.data ?? []) : null);
 
   /* ── tijdreeks ──────────────────────────────────────────────────────────
-   * Bij "vandaag" per uur, anders per dag. Een dagbalk voor vandaag is één
-   * balk, en dat vertelt niets over of het een rustige ochtend was.
+   * Welke bakken er moeten zijn bepaalt het scherm, niet de data: een uur
+   * zonder bezoek is een gat in de grafiek en geen ontbrekende balk. Wat er
+   * in die bakken zit komt uit de query.
    * ────────────────────────────────────────────────────────────────────── */
-  const perUur = dagen === 1;
-  const punten: Punt[] = (() => {
-    const sleutelVan = (iso: string) =>
-      perUur ? String(iso).slice(11, 13) + ":00" : String(iso).slice(0, 10);
+  const bakken = (o.puntenNu ?? {}) as Record<string, any>;
+  const vorigeReeks = (o.puntenToen ?? []) as number[];
+  const sleutels = perUur
+    ? Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0") + ":00")
+    : Array.from({ length: dagen }, (_, i) =>
+        dagStart(dagen - 1 - i).toISOString().slice(0, 10));
 
-    const bak = new Map<string, { bez: Set<string>; ses: number; pv: number; ord: number; omzet: number }>();
-    const vorigeBak = new Map<string, number>();
-
-    const zet = (map: typeof bak, r: any) => {
-      const k = sleutelVan(r.begonnen);
-      const h = map.get(k) ?? { bez: new Set<string>(), ses: 0, pv: 0, ord: 0, omzet: 0 };
-      h.bez.add(String(r.visitor_id));
-      h.ses += 1;
-      h.pv += Number(r.pageviews) || 0;
-      h.ord += Number(r.orders) || 0;
-      h.omzet += Number(r.omzet_cents) || 0;
-      map.set(k, h);
+  const punten: Punt[] = sleutels.map((k, i) => {
+    const h = bakken[k];
+    return {
+      label: k,
+      bezoekers: Number(h?.bezoekers) || 0,
+      sessies: Number(h?.sessies) || 0,
+      pageviews: Number(h?.pageviews) || 0,
+      orders: Number(h?.orders) || 0,
+      omzetCents: Number(h?.omzetCents) || 0,
+      // De vergelijkingsreeks op positie, niet op datum: anders valt hij
+      // naast de huidige in plaats van eronder.
+      vorige: Number(vorigeReeks[i]) || 0,
     };
+  });
 
-    for (const r of s) zet(bak, r);
+  const lijst = (dim: string): Rij[] =>
+    (((o.lijsten ?? {})[dim] ?? []) as any[]).map((r) => ({
+      naam: String(r.naam),
+      sessies: Number(r.sessies) || 0,
+      bezoekers: Number(r.bezoekers) || 0,
+      pageviews: Number(r.pageviews) || 0,
+      bounces: Number(r.bounces) || 0,
+      duurMs: Number(r.duurMs) || 0,
+      orders: Number(r.orders) || 0,
+      omzetCents: Number(r.omzetCents) || 0,
+      vorigeSessies: Number(r.vorigeSessies) || 0,
+    }));
 
-    // De vergelijkingsreeks op positie leggen, niet op datum: anders valt hij
-    // naast de huidige in plaats van eronder.
-    const vSorted = [...v].sort((a, b) => String(a.begonnen).localeCompare(String(b.begonnen)));
-    const vBakken = new Map<string, number>();
-    for (const r of vSorted) {
-      const k = sleutelVan(r.begonnen);
-      vBakken.set(k, (vBakken.get(k) ?? 0) + 1);
-    }
-    const vLijst = Array.from(vBakken.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  const paginas: PadRij[] = ((o.paginas ?? []) as any[]).map((r) => ({
+    path: String(r.path),
+    pageviews: Number(r.pageviews) || 0,
+    instappen: Number(r.instappen) || 0,
+    uitstappen: Number(r.uitstappen) || 0,
+    bounces: Number(r.bounces) || 0,
+    gemSec: Number(r.gemSec) || 0,
+    gemScroll: Number(r.gemScroll) || 0,
+  }));
 
-    const sleutels = perUur
-      ? Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0") + ":00")
-      : Array.from({ length: dagen }, (_, i) =>
-          dagStart(dagen - 1 - i).toISOString().slice(0, 10));
-
-    return sleutels.map((k, i) => {
-      const h = bak.get(k);
-      return {
-        label: k,
-        bezoekers: h?.bez.size ?? 0,
-        sessies: h?.ses ?? 0,
-        pageviews: h?.pv ?? 0,
-        orders: h?.ord ?? 0,
-        omzetCents: h?.omzet ?? 0,
-        vorige: vLijst[i]?.[1] ?? 0,
-      };
-    });
-  })();
-
-  /* ── realtime ───────────────────────────────────────────────────────── */
-  const realtime = (() => {
-    const bakken = new Array(30).fill(0);
-    const nu = Date.now();
-    for (const r of recent.data ?? []) {
-      const min = Math.floor((nu - new Date(String(r.laatst)).getTime()) / 60000);
-      if (min >= 0 && min < 30) bakken[29 - min] += 1;
-    }
-    return bakken;
-  })();
-
-  /* ── pagina's ───────────────────────────────────────────────────────── */
-  const paginas: PadRij[] = (() => {
-    const m = new Map<string, { pv: number; in: number; uit: number; duur: number; scroll: number; n: number; bounce: number }>();
-    const bij = (p: string) => m.get(p) ?? { pv: 0, in: 0, uit: 0, duur: 0, scroll: 0, n: 0, bounce: 0 };
-    for (const r of s) {
-      for (const p of (r.paden ?? []) as string[]) {
-        const h = bij(p); h.pv += 1; m.set(p, h);
-      }
-      if (r.instap) {
-        const h = bij(r.instap);
-        h.in += 1;
-        if ((Number(r.pageviews) || 0) <= 1) h.bounce += 1;
-        m.set(r.instap, h);
-      }
-      if (r.uitstap) {
-        const h = bij(r.uitstap);
-        h.uit += 1;
-        h.duur += Number(r.duur_ms) || 0;
-        h.scroll += Number(r.max_scroll) || 0;
-        h.n += 1;
-        m.set(r.uitstap, h);
-      }
-    }
-    return Array.from(m.entries())
-      .map(([path, h]) => ({
-        path, pageviews: h.pv, instappen: h.in, uitstappen: h.uit, bounces: h.bounce,
-        gemSec: h.n ? Math.round(h.duur / 1000 / h.n) : 0,
-        gemScroll: h.n ? Math.round(h.scroll / h.n) : 0,
-      }))
-      .sort((a, b) => b.pageviews - a.pageviews)
-      .slice(0, 30);
-  })();
-
-  /* ── routes ─────────────────────────────────────────────────────────────
-   * De meest gelopen volgordes. Afgekapt op vier stappen: langer wordt elke
-   * route uniek en dan telt alles één keer, wat niets zegt.
-   * ────────────────────────────────────────────────────────────────────── */
-  const routes = (() => {
-    const m = new Map<string, { n: number; orders: number }>();
-    for (const r of s) {
-      const paden = (r.paden ?? []) as string[];
-      if (paden.length < 2) continue;
-      const route = paden.slice(0, 4).join(" → ") + (paden.length > 4 ? " → …" : "");
-      const h = m.get(route) ?? { n: 0, orders: 0 };
-      h.n += 1;
-      h.orders += Number(r.orders) || 0;
-      m.set(route, h);
-    }
-    return Array.from(m.entries())
-      .map(([route, h]) => ({ route, sessies: h.n, orders: h.orders }))
-      .sort((a, b) => b.sessies - a.sessies)
-      .slice(0, 10);
-  })();
-
-  const g = (sleutel: (r: any) => string | null, max = 12) => groepeer(s, v, sleutel, max);
+  /**
+   * Vanaf wanneer cart, kassa en orders meetellen.
+   *
+   * Die drie komen uit het thema-snippet en niet uit de paden, dus voor het
+   * moment dat het snippet in het thema stond zijn ze structureel nul. Alleen
+   * melden als het bereik daar écht voor begint - anders staat er elke dag een
+   * waarschuwing over niets.
+   */
+  const signaal = o.signaalVanaf ? String(o.signaalVanaf) : null;
+  const meldSignaal = signaal !== null
+    && Number(o.voorSignaal) > 0
+    && new Date(signaal) > vanaf;
 
   return {
-    nu: new Set((recent.data ?? []).map((r: any) => String(r.laatst))).size
-      ? (recent.data ?? []).filter((r: any) =>
-          Date.now() - new Date(String(r.laatst)).getTime() < 5 * 60_000).length
-      : 0,
-    realtime,
+    nu: Number(o.nu) || 0,
+    realtime: ((o.realtime ?? []) as any[]).map((n) => Number(n) || 0),
     kern,
     vorige,
     punten,
     perUur,
     paginas,
-    instappen: g((r) => r.instap || null),
-    uitstappen: g((r) => r.uitstap || null),
-    bronnen: g((r) => r.utm_source || r.verwijzer || "direct"),
-    utmSource: g((r) => r.utm_source || null),
-    utmMedium: g((r) => r.utm_medium || null),
-    utmCampagne: g((r) => r.utm_campaign || null),
-    landen: g((r) => r.country || "??"),
-    devices: g((r) => r.device || "unknown"),
-    browsers: g((r) => r.browser || "unknown"),
-    besturing: g((r) => r.os || "unknown"),
-    nieuwTerug: g((r) => (r.nieuw ? "new" : "returning"), 2),
-    routes,
+    instappen: lijst("instap"),
+    uitstappen: lijst("uitstap"),
+    bronnen: lijst("bron"),
+    utmSource: lijst("utm_source"),
+    utmMedium: lijst("utm_medium"),
+    utmCampagne: lijst("utm_campaign"),
+    landen: lijst("country"),
+    devices: lijst("device"),
+    browsers: lijst("browser"),
+    besturing: lijst("os"),
+    nieuwTerug: lijst("nieuw"),
+    routes: ((o.routes ?? []) as any[]).map((r) => ({
+      route: String(r.route),
+      sessies: Number(r.sessies) || 0,
+      orders: Number(r.orders) || 0,
+    })),
     uitSessies,
-    ...(() => {
-      const signaal = eersteSignaal.data?.[0]?.begonnen
-        ? String(eersteSignaal.data[0].begonnen) : null;
-      // Alleen melden als het bereik er écht voor begint. Een paar minuten
-      // speling zou elke dag een waarschuwing geven zonder dat er iets is.
-      const voor = signaal ? s.filter((r: any) => String(r.begonnen) < signaal) : [];
-      const relevant = signaal !== null && voor.length > 0 && new Date(signaal) > vanaf;
-      return {
-        signaalVanaf: relevant ? signaal : null,
-        kernSindsSignaal: relevant
-          ? telKern(s.filter((r: any) => String(r.begonnen) >= signaal!))
-          : null,
-        sessiesVoorSignaal: relevant ? voor.length : 0,
-      };
-    })(),
-    detailTot: alle.length
-      ? alle.reduce((a: string, r: any) =>
-          String(r.begonnen) < a ? String(r.begonnen) : a, String(alle[0].begonnen)).slice(0, 10)
-      : null,
+    detailTot: o.detailTot ? String(o.detailTot) : null,
+    signaalVanaf: meldSignaal ? signaal : null,
+    kernSindsSignaal: meldSignaal ? naarKern(o.kernSinds) : null,
+    sessiesVoorSignaal: meldSignaal ? Number(o.voorSignaal) || 0 : 0,
   };
 }
