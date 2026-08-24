@@ -93,6 +93,18 @@ export type SiteData = {
   /** Komt dit uit sessies (filterbaar, dertig dagen) of uit dagtotalen? */
   uitSessies: boolean;
   detailTot: string | null;
+  /**
+   * Vanaf wanneer cart, kassa en orders gemeten worden.
+   *
+   * Die drie komen uit het thema-snippet en niet uit de paden, dus voor het
+   * moment dat het snippet in het thema stond zijn ze structureel nul. Staat
+   * het bereik daar deels vóór, dan is de conversie geen lage conversie maar
+   * een gemiddelde over bezoeken die niet konden meetellen.
+   */
+  signaalVanaf: string | null;
+  /** Dezelfde kern, maar alleen over het meetbare deel van het bereik. */
+  kernSindsSignaal: Kern | null;
+  sessiesVoorSignaal: number;
 };
 
 const LEEG: Kern = {
@@ -235,7 +247,7 @@ export async function siteData(
 
   const halfuur = new Date(Date.now() - 30 * 60_000).toISOString();
 
-  const [sessies, vorigeSessies, dagRijen, vorigeDagRijen, recent] = await Promise.all([
+  const [sessies, vorigeSessies, dagRijen, vorigeDagRijen, recent, eersteSignaal] = await Promise.all([
     supabase.from("site_sessies").select("*").eq("shop", shop)
       .gte("begonnen", vanaf.toISOString()).limit(50000),
     supabase.from("site_sessies").select("*").eq("shop", shop)
@@ -248,6 +260,10 @@ export async function siteData(
       .lt("dag", vorigeTot.toISOString().slice(0, 10)),
     supabase.from("site_sessies").select("laatst").eq("shop", shop)
       .gte("laatst", halfuur).limit(5000),
+    // Het allereerste gedragssignaal ooit. Eén rij, en het antwoord verandert
+    // nooit meer zodra het er is.
+    supabase.from("site_sessies").select("begonnen").eq("shop", shop)
+      .eq("deed_atc", true).order("begonnen", { ascending: true }).limit(1),
   ]);
 
   const alle = sessies.data ?? [];
@@ -415,6 +431,21 @@ export async function siteData(
     nieuwTerug: g((r) => (r.nieuw ? "new" : "returning"), 2),
     routes,
     uitSessies,
+    ...(() => {
+      const signaal = eersteSignaal.data?.[0]?.begonnen
+        ? String(eersteSignaal.data[0].begonnen) : null;
+      // Alleen melden als het bereik er écht voor begint. Een paar minuten
+      // speling zou elke dag een waarschuwing geven zonder dat er iets is.
+      const voor = signaal ? s.filter((r: any) => String(r.begonnen) < signaal) : [];
+      const relevant = signaal !== null && voor.length > 0 && new Date(signaal) > vanaf;
+      return {
+        signaalVanaf: relevant ? signaal : null,
+        kernSindsSignaal: relevant
+          ? telKern(s.filter((r: any) => String(r.begonnen) >= signaal!))
+          : null,
+        sessiesVoorSignaal: relevant ? voor.length : 0,
+      };
+    })(),
     detailTot: alle.length
       ? alle.reduce((a: string, r: any) =>
           String(r.begonnen) < a ? String(r.begonnen) : a, String(alle[0].begonnen)).slice(0, 10)
