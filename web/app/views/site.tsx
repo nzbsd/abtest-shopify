@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "@remix-run/react";
 import { PageHead } from "~/components/shell";
 import { Globe } from "~/components/globe";
+import { useLive } from "~/lib/useLive";
 import { Banner, Card, CardHead, Delta, Leeg, Segmented, Track } from "~/components/ui";
 import { geld, heel, procent } from "~/lib/analytics";
 import type { SiteBereik, SiteData, Rij, Vergelijking } from "~/lib/site.server";
@@ -184,11 +185,35 @@ function TabKaart({
 /* ── scherm ─────────────────────────────────────────────────────────────── */
 
 export function SiteView({
-  data, filters,
+  data, filters, basis,
 }: {
   data: SiteData;
   filters: Filter[];
+  /** "/app" of "/dashboard" - waar het levende deel vandaan komt. */
+  basis: string;
 }) {
+  const live = useLive(basis);
+
+  /**
+   * De landen voor de bol: het bereik van de pagina, met de levende aantallen
+   * eroverheen.
+   *
+   * De pagina levert wie er vandaag was, en dat verandert alleen als je
+   * herlaadt. Wie er nú is komt elke vijftien seconden binnen. Een land dat net
+   * online kwam zat misschien nog niet in het bereik, dus dat schuift er
+   * achteraan bij - anders verschijnt de eerste bezoeker uit Portugal pas als
+   * je de pagina ververst.
+   */
+  const globePunten = useMemo(() => {
+    if (!live) return data.globe;
+    const per = new Map(live.landen.map((l) => [l.land, l.actief]));
+    const uit = data.globe.map((p) => ({ ...p, actief: per.get(p.land) ?? 0 }));
+    const bekend = new Set(uit.map((p) => p.land));
+    for (const l of live.landen) {
+      if (!bekend.has(l.land)) uit.push({ land: l.land, sessies: 0, actief: l.actief });
+    }
+    return uit;
+  }, [data.globe, live]);
   const [params, setParams] = useSearchParams();
   // Zelfde standaard als de loader; staan die twee uit elkaar, dan licht de
   // verkeerde knop op bij het openen.
@@ -270,7 +295,7 @@ export function SiteView({
         actie={
           <div className="rij rij--mid">
             {data.nu > 0 && (
-              <span className="live"><span className="live__stip" />{heel(data.nu)} online</span>
+              <span className="live"><span className="live__stip" />{heel(live?.nu ?? data.nu)} online</span>
             )}
             <Segmented
               value={bereik}
@@ -336,7 +361,7 @@ export function SiteView({
              * Nu vult de linkerhelft die ruimte met iets dat je toch al wilde
              * zien, en kan de bol groter.
              * ──────────────────────────────────────────────────────────── */}
-            <div className={"kop" + (data.globe.length ? "" : " kop--zonder-bol")}>
+            <div className={"kop" + (globePunten.length ? "" : " kop--zonder-bol")}>
               <div className="kop__cijfers">
                 {[
                   { label: "Visitors", waarde: heel(k.bezoekers),
@@ -373,9 +398,14 @@ export function SiteView({
                 </p>
               </div>
 
-              {data.globe.length > 0 && (
+              {globePunten.length > 0 && (
                 <div className="kop__bol">
-                  <Globe punten={data.globe} />
+                  <Globe
+                    punten={globePunten}
+                    winkelLand={live?.winkelLand}
+                    verseOrders={live?.orders}
+                    opFilter={(land) => opFilter({ sleutel: "country", waarde: land })}
+                  />
                 </div>
               )}
             </div>

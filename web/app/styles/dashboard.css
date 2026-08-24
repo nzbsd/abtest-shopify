@@ -2098,29 +2098,38 @@ tbody tr:hover { background: var(--wash); }
 
 /* Labels als HTML boven het doek: 3D-tekst op een bol van 340 pixels is
    altijd wazig, en dit zijn getallen die je moet kunnen lezen. */
+/* Een knop, geen etiket: elke rij op dit scherm filtert het hele scherm, en
+   deze deden dat als enige niet. Vandaar ook een echte aanwijsstand - anders
+   ziet niemand dat er iets te klikken valt. */
 .globe__label {
   position: absolute;
   transform: translate(-50%, -140%);
   display: inline-flex;
   align-items: baseline;
   gap: 6px;
-  padding: 3px 8px;
+  padding: 4px 9px;
   border-radius: 999px;
   background: rgba(16, 15, 20, .72);
-  border: 1px solid var(--rail-line);
+  border: 1px solid rgba(182, 162, 255, .35);
   color: var(--rail-ink-2);
+  font: inherit;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: .02em;
   white-space: nowrap;
-  pointer-events: none;
-  transition: opacity .3s linear;
+  cursor: pointer;
+  transition: opacity .3s linear, background-color .15s, border-color .15s;
   backdrop-filter: blur(4px);
 }
+.globe__label:hover {
+  background: rgba(139, 109, 255, .3);
+  border-color: rgba(182, 162, 255, .8);
+}
+.globe__label:focus-visible { outline: 2px solid var(--iris-lit); outline-offset: 2px; }
 .globe__label b { color: var(--rail-ink); font-weight: 700; font-variant-numeric: tabular-nums; }
 .globe__label i { color: #b6a2ff; font-style: normal; font-size: 10px; }
 .globe__label b + i { margin-left: -2px; }
-.globe__label--leeft { border-color: rgba(182, 162, 255, .35); }
+
 
 /* Middenin en niet in een hoek: als er niemand is, is dit het antwoord op de
    vraag die je stelde, en geen voetnoot. */

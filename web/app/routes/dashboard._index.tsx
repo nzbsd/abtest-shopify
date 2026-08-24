@@ -36,5 +36,5 @@ export default function Route() {
       </main>
     );
   }
-  return <SiteView data={d.data} filters={d.filters} />;
+  return <SiteView data={d.data} filters={d.filters} basis="/dashboard" />;
 }

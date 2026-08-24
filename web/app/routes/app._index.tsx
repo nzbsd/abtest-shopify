@@ -20,5 +20,5 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export default function Route() {
   const d = useLoaderData<typeof loader>();
-  return <SiteView data={d.data} filters={d.filters} />;
+  return <SiteView data={d.data} filters={d.filters} basis="/app" />;
 }
