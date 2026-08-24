@@ -525,17 +525,26 @@ export function SiteView({
             </div>
 
             {/* ── lijsten ─────────────────────────────────────────────── */}
-            <div className="lijstkop">
-              <span className="lijstkop__label">Read the lists by</span>
-              <div className="minitabs">
-                {MATEN.map((m) => (
-                  <button key={m.key} type="button" aria-pressed={maat === m.key}
-                          onClick={() => setMaat(m.key)}>{m.label}</button>
-                ))}
+            {/* Een kop die de vier kaarten eronder bezit, in plaats van een
+                losse regel met een label links en een tip helemaal rechts. De
+                tip hoort bij de lijsten, dus staat hij in de uitleg. */}
+            <div className="sectiekop">
+              <div>
+                <h2 className="sectiekop__titel">Breakdowns</h2>
+                <p className="sectiekop__sub">
+                  Every list below ranks by the same measure. Click any row to filter everything
+                  above it.
+                </p>
               </div>
-              <span className="small muted lijstkop__hint">
-                Click any row to filter everything above by it.
-              </span>
+              <div className="sectiekop__maat">
+                <span className="sectiekop__maatlabel">Ranked by</span>
+                <div className="minitabs minitabs--los">
+                  {MATEN.map((m) => (
+                    <button key={m.key} type="button" aria-pressed={maat === m.key}
+                            onClick={() => setMaat(m.key)}>{m.label}</button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Vier kaarten in één rij. Op --2 werden het er drie naast

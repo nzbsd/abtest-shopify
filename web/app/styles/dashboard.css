@@ -1778,18 +1778,57 @@ tbody tr:hover { background: var(--wash); }
   transition: background-color .12s, color .12s;
 }
 .minitabs button:hover { color: var(--ink-2); }
-.minitabs button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-card); }
-
-/* De regel boven de lijsten: waarop lees je ze, en dat ze klikbaar zijn. */
-.lijstkop {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 2px 2px 0;
+/* De gekozen tab was wit met een schaduwtje. Op een kaart zag je dat net, maar
+   het zei niet welke aan stond - alleen dat er eentje iets lichter was. Kleur
+   zegt het wel, en het is de enige kleur die deze app voor "dit is gekozen"
+   gebruikt. */
+.minitabs button[aria-pressed="true"] {
+  background: var(--control-pale);
+  color: var(--iris);
+  font-weight: 700;
 }
-.lijstkop__label { font-size: 11.5px; font-weight: 650; color: var(--ink-2); }
-.lijstkop__hint { margin-left: auto; }
+
+/* De kop boven de lijsten.
+
+   Dit was een losse regel met drie dingen naast elkaar: een label, de knoppen,
+   en helemaal rechts een tip. Ze hoorden bij elkaar maar stonden uit elkaar
+   geduwd, en de knoppen zelf hadden --wash als achtergrond terwijl de pagina
+   --canvas is - twee kleuren die je niet uit elkaar houdt. Op een kaart werkt
+   dat wel, hier zweefde het.
+
+   Nu is het een kop die de vier kaarten eronder bezit: titel, één regel uitleg,
+   en de keuze rechts op een eigen wit vlak zodat je ziet dat het een knop is. */
+.sectiekop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding: 6px 2px 0;
+}
+.sectiekop__titel {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--ink);
+}
+.sectiekop__sub { margin: 3px 0 0; font-size: 12px; color: var(--ink-3); max-width: 62ch; }
+/* Mag krimpen, niet groeien. Op flex:none was de rij van zes knoppen 394
+   pixels breed en liep hij op een telefoon 130 pixels buiten beeld - hij kón
+   niet kleiner, ook al mocht hij van zichzelf schuiven. */
+.sectiekop > :first-child { flex: 1 1 240px; min-width: 0; }
+.sectiekop__maat { display: flex; align-items: center; gap: 10px; flex: 0 1 auto; min-width: 0; }
+.sectiekop__maat .minitabs { min-width: 0; }
+.sectiekop__maatlabel {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  color: var(--ink-3);
+}
+/* Op de paginakleur heeft de keuze een eigen vlak nodig; op een kaart niet. */
+.minitabs--los { background: var(--surface); border: 1px solid var(--line-loud); }
 
 /* Actieve filters. Elke chip is zijn eigen knop: klikken haalt hem weg.
    Heet bewust niet .chip: die klasse was al in gebruik voor het icoonvlak van
