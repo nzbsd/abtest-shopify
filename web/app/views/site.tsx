@@ -324,32 +324,6 @@ export function SiteView({
           </Card>
         ) : (
           <>
-            {/* Cart, kassa en orders komen uit het snippet en niet uit de
-                paden. Voor het moment dat het snippet in het thema stond zijn
-                ze structureel nul, en dan is de conversie hieronder geen lage
-                conversie maar een gemiddelde over bezoeken die niet konden
-                meetellen. Zeggen wat er staat is hier belangrijker dan een
-                schoon scherm. */}
-            {data.signaalVanaf && data.kernSindsSignaal && (() => {
-              const ks = data.kernSindsSignaal;
-              const cvrNa = ks.sessies ? (ks.orders / ks.sessies) * 100 : 0;
-              const sinds = new Date(data.signaalVanaf);
-              return (
-                <Banner tone="warn">
-                  <strong>
-                    Cart, checkout and orders have only been measured since{" "}
-                    {sinds.toLocaleString("en-GB", {
-                      day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
-                      timeZone: "UTC",
-                    })} UTC.
-                  </strong>{" "}
-                  {heel(data.sessiesVoorSignaal)} of the {heel(k.sessies)} sessions in this
-                  range are from before that, so conversion, revenue and the funnel below read
-                  lower than they are. Over the measurable part: {procent(cvrNa, 1)} conversion
-                  from {heel(ks.sessies)} sessions, {geld(ks.omzetCents / 100)} revenue.
-                </Banner>
-              );
-            })()}
             {/* ── kengetallen ───────────────────────────────────────────
              * Eén strook in plaats van zes kaarten. Zes kaarten onder elkaar
              * is duizend pixels scrollen voordat je iets anders ziet, en de
@@ -452,6 +426,21 @@ export function SiteView({
                     "Cart and checkout come from the actions themselves, not from a page view — " +
                     "this theme opens the cart in a drawer, and Shopify's checkout does not run " +
                     "theme code at all." +
+                    // Voor het moment dat het snippet in het thema stond zijn deze
+                    // drie structureel nul. Dan is een lage conversie geen lage
+                    // conversie maar een gemiddelde over bezoeken die niet konden
+                    // meetellen, en dat hoort erbij te staan zolang het speelt.
+                    (data.signaalVanaf && data.kernSindsSignaal
+                      ? " Only measured since " +
+                        new Date(data.signaalVanaf).toLocaleString("en-GB", {
+                          day: "numeric", month: "short", hour: "2-digit",
+                          minute: "2-digit", timeZone: "UTC",
+                        }) + " UTC, so the " + heel(data.sessiesVoorSignaal) +
+                        " earlier sessions in this range pull every rate down. Since then: " +
+                        procent(data.kernSindsSignaal.sessies
+                          ? (data.kernSindsSignaal.orders / data.kernSindsSignaal.sessies) * 100
+                          : 0, 1) + " conversion."
+                      : "") +
                     (filters.length ? " Recalculated for the filters above." : "")
                   }
                 />
