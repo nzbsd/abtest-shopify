@@ -60,16 +60,40 @@ export async function zetPixelAan(admin: any, shop: string): Promise<Uitkomst> {
 
     const fouten = antwoord?.data?.webPixelUpdate?.userErrors
       ?? antwoord?.data?.webPixelCreate?.userErrors ?? [];
-    if (fouten.length) return "mislukt";
+    if (fouten.length || antwoord?.errors) {
+      await noteer(shop, JSON.stringify(fouten.length ? fouten : antwoord.errors).slice(0, 500));
+      return "mislukt";
+    }
 
     await supabase.from("site_winkel").upsert(
       { shop, pixel_at: new Date().toISOString(), pixel_settings: settings },
       { onConflict: "shop" },
     );
+    await noteer(shop, null);
     return id ? "bijgewerkt" : "aangemaakt";
-  } catch {
+  } catch (e) {
     // Geen pixel betekent geen kassastappen. Dat is jammer, maar het is geen
     // reden om het scherm dat je net opende niet te tonen.
+    await noteer(shop, String((e as Error)?.message ?? e).slice(0, 500));
     return "mislukt";
+  }
+}
+
+/**
+ * Waarom het niet lukte, opschrijven.
+ *
+ * Dit stond eerst in een lege catch. Dat is precies de fout waar je nooit
+ * achter komt: de pixel staat niet aan, er komen geen kassastappen binnen, en
+ * er is nergens iets te zien dat vertelt waaraan het ligt - een ontbrekende
+ * scope, een extensie die nog niet gedeployd is, of iets anders.
+ */
+async function noteer(shop: string, fout: string | null) {
+  try {
+    await supabase.from("site_winkel").upsert(
+      { shop, pixel_fout: fout, pixel_gepoogd: new Date().toISOString() },
+      { onConflict: "shop" },
+    );
+  } catch {
+    // Als zelfs dit niet lukt is er iets grovers mis dan een pixel.
   }
 }

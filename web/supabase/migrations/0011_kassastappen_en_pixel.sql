@@ -55,3 +55,9 @@ alter table site_winkel
 --   count(*) filter (where deed_contact)    as deed_contact,
 --   count(*) filter (where deed_verzending) as deed_verzending,
 --   count(*) filter (where deed_betaling)   as deed_betaling
+
+-- Waarom de pixel niet aanging. Stond eerst in een lege catch, en dat is
+-- precies de fout waar je nooit achter komt.
+alter table site_winkel
+  add column if not exists pixel_fout      text,
+  add column if not exists pixel_gepoogd   timestamptz;
