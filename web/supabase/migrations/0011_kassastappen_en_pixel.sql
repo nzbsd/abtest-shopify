@@ -61,3 +61,17 @@ alter table site_winkel
 alter table site_winkel
   add column if not exists pixel_fout      text,
   add column if not exists pixel_gepoogd   timestamptz;
+
+-- Hoeveel van de add-to-carts ziet de pixel eigenlijk?
+--
+-- Het thema telt iedereen, de pixel alleen wie analytics-toestemming gaf. Welk
+-- van de twee "echter" is, is niet iets om over te redeneren - het is een
+-- verhouding die je kunt meten. Daarvoor moeten ze los geteld worden. De pixel
+-- stuurt daarom atc_px en checkout_px in plaats van atc en checkout.
+--
+-- Geen extra parameter op site_signaal maar eigen soorten: een tweede
+-- handtekening zou een overload opleveren, en daar is deze database al twee keer
+-- stil op stukgelopen.
+alter table site_sessies
+  add column if not exists atc_pixel      boolean not null default false,
+  add column if not exists checkout_pixel boolean not null default false;

@@ -69,11 +69,18 @@ register(({ analytics, browser, settings }) => {
     }
   };
 
-  // Wat het thema ook al ziet, maar dan officieel in plaats van door fetch te
-  // onderscheppen. Onderscheppen werkt tot een thema-update of een andere app
-  // ertussen komt; dit blijft werken.
-  analytics.subscribe("product_added_to_cart", () => stuur("atc"));
-  analytics.subscribe("checkout_started", () => stuur("checkout"));
+  /**
+   * Deze twee ziet het thema ook, maar dan door fetch te onderscheppen - en dat
+   * telt iedereen, ook wie geen toestemming gaf. De pixel telt alleen wie dat
+   * wel deed.
+   *
+   * Ze gaan daarom onder een eigen naam de deur uit. Niet omdat ze iets anders
+   * betekenen, maar omdat pas als je ze los telt te zien is hoe groot het
+   * verschil is - en dat is de enige manier om te beslissen welke van de twee
+   * je moet geloven.
+   */
+  analytics.subscribe("product_added_to_cart", () => stuur("atc_px"));
+  analytics.subscribe("checkout_started", () => stuur("checkout_px"));
 
   // En dit is nieuw: de stappen ín de kassa, waar het thema niet komt.
   analytics.subscribe("checkout_contact_info_submitted", () => stuur("contact"));

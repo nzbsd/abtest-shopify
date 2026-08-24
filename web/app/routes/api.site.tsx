@@ -94,7 +94,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // rendert het thema niet - dus ze komen als eigen signaal binnen.
     // De kassastappen komen van de web pixel, de eerste twee ook van het
     // thema. Dezelfde ingang, dezelfde RPC: het is één sessie.
-    if (["atc", "checkout", "contact", "verzending", "betaling", "afgerekend"]
+    if (["atc", "checkout", "atc_px", "checkout_px",
+         "contact", "verzending", "betaling", "afgerekend"]
           .includes(String(body?.t))) {
       await supabase.rpc("site_signaal", {
         p_sessie: sessie, p_soort: String(body.t), p_nu: nu,
