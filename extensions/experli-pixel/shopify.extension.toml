@@ -1,3 +1,5 @@
+
+uid = "e8b511e8-9730-27c3-ea0b-879f6e1271a1aba83af9"
 type = "web_pixel_extension"
 name = "Experli events"
 runtime_context = "strict"
