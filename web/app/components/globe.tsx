@@ -181,11 +181,14 @@ export function Globe({
        * Camera-afstand uit de hoogte van het paneel.
        *
        * Op een vaste afstand liep de bol boven en onder het paneel uit, want
-       * het paneel is breed en laag: bij 400 pixels hoog en 727 breed is de
-       * hoogte de krappe kant. De bogen welven verder dan de baken, dus die
-       * zetten de ondergrens.
+       * het paneel is breed en laag: de hoogte is de krappe kant.
+       *
+       * Wat er omhoog kan steken bepaalt hoe dichtbij het mag. De baken zijn
+       * korter geworden en de bogen vlakker, en daarmee kon dit van 1,42 naar
+       * 1,28: de bol vult nu achtenzeventig procent van de paneelhoogte in
+       * plaats van zeventig.
        */
-      const PAST = 1.42;
+      const PAST = 1.28;
       const zetCamera = () => {
         camera.aspect = doos.clientWidth / Math.max(doos.clientHeight, 1);
         camera.position.z = PAST / Math.tan(((camera.fov / 2) * Math.PI) / 180);
@@ -322,7 +325,10 @@ export function Globe({
           const plek = maakPlek(n.land);
           if (!plek || plekVan.size > RUIMTE) continue;
           plek.actief = n.actief;
-          plek.doel = n.actief > 0 ? 0.07 + 0.4 * Math.sqrt(n.actief / top) : 0;
+          // Korter dan eerst. Een baken van bijna een halve straal zette de
+          // kop zo ver van het land af dat het label erboven nergens meer bij
+          // leek te horen.
+          plek.doel = n.actief > 0 ? 0.05 + 0.28 * Math.sqrt(n.actief / top) : 0;
         }
       };
       nieuweCijfers.current(puntenRef.current);
@@ -372,8 +378,11 @@ export function Globe({
 
           // Een boog die zich over de bol welft. Hoe verder weg, hoe hoger -
           // anders zakt een korte hop door de planeet heen.
-          const mid = van.richting.clone().add(naar.richting).normalize()
-            .multiplyScalar(1 + 0.16 + 0.3 * van.richting.distanceTo(naar.richting));
+          // Vlak genoeg om binnen het kader te blijven, ook van Nieuw-Zeeland
+          // naar Groot-Brittannië - dat is bijna de halve planeet. Een hoge
+          // boog dwingt de camera terug en maakt de bol dus kleiner.
+          const hoog = Math.min(1.26, 1 + 0.06 + 0.1 * van.richting.distanceTo(naar.richting));
+          const mid = van.richting.clone().add(naar.richting).normalize().multiplyScalar(hoog);
           const kromme = new THREE.QuadraticBezierCurve3(
             van.richting.clone().multiplyScalar(1.01),
             mid,
@@ -416,7 +425,19 @@ export function Globe({
        * Groot-Brittannië aan de bovenrand op.
        */
       let draaiY = Math.atan2(-richtOp.x, richtOp.z);
-      let draaiX = Math.max(-1.05, Math.min(1.05,
+      /**
+       * De kanteling gaat maar tot een kwart slag, niet tot vol.
+       *
+       * Groot-Brittannië ligt op 54 graden, en dat helemaal naar de camera
+       * draaien kantelt de as 54 graden naar voren. De bol draait dan nog
+       * steeds om zijn eigen pool, maar die pool wijst schuin naar je toe - en
+       * dan ziet het eruit alsof hij rolt in plaats van draait. Vandaar dat het
+       * leek of hij "half rond" ging.
+       *
+       * Op 26 graden staat de as vrijwel rechtop, blijft het land waar het om
+       * gaat ruim in beeld, en draait hij zoals een globe hoort te draaien.
+       */
+      let draaiX = Math.max(-0.45, Math.min(0.45,
         Math.atan2(richtOp.y, Math.hypot(richtOp.x, richtOp.z))));
       let vaartY = 0;
       let sleept = false;
@@ -433,7 +454,9 @@ export function Globe({
         if (!sleept) return;
         vaartY = (e.clientX - laatstX) * 0.005;
         draaiY += vaartY;
-        draaiX = Math.max(-1.2, Math.min(1.2, draaiX - (e.clientY - laatstY) * 0.005));
+        // Slepen mag verder kantelen dan de startstand, maar niet tot over de
+        // pool heen - daarachter staat de wereld op zijn kop.
+        draaiX = Math.max(-1.0, Math.min(1.0, draaiX - (e.clientY - laatstY) * 0.005));
         laatstX = e.clientX; laatstY = e.clientY;
         stilSinds = performance.now();
       };
@@ -553,12 +576,12 @@ export function Globe({
 
           const diep = naarVoren.clone().project(camera);
           const x = ((diep.x + 1) / 2) * b.width;
-          const y = ((1 - diep.y) / 2) * b.height - 26;   // het label zweeft erboven
+          const y = ((1 - diep.y) / 2) * b.height - 15;   // het label zit op de kop
           const w = 26 + 6.6 * (p.land.length + String(p.actief).length + 4);
 
           if (gezet.some((g) => Math.abs(g.x - x) < (g.w + w) / 2 && Math.abs(g.y - y) < 22)) continue;
           gezet.push({ x, y, w });
-          uit.push({ land: p.land, actief: p.actief, x, y: y + 26, zicht: zichtbaarheid });
+          uit.push({ land: p.land, actief: p.actief, x, y: y + 15, zicht: zichtbaarheid });
           if (uit.length >= 5) break;
         }
         setLabels(uit);
@@ -588,7 +611,11 @@ export function Globe({
           // Uitrollen na een sleep, daarna vanzelf verder draaien.
           vaartY *= 0.94;
           draaiY += vaartY;
-          if (!rustig && Math.abs(vaartY) < 0.0004 && t - stilSinds > 1200) draaiY += 0.0016;
+          // Van rechts naar links. De aarde draait andersom - het oppervlak
+          // schuift naar rechts, zoals de zon 's ochtends in het oosten opkomt
+          // - maar Emiel wil deze kant op en het is een dashboard, geen
+          // planetarium. Eén teken om te wisselen.
+          if (!rustig && Math.abs(vaartY) < 0.0004 && t - stilSinds > 1200) draaiY -= 0.0016;
         }
         bol.rotation.y = draaiY;
         bol.rotation.x = draaiX;

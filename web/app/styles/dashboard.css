@@ -1998,7 +1998,7 @@ tbody tr:hover { background: var(--wash); }
 /* De bol zet de hoogte, niet de cijfers.
    Andersom geprobeerd en dat gaf een blok van tweehonderd pixels: twee rijen
    getallen zijn nu eenmaal niet hoog, en de bol kromp mee tot een knikker. */
-.kop__bol { position: relative; min-height: 400px; }
+.kop__bol { position: relative; min-height: 430px; }
 .kop__bol .globe { position: absolute; inset: 0; border-radius: 0; background: none; }
 .kop__bol .globe__doek { height: 100%; }
 /* De uitleg staat onder de cijfers en niet in de bolhoek.
@@ -2057,7 +2057,7 @@ tbody tr:hover { background: var(--wash); }
    past "$1,234.56" er niet meer in. */
 @media (max-width: 1100px) {
   .kop { grid-template-columns: minmax(0, 1fr); }
-  .kop__bol { min-height: 340px; }
+  .kop__bol { min-height: 360px; }
   /* Gestapeld is de volle breedte beschikbaar, dus alle zes op één rij. In
      drieën bleef er per cel driehonderd pixels lucht naast een getal van vijf
      tekens staan. */
@@ -2069,7 +2069,10 @@ tbody tr:hover { background: var(--wash); }
 }
 @media (max-width: 700px) {
   .kop__cijfers { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 14px; padding: 20px 18px; }
-  .kop__bol { min-height: 280px; }
+  /* Op een telefoon is de bol het hele beeld, dus die mag hier het hoogst
+     wegen. Van 280 naar 320 plus de camera dichterbij: 197 pixels bol werd
+     250. */
+  .kop__bol { min-height: 320px; }
 }
 
 /* Compacter op het bezoekersscherm.
@@ -2103,7 +2106,7 @@ tbody tr:hover { background: var(--wash); }
    ziet niemand dat er iets te klikken valt. */
 .globe__label {
   position: absolute;
-  transform: translate(-50%, -140%);
+  transform: translate(-50%, -126%);
   display: inline-flex;
   align-items: baseline;
   gap: 6px;
