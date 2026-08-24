@@ -1,10 +1,7 @@
 import { useState } from "react";
 import { useSearchParams } from "@remix-run/react";
 import { PageHead } from "~/components/shell";
-import {
-  Banner, Card, CardHead, Delta, Kpi, Leeg, Segmented, Track,
-  IconUsers, IconCart, IconChart, IconCoins,
-} from "~/components/ui";
+import { Banner, Card, CardHead, Delta, Leeg, Segmented, Track } from "~/components/ui";
 import { geld, heel, procent } from "~/lib/analytics";
 import type { SiteBereik, SiteData, Rij, Vergelijking } from "~/lib/site.server";
 import {
@@ -319,26 +316,41 @@ export function SiteView({
           </Card>
         ) : (
           <>
-            {/* ── kengetallen ─────────────────────────────────────────── */}
-            <div className="grid grid--3">
-              <Kpi icon={<IconUsers />} tone="control" label="Visitors" value={heel(k.bezoekers)}
-                   note={heel(k.nieuwe) + " new · " + heel(k.sessies) + " sessions"}
-                   delta={<Verschil nu={k.bezoekers} toen={v?.bezoekers} />} />
-              <Kpi icon={<IconChart />} tone="neutral" label="Pageviews" value={heel(k.pageviews)}
-                   note={perSessie.toFixed(1) + " per session"}
-                   delta={<Verschil nu={k.pageviews} toen={v?.pageviews} />} />
-              <Kpi icon={<IconCart />} tone="neutral" label="Bounce rate" value={procent(bounce, 0)}
-                   note="left after one page"
-                   delta={<Verschil nu={bounce} toen={vorigeBounce} omlaagIsGoed />} />
-              <Kpi icon={<IconChart />} tone="neutral" label="Time on site" value={seconden(duur)}
-                   note="per session, average"
-                   delta={<Verschil nu={duur} toen={vorigeDuur} />} />
-              <Kpi icon={<IconCoins />} tone="test" label="Conversion" value={procent(cvr, 1)}
-                   note={heel(k.orders) + " orders"}
-                   delta={<Verschil nu={cvr} toen={vorigeCvr} />} />
-              <Kpi icon={<IconCoins />} tone="test" label="Revenue" value={geld(k.omzetCents / 100)}
-                   note={geld(rpv) + " per visitor"}
-                   delta={<Verschil nu={k.omzetCents} toen={v?.omzetCents} />} />
+            {/* ── kengetallen ───────────────────────────────────────────
+             * Eén strook in plaats van zes kaarten. Zes kaarten onder elkaar
+             * is duizend pixels scrollen voordat je iets anders ziet, en de
+             * hele reden dat je hier komt is één blik op hoe het staat.
+             * ──────────────────────────────────────────────────────────── */}
+            <div className="kengetallen">
+              {[
+                { label: "Visitors", waarde: heel(k.bezoekers),
+                  noot: heel(k.sessies) + " sessions",
+                  delta: <Verschil nu={k.bezoekers} toen={v?.bezoekers} /> },
+                { label: "Pageviews", waarde: heel(k.pageviews),
+                  noot: perSessie.toFixed(1) + " per session",
+                  delta: <Verschil nu={k.pageviews} toen={v?.pageviews} /> },
+                { label: "Bounce", waarde: procent(bounce, 0),
+                  noot: "one page only",
+                  delta: <Verschil nu={bounce} toen={vorigeBounce} omlaagIsGoed /> },
+                { label: "Time", waarde: seconden(duur),
+                  noot: "per session",
+                  delta: <Verschil nu={duur} toen={vorigeDuur} /> },
+                { label: "Conversion", waarde: procent(cvr, 1),
+                  noot: heel(k.orders) + " orders",
+                  delta: <Verschil nu={cvr} toen={vorigeCvr} /> },
+                { label: "Revenue", waarde: geld(k.omzetCents / 100),
+                  noot: geld(rpv) + " per visitor",
+                  delta: <Verschil nu={k.omzetCents} toen={v?.omzetCents} /> },
+              ].map((x) => (
+                <div className="kengetal" key={x.label}>
+                  <span className="kengetal__label">{x.label}</span>
+                  <span className="kengetal__rij">
+                    <span className="kengetal__waarde num">{x.waarde}</span>
+                    {x.delta}
+                  </span>
+                  <span className="kengetal__noot">{x.noot}</span>
+                </div>
+              ))}
             </div>
 
             {/* ── grafiek ─────────────────────────────────────────────── */}
