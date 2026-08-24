@@ -32,6 +32,15 @@ export type Kern = {
   zagProduct: number;
   zagCart: number;
   zagCheckout: number;
+  /**
+   * Toevoegen aan de cart en naar de kassa gaan, uit gedrag en niet uit paden.
+   *
+   * Op dit thema is geen van beide in de URL te zien: de cart is een drawer en
+   * de kassa rendert het thema niet. De oude pad-gebaseerde vlaggen gaven
+   * daarom nul van 3.419 sessies - geen steekproef maar een onmogelijkheid.
+   */
+  deedAtc: number;
+  gingCheckout: number;
 };
 
 /** Eén rij in een lijstje, met alles wat de metriekwisselaar kan tonen. */
@@ -86,6 +95,7 @@ export type SiteData = {
 const LEEG: Kern = {
   bezoekers: 0, nieuwe: 0, sessies: 0, pageviews: 0, bounces: 0, duurMs: 0,
   orders: 0, omzetCents: 0, zagCollectie: 0, zagProduct: 0, zagCart: 0, zagCheckout: 0,
+  deedAtc: 0, gingCheckout: 0,
 };
 
 const leegRij = (naam: string): Rij => ({
@@ -116,6 +126,8 @@ function telKern(rijen: any[]): Kern {
     if (r.zag_product) uit.zagProduct += 1;
     if (r.zag_cart) uit.zagCart += 1;
     if (r.zag_checkout) uit.zagCheckout += 1;
+    if (r.deed_atc) uit.deedAtc += 1;
+    if (r.ging_checkout) uit.gingCheckout += 1;
   }
   uit.bezoekers = bez.size;
   return uit;
@@ -136,6 +148,8 @@ function telKernUitDagen(rijen: any[]): Kern {
     uit.zagProduct += Number(r.zag_product) || 0;
     uit.zagCart += Number(r.zag_cart) || 0;
     uit.zagCheckout += Number(r.zag_checkout) || 0;
+    uit.deedAtc += Number(r.deed_atc) || 0;
+    uit.gingCheckout += Number(r.ging_checkout) || 0;
   }
   return uit;
 }

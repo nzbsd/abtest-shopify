@@ -89,6 +89,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const pad = normaliseerPad(String(body?.path || "/"));
     const nu = new Date().toISOString();
 
+    // Gedragssignalen: toevoegen aan de cart en naar de kassa gaan. Die zijn
+    // op dit thema niet uit de URL te zien - de cart is een drawer en de kassa
+    // rendert het thema niet - dus ze komen als eigen signaal binnen.
+    if (body?.t === "atc" || body?.t === "checkout") {
+      await supabase.rpc("site_signaal", {
+        p_sessie: sessie, p_soort: String(body.t), p_nu: nu,
+      });
+      return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
+    }
+
     if (body?.t === "leave") {
       // Vertrek: alleen betrokkenheid bijwerken. Geen pageview erbij, anders
       // telt elke pagina dubbel.

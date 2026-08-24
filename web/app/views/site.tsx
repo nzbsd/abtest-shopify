@@ -227,10 +227,9 @@ export function SiteView({
    */
   const stappen = [
     { label: "Sessions", n: k.sessies },
-    { label: "Saw a collection", n: k.zagCollectie },
     { label: "Saw a product", n: k.zagProduct },
-    { label: "Reached the cart", n: k.zagCart },
-    { label: "Reached checkout", n: k.zagCheckout },
+    { label: "Added to cart", n: k.deedAtc },
+    { label: "Started checkout", n: k.gingCheckout },
     { label: "Ordered", n: k.orders },
   ];
 
@@ -400,8 +399,9 @@ export function SiteView({
               <CardHead
                 title="Where visitors drop off"
                 sub={
-                  "Each step is a share of all sessions, not of the step above — someone landing " +
-                  "straight on a product from an ad never sees a collection." +
+                  "Cart and checkout come from the actions themselves, not from a page view — " +
+                  "this theme opens the cart in a drawer, and Shopify's checkout does not run " +
+                  "theme code at all." +
                   (filters.length ? " Recalculated for the filters above." : "")
                 }
               />

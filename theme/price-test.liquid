@@ -517,6 +517,96 @@
       }
     } catch (e) {}
 
+    /**
+     * Cart and checkout from behaviour, not from a page view.
+     *
+     * Neither step can be seen in the URL on this store, and the numbers said
+     * so plainly: nought of 3,419 sessions "reached checkout", five "reached
+     * the cart".
+     *
+     *   /checkouts  is Shopify's own checkout and does not render the theme,
+     *               so this snippet never runs there. Not a small sample — an
+     *               impossibility.
+     *   /cart       the theme uses a drawer, so the cart opens without a page
+     *               change.
+     *
+     * Intercepting the requests works regardless of how the theme is built,
+     * which is the same reason the A/B side already listens this way.
+     */
+    var gemeldSignaal = {};
+    function signaal(soort) {
+      if (gemeldSignaal[soort]) return;
+      gemeldSignaal[soort] = true;
+      stuur({ shop: SHOP, sid: sessie.id, vid: visitor, t: soort });
+    }
+
+    (function () {
+      var isAdd  = function (u) { return typeof u === "string" && u.indexOf("/cart/add") !== -1; };
+      var isKassa = function (u) {
+        return typeof u === "string" &&
+          (u.indexOf("/checkout") !== -1 || u.indexOf("/cart/checkout") !== -1);
+      };
+      var kijk = function (u) {
+        if (isAdd(u)) signaal("atc");
+        else if (isKassa(u)) signaal("checkout");
+      };
+
+      /* Zowel het verzoek als de navigatie: toevoegen gaat via fetch of XHR,
+         maar naar de kassa gaan is meestal een formulier of een link. */
+      var of = window.fetch;
+      if (typeof of === "function") {
+        window.fetch = function (input) {
+          try { kijk(typeof input === "string" ? input : (input && input.url) || ""); } catch (e) {}
+          return of.apply(this, arguments);
+        };
+      }
+      var oo = window.XMLHttpRequest && window.XMLHttpRequest.prototype.open;
+      if (oo) {
+        window.XMLHttpRequest.prototype.open = function (m, u) {
+          try { kijk(u); } catch (e) {}
+          return oo.apply(this, arguments);
+        };
+      }
+      document.addEventListener("submit", function (e) {
+        try { var f = e.target; if (f && f.action) kijk(f.action); } catch (e2) {}
+      }, true);
+      document.addEventListener("click", function (e) {
+        try {
+          var a = e.target && e.target.closest && e.target.closest("a[href],button[name='checkout']");
+          if (!a) return;
+          if (a.tagName === "BUTTON") signaal("checkout");
+          else kijk(a.getAttribute("href") || "");
+        } catch (e2) {}
+      }, true);
+
+      /* Landt iemand tóch op een cart- of checkoutpagina, dan telt die ook.
+         Gebeurt zelden op dit thema, maar het kost niets. */
+      if (hierPad.indexOf("/cart") === 0) signaal("atc");
+      if (hierPad.indexOf("/checkout") === 0) signaal("checkout");
+    })();
+
+    /**
+     * Put the session id in the cart, once per session.
+     *
+     * This is how an order gets linked back to the visit that produced it.
+     * theme.liquid does not render on the order status page, so nothing can be
+     * measured there; the cart is the only thing that travels from the shop
+     * into the order. The orders/create webhook reads it back.
+     *
+     * It also beats a pixel on the thank-you page: the amount then comes from
+     * Shopify rather than from JavaScript an ad blocker can stop.
+     */
+    try {
+      if (!sessionStorage.getItem("_pt_cart_" + sessie.id)) {
+        sessionStorage.setItem("_pt_cart_" + sessie.id, "1");
+        fetch("/cart/update.js", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ attributes: { _pt_sess: sessie.id } })
+        }).catch(function () {});
+      }
+    } catch (e) {}
+
     stuur({
       shop: SHOP, sid: sessie.id, vid: visitor, t: "view", path: hierPad,
       ref: document.referrer || "", country: COUNTRY, device: DEVICE,
