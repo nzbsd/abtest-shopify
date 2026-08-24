@@ -51,8 +51,21 @@ export async function zetPixelAan(admin: any, shop: string): Promise<Uitkomst> {
       Date.now() - new Date(bekend.pixel_at).getTime() < 86_400_000;
     if (vers && bekend?.pixel_settings === settings) return "stond-al-goed";
 
-    const huidig = await admin.graphql(LEES).then((r: any) => r.json());
-    const id = huidig?.data?.webPixel?.id ?? null;
+    /**
+     * Bestaat er al een pixel voor deze app?
+     *
+     * De vraag zelf gooit als het antwoord nee is: "No web pixel was found for
+     * this app." Dat is geen fout maar het antwoord, en het stond mijn hele
+     * aanmaakpad in de weg - de eerste keer, dus altijd. Vandaar een eigen
+     * catch: mislukt de vraag, dan is er er geen, en dan maken we hem.
+     */
+    let id: string | null = null;
+    try {
+      const huidig = await admin.graphql(LEES).then((r: any) => r.json());
+      id = huidig?.data?.webPixel?.id ?? null;
+    } catch {
+      id = null;
+    }
 
     const antwoord = id
       ? await admin.graphql(WERK_BIJ, { variables: { id, settings } }).then((r: any) => r.json())
