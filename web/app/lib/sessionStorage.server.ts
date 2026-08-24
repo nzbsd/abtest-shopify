@@ -1,9 +1,16 @@
 import type { SessionStorage } from "@shopify/shopify-app-session-storage";
 import { Session } from "@shopify/shopify-api";
 import supabase from "~/db.server";
+import { maakOpen, sluitOp } from "./tokenKluis.server";
 
 const TABLE = "price_test_sessions";
 
+/**
+ * Sessies in Supabase, met het toegangstoken versleuteld.
+ *
+ * Zie tokenKluis.server.ts voor waarom. Kort: de service-role-sleutel gaat
+ * langs RLS heen, en die mag niet genoeg zijn om een winkel over te nemen.
+ */
 export class SupabaseSessionStorage implements SessionStorage {
   async storeSession(session: Session): Promise<boolean> {
     const entries = session.toPropertyArray(true);
@@ -14,7 +21,7 @@ export class SupabaseSessionStorage implements SessionStorage {
       {
         id: session.id,
         shop: session.shop,
-        data: entries,
+        data: sluitOp(entries as [string, any][]),
         expires,
       },
       { onConflict: "id" },
@@ -39,7 +46,25 @@ export class SupabaseSessionStorage implements SessionStorage {
       return undefined;
     }
     if (!data) return undefined;
-    return Session.fromPropertyArray(data.data as [string, any][], true);
+
+    const open = maakOpen(data.data as [string, any][]);
+    if (!open) {
+      // Onleesbaar - vrijwel zeker een geroteerd app-geheim. Doen alsof de
+      // sessie er niet is: Shopify haalt er dan zelf een nieuwe, en die komt
+      // versleuteld terug. Blijven zitten met een kapotte sessie zou de app
+      // stilzetten tot iemand hem opnieuw installeert.
+      console.error("[SupabaseSessionStorage] sessie onleesbaar, wordt opnieuw opgehaald", id);
+      return undefined;
+    }
+
+    const sessie = Session.fromPropertyArray(open.velden, true);
+
+    // Eenmalig: een rij van voor de versleuteling gaat er meteen versleuteld
+    // weer in. Wachten op de volgende keer dat Shopify zelf een token
+    // wegschrijft kan bij een offline token maanden duren.
+    if (open.wasPlat) await this.storeSession(sessie);
+
+    return sessie;
   }
 
   async deleteSession(id: string): Promise<boolean> {
@@ -71,8 +96,16 @@ export class SupabaseSessionStorage implements SessionStorage {
       console.error("[SupabaseSessionStorage] findSessionsByShop", error);
       return [];
     }
-    return (data ?? []).map((row: any) =>
-      Session.fromPropertyArray(row.data as [string, any][], true),
-    );
+
+    // Een onleesbare sessie valt hier weg in plaats van de hele lijst mee te
+    // nemen: de aanroeper vraagt om bruikbare sessies, niet om alles wat er
+    // ooit stond.
+    const uit: Session[] = [];
+    for (const rij of data ?? []) {
+      const open = maakOpen((rij as any).data as [string, any][]);
+      if (!open) continue;
+      uit.push(Session.fromPropertyArray(open.velden, true));
+    }
+    return uit;
   }
 }
