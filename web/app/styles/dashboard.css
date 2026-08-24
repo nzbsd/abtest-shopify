@@ -305,6 +305,12 @@ button { cursor: pointer; font: inherit; }
 .grid--2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
 .grid--3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .grid--4 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+/* Lijstkaarten hebben meer nodig dan een kengetalkaartje: een naam, een
+   verschil en een getal op één regel. Op --4 werden het er drie van 215 pixels
+   naast elkaar, en dan is de naam - het enige waar de rij over gaat - "fac…".
+   Bij 255 worden het er twee van 330 en past alles. Op een breed scherm blijft
+   het gewoon vier. */
+.grid--lijsten { grid-template-columns: repeat(auto-fit, minmax(255px, 1fr)); }
 
 /* Twee kaarten naast elkaar die niet even breed hoeven te zijn: de grafiek
    heeft ruimte nodig per staaf, de trechter is een vaste lijst van vijf
@@ -2274,3 +2280,26 @@ tbody tr:hover { background: var(--wash); }
 
 /* De aangeklikte tab licht al op voordat de pagina er is. */
 .rail__link--wacht { color: var(--rail-ink); background: var(--rail-2); }
+
+/* ═══════════════════════════════════════ krap in een kaart, niet in een venster */
+
+/* Wat er in een kaart past hangt af van die kaart, niet van het scherm.
+
+   Deze staan in een auto-fit raster: op één breedte zijn het vier kaarten van
+   300 pixels, vijftig pixels smaller zijn het er drie van 215. Een media
+   query kijkt naar het venster en ziet dat verschil niet - vandaar dat sommige
+   dingen wél meegroeiden en andere niet.
+
+   Een containerquery kijkt naar de kaart zelf, en dat is de maat die telt. */
+.card { container-type: inline-size; container-name: kaart; }
+
+@container kaart (max-width: 270px) {
+  /* Het verschil is het minst belangrijke van de drie dingen op een rij. Als
+     er iets weg moet is het dat, en niet de naam. */
+  .balkrij__delta { display: none; }
+
+  /* Tabbladen wikkelen liever dan dat ze halverwege een woord afgesneden
+     worden: "Mediu" met de rest achter de rand is geen tabblad. */
+  .tabstrook { overflow-x: visible; }
+  .tabstrook .minitabs { flex-wrap: wrap; }
+}

@@ -549,7 +549,7 @@ export function SiteView({
 
             {/* Vier kaarten in één rij. Op --2 werden het er drie naast
                 elkaar en bleef de vierde alleen achter met een gat ernaast. */}
-            <div className="grid grid--4">
+            <div className="grid grid--lijsten">
               <TabKaart
                 titel="Where they come from"
                 sub="Channel first; the UTM tabs show what your campaigns actually carried."

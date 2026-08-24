@@ -74,17 +74,36 @@ export function Kpi({
  * "omhoog": een hogere prijs die de conversie verlaagt kan prima zijn zolang de
  * omzet stijgt, dus conversie kleuren we neutraal in plaats van rood.
  */
+/**
+ * Het verschil met de vorige periode.
+ *
+ * PRECISIE NAAR DE GROOTTE VAN HET GETAL
+ * "+1.100,8%" is negen tekens precisie die niemand leest, en het chipje werd er
+ * 102 pixels breed van - breder dan de naam ernaast en drie keer het getal
+ * waar het over gaat. Boven de duizend procent is het antwoord "heel veel meer"
+ * en niet een decimaal; boven de honderd hoeft die decimaal ook niet.
+ *
+ * De exacte waarde staat in de tooltip, voor als je hem toch wilt weten.
+ */
 export function Delta({ waarde, goedAls = "up" }: { waarde: number; goedAls?: "up" | "down" | "geen" }) {
-  const tekst = (waarde >= 0 ? "+" : "") +
+  const groot = Math.abs(waarde) >= 1000;
+  const tekst = groot
+    ? (waarde > 0 ? ">999%" : "<-999%")
+    : (waarde >= 0 ? "+" : "") +
+      waarde.toLocaleString("en-US", {
+        minimumFractionDigits: Math.abs(waarde) >= 100 ? 0 : 1,
+        maximumFractionDigits: Math.abs(waarde) >= 100 ? 0 : 1,
+      }) + "%";
+  const exact = (waarde >= 0 ? "+" : "") +
     waarde.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
 
   if (goedAls === "geen" || Math.abs(waarde) < 0.05) {
-    return <span className="delta delta--flat num">{tekst}</span>;
+    return <span className="delta delta--flat num" title={exact}>{tekst}</span>;
   }
   const omhoog = waarde >= 0;
   const goed = omhoog === (goedAls === "up");
   return (
-    <span className={"delta num delta--" + (goed ? "up" : "down")}>
+    <span className={"delta num delta--" + (goed ? "up" : "down")} title={exact}>
       {omhoog ? <IconUp /> : <IconDown />}
       {tekst}
     </span>
