@@ -281,6 +281,19 @@ button { cursor: pointer; font: inherit; }
 .grid--2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
 .grid--3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .grid--4 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+/* Twee kaarten naast elkaar die niet even breed hoeven te zijn: de grafiek
+   heeft ruimte nodig per staaf, de trechter is een vaste lijst van vijf
+   regels. minmax(0,...) omdat een grid-kolom anders niet smaller wil worden
+   dan zijn inhoud - een staafgrafiek van dertig dagen duwt de kolom dan open
+   en de kaart ernaast valt het kader uit.
+
+   Onder 1100 onder elkaar: twee kolommen van 500 is voor allebei te weinig. */
+.grid--paar   { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); }
+.grid--gelijk { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+@media (max-width: 1100px) {
+  .grid--paar, .grid--gelijk { grid-template-columns: minmax(0, 1fr); }
+}
 .stack { display: grid; gap: 14px; }
 
 /* ══════════════════════════════════════════════════════ kpi-kaart */
@@ -472,6 +485,37 @@ tbody td:first-child { text-align: left; font-weight: 600; }
 
 .cell-series { display: flex; align-items: center; gap: 10px; }
 .table-scroll { overflow-x: auto; }
+
+/* Padkolom in de paginatabel.
+
+   Eén URL van vierennegentig tekens bepaalde de breedte van de hele tabel:
+   783px nodig in een kolom van 609, dus horizontaal scrollen om bij de
+   getallen te komen. Het pad is het label, niet de inhoud - afkappen met
+   het hele pad in de tooltip. table-layout: fixed is nodig omdat een tabel
+   anders max-width op een cel gewoon negeert. */
+/* min-width omdat fixed layout de padkolom anders opoffert aan de rest: op
+   een telefoon bleef er 2px over en was niet meer te zien welke pagina een
+   rij was. Onder de 600 scrollt de tabel liever horizontaal binnen de kaart. */
+.tabel--paden { table-layout: fixed; min-width: 600px; }
+.tabel--paden th:first-child, .tabel--paden td:first-child { width: auto; }
+/* Zes getalkolommen op 16px padding aten 468 van de 609 op en lieten 141
+   over voor het pad - te weinig om te zien wélke pagina een rij is. Ze
+   staan rechts uitgelijnd en zijn hooguit vier tekens breed, dus de ruimte
+   zat in de padding, niet in de getallen. */
+.tabel--paden th:not(:first-child), .tabel--paden td:not(:first-child) {
+  width: 66px;
+  padding-left: 6px;
+  padding-right: 10px;
+}
+.tabel--paden th:not(:first-child) { letter-spacing: 0; }
+.tabel--paden td:first-child .linkje {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
 
 /* ═════════════════════════════════════════════════════ grafieken */
 
@@ -1704,6 +1748,18 @@ tbody tr:hover { background: var(--wash); }
 .balkrij[aria-pressed="true"] .balkrij__naam { font-weight: 650; color: var(--iris); }
 .balkrij--stil { cursor: default; }
 .balkrij--stil:hover { background: none; }
+
+/* Een route is een reeks paden met pijlen ertussen. Afkappen op één regel
+   verliest juist het eind, en dat is de helft die je wilt weten - waar ze
+   naartoe gingen. Laat hem dus over twee regels lopen; hij breekt vanzelf
+   bij de spaties rond de pijlen, dus paden blijven heel. */
+.balkrij--route { align-items: flex-start; }
+.balkrij--route .balkrij__naam {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
 
 /* Binnen de padding, zodat hij nooit tegen de rand aankomt. */
 .balkrij__vulling {

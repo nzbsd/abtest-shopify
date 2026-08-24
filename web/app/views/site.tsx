@@ -110,10 +110,13 @@ function Lijst({
               key={r.naam}
               aria-pressed={aan}
               onClick={() => opFilter({ sleutel, waarde: r.naam })}
+              // De naam staat vooraan in de tooltip: in een smalle kaart wordt
+              // hij afgekapt en dan is dit de enige plek waar hij nog heel staat.
               title={
+                r.naam + " — " +
                 heel(r.sessies) + " sessions · " + heel(r.bezoekers) + " visitors · " +
                 procent(r.sessies ? (r.bounces / r.sessies) * 100 : 0, 0) + " bounce · " +
-                heel(r.orders) + " orders"
+                heel(r.orders) + (r.orders === 1 ? " order" : " orders")
               }
             >
               {/* De balk zit áchter de tekst en binnen de rij, niet ernaast:
@@ -190,6 +193,11 @@ export function SiteView({
   const vergelijking = (params.get("v") as Vergelijking) || "vorige";
   const [maat, setMaat] = useState<Maat>("sessies");
   const [grafiekMaat, setGrafiekMaat] = useState<"bezoekers" | "sessies" | "pageviews" | "orders">("bezoekers");
+  // Beide lijsten staan ingeklapt op vijf regels. Dertig padrijen en tien
+  // routes uitgeklapt is een halve meter scrollen voor iets waar je meestal
+  // alleen de kop van wilt zien.
+  const [allePaginas, setAllePaginas] = useState(false);
+  const [alleRoutes, setAlleRoutes] = useState(false);
 
   const zet = (extra: Record<string, string>) => {
     const p = new URLSearchParams(params);
@@ -353,99 +361,104 @@ export function SiteView({
               ))}
             </div>
 
-            {/* ── grafiek ─────────────────────────────────────────────── */}
-            <Card>
-              <CardHead
-                title={data.perUur ? "Through the day" : "Over time"}
-                sub={
-                  (data.perUur ? "Per hour, UTC." : "Per day.") +
-                  " The pale line is the same length of time before it."
-                }
-                action={
-                  <div className="minitabs">
-                    {(["bezoekers", "sessies", "pageviews", "orders"] as const).map((m) => (
-                      <button key={m} type="button" aria-pressed={grafiekMaat === m}
-                              onClick={() => setGrafiekMaat(m)}>
-                        {m === "bezoekers" ? "Visitors" : m === "sessies" ? "Sessions"
-                          : m === "pageviews" ? "Pageviews" : "Orders"}
-                      </button>
-                    ))}
+            {/* Grafiek en trechter naast elkaar. Het zijn allebei antwoorden
+                op 'hoe staat het ervoor' en je wilt ze in één blik hebben;
+                onder elkaar duwden ze de lijsten voorbij de vouw. */}
+            <div className="grid grid--paar">
+              {/* ── grafiek ─────────────────────────────────────────────── */}
+              <Card>
+                <CardHead
+                  title={data.perUur ? "Through the day" : "Over time"}
+                  sub={
+                    (data.perUur ? "Per hour, UTC." : "Per day.") +
+                    " The pale line is the same length of time before it."
+                  }
+                  action={
+                    <div className="minitabs">
+                      {(["bezoekers", "sessies", "pageviews", "orders"] as const).map((m) => (
+                        <button key={m} type="button" aria-pressed={grafiekMaat === m}
+                                onClick={() => setGrafiekMaat(m)}>
+                          {m === "bezoekers" ? "Visitors" : m === "sessies" ? "Sessions"
+                            : m === "pageviews" ? "Pageviews" : "Orders"}
+                        </button>
+                      ))}
+                    </div>
+                  }
+                />
+                <div className="card__body">
+                  <div className="staafjes">
+                    {data.punten.map((p) => {
+                      const w = grafiekWaarde(p);
+                      return (
+                        <div className="staaf" key={p.label}
+                             title={p.label + " · " + heel(w) +
+                                    (p.vorige ? " (was " + heel(p.vorige) + ")" : "")}>
+                          <span className="staaf__vorige"
+                                style={{ height: (p.vorige / maxPunt) * 100 + "%" }} />
+                          <span className="staaf__nu"
+                                style={{ height: (w / maxPunt) * 100 + "%" }} />
+                        </div>
+                      );
+                    })}
                   </div>
-                }
-              />
-              <div className="card__body">
-                <div className="staafjes">
-                  {data.punten.map((p) => {
-                    const w = grafiekWaarde(p);
+                  <div className="staafjes__as">
+                    <span>{data.punten[0]?.label}</span>
+                    <span>{data.punten[data.punten.length - 1]?.label}</span>
+                  </div>
+                  <div className="rij rij--mid" style={{ marginTop: 12 }}>
+                    <Segmented
+                      value={vergelijking}
+                      options={[
+                        { key: "vorige" as Vergelijking, label: "vs previous period" },
+                        { key: "jaar" as Vergelijking, label: "vs last year" },
+                      ]}
+                      onChange={(x) => zet({ v: x })}
+                    />
+                  </div>
+                </div>
+              </Card>
+
+              {/* ── trechter ────────────────────────────────────────────── */}
+              <Card>
+                <CardHead
+                  title="Where visitors drop off"
+                  sub={
+                    "Cart and checkout come from the actions themselves, not from a page view — " +
+                    "this theme opens the cart in a drawer, and Shopify's checkout does not run " +
+                    "theme code at all." +
+                    (filters.length ? " Recalculated for the filters above." : "")
+                  }
+                />
+                <div className="card__body">
+                  {stappen.map((st, i) => {
+                    const deel = k.sessies ? st.n / k.sessies : 0;
                     return (
-                      <div className="staaf" key={p.label}
-                           title={p.label + " · " + heel(w) +
-                                  (p.vorige ? " (was " + heel(p.vorige) + ")" : "")}>
-                        <span className="staaf__vorige"
-                              style={{ height: (p.vorige / maxPunt) * 100 + "%" }} />
-                        <span className="staaf__nu"
-                              style={{ height: (w / maxPunt) * 100 + "%" }} />
+                      <div className="stapregel" key={st.label}>
+                        <div className="stapregel__kop">
+                          <span className="stapregel__naam">{st.label}</span>
+                          <span className="stapregel__cijfers num">
+                            <strong>{heel(st.n)}</strong>
+                            {i > 0 && (
+                              <span className={deel < 0.05 ? "stapregel__val" : "muted"}>
+                                {procent(deel * 100, deel < 0.1 ? 1 : 0)} of sessions
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        <Track value={deel} color={i === 0 ? "var(--control)" : "var(--iris-lit)"} />
                       </div>
                     );
                   })}
+                  {val && (
+                    <p className="small muted" style={{ marginTop: 16 }}>
+                      The steepest fall is between <strong>{val.van}</strong> and{" "}
+                      <strong>{val.naar}</strong>: {procent(val.behouden * 100, 0)} of the people who
+                      got that far carried on.
+                    </p>
+                  )}
                 </div>
-                <div className="staafjes__as">
-                  <span>{data.punten[0]?.label}</span>
-                  <span>{data.punten[data.punten.length - 1]?.label}</span>
-                </div>
-                <div className="rij rij--mid" style={{ marginTop: 12 }}>
-                  <Segmented
-                    value={vergelijking}
-                    options={[
-                      { key: "vorige" as Vergelijking, label: "vs previous period" },
-                      { key: "jaar" as Vergelijking, label: "vs last year" },
-                    ]}
-                    onChange={(x) => zet({ v: x })}
-                  />
-                </div>
-              </div>
-            </Card>
-
-            {/* ── trechter ────────────────────────────────────────────── */}
-            <Card>
-              <CardHead
-                title="Where visitors drop off"
-                sub={
-                  "Cart and checkout come from the actions themselves, not from a page view — " +
-                  "this theme opens the cart in a drawer, and Shopify's checkout does not run " +
-                  "theme code at all." +
-                  (filters.length ? " Recalculated for the filters above." : "")
-                }
-              />
-              <div className="card__body">
-                {stappen.map((st, i) => {
-                  const deel = k.sessies ? st.n / k.sessies : 0;
-                  return (
-                    <div className="stapregel" key={st.label}>
-                      <div className="stapregel__kop">
-                        <span className="stapregel__naam">{st.label}</span>
-                        <span className="stapregel__cijfers num">
-                          <strong>{heel(st.n)}</strong>
-                          {i > 0 && (
-                            <span className={deel < 0.05 ? "stapregel__val" : "muted"}>
-                              {procent(deel * 100, deel < 0.1 ? 1 : 0)} of sessions
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                      <Track value={deel} color={i === 0 ? "var(--control)" : "var(--iris-lit)"} />
-                    </div>
-                  );
-                })}
-                {val && (
-                  <p className="small muted" style={{ marginTop: 16 }}>
-                    The steepest fall is between <strong>{val.van}</strong> and{" "}
-                    <strong>{val.naar}</strong>: {procent(val.behouden * 100, 0)} of the people who
-                    got that far carried on.
-                  </p>
-                )}
-              </div>
-            </Card>
+              </Card>
+            </div>
 
             {/* ── lijsten ─────────────────────────────────────────────── */}
             <div className="lijstkop">
@@ -461,7 +474,9 @@ export function SiteView({
               </span>
             </div>
 
-            <div className="grid grid--2">
+            {/* Vier kaarten in één rij. Op --2 werden het er drie naast
+                elkaar en bleef de vierde alleen achter met een gat ernaast. */}
+            <div className="grid grid--4">
               <TabKaart
                 titel="Where they come from"
                 sub="Channel first; the UTM tabs show what your campaigns actually carried."
@@ -506,65 +521,89 @@ export function SiteView({
               />
             </div>
 
-            {/* ── pagina's in detail ──────────────────────────────────── */}
-            <Card>
-              <CardHead
-                title="Every page"
-                sub="Time and scroll depth are measured on the page a session left from — that is the only page we know they finished with."
-              />
-              <div className="card__body card__body--flush table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Page</th><th>Views</th><th>Entries</th><th>Exits</th>
-                      <th>Time</th><th>Scrolled</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.paginas.map((p) => (
-                      <tr key={p.path}>
-                        <td>
-                          <button type="button" className="linkje"
-                                  onClick={() => opFilter({ sleutel: "pad", waarde: p.path })}>
-                            <code>{p.path}</code>
-                          </button>
-                        </td>
-                        <td>{heel(p.pageviews)}</td>
-                        <td>{heel(p.instappen)}</td>
-                        <td>{heel(p.uitstappen)}</td>
-                        <td>{p.gemSec ? seconden(p.gemSec * 1000) : <span className="muted">—</span>}</td>
-                        <td>{p.gemScroll ? procent(p.gemScroll, 0) : <span className="muted">—</span>}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-
-            {/* ── routes ──────────────────────────────────────────────── */}
-            {data.routes.length > 0 && (
+            {/* ── pagina's en routes ────────────────────────── */}
+            <div className="grid grid--paar">
               <Card>
                 <CardHead
-                  title="Most walked routes"
-                  sub="The first four pages of a session. Longer than that and every route is unique, which tells you nothing."
+                  title="Every page"
+                  sub="Bounce counts sessions that started here and saw nothing else. Time and scroll are measured on the page a session left from - the only page we know they finished with."
                 />
-                <div className="card__body card__body--flush">
-                  <div className="balklijst">
-                    {data.routes.map((r) => (
-                      <div className="balkrij balkrij--stil" key={r.route}>
-                        <span className="balkrij__vulling"
-                              style={{ width: (r.sessies / (data.routes[0]?.sessies || 1)) * 100 + "%" }} />
-                        <span className="balkrij__naam"><code>{r.route}</code></span>
-                        {r.orders > 0 && (
-                          <span className="balkrij__delta small">{heel(r.orders)} orders</span>
-                        )}
-                        <span className="balkrij__aantal num">{heel(r.sessies)}</span>
-                      </div>
-                    ))}
-                  </div>
+                <div className="card__body card__body--flush table-scroll">
+                  <table className="tabel--paden">
+                    <thead>
+                      <tr>
+                        <th>Page</th><th>Views</th><th>Entries</th><th>Exits</th>
+                        <th>Bounce</th><th>Time</th><th>Scrolled</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(allePaginas ? data.paginas : data.paginas.slice(0, 5)).map((p) => {
+                        const bounce = p.instappen ? (p.bounces / p.instappen) * 100 : null;
+                        return (
+                          <tr key={p.path}>
+                            <td>
+                              <button type="button" className="linkje" title={p.path}
+                                      onClick={() => opFilter({ sleutel: "pad", waarde: p.path })}>
+                                <code>{p.path}</code>
+                              </button>
+                            </td>
+                            <td>{heel(p.pageviews)}</td>
+                            <td>{heel(p.instappen)}</td>
+                            <td>{heel(p.uitstappen)}</td>
+                            {/* Bounce zonder instappen bestaat niet - dan is er niemand
+                                binnengekomen om te kunnen vertrekken. */}
+                            <td>
+                              {bounce === null ? <span className="muted">—</span>
+                                : <span className={bounce >= 70 ? "stapregel__val" : undefined}>
+                                    {procent(bounce, 0)}
+                                  </span>}
+                            </td>
+                            <td>{p.gemSec ? seconden(p.gemSec * 1000) : <span className="muted">—</span>}</td>
+                            <td>{p.gemScroll ? procent(p.gemScroll, 0) : <span className="muted">—</span>}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
+                {data.paginas.length > 5 && (
+                  <button type="button" className="meer" onClick={() => setAllePaginas((a) => !a)}>
+                    {allePaginas ? "Show less" : "Show all " + data.paginas.length + " pages"}
+                  </button>
+                )}
               </Card>
-            )}
+
+              {data.routes.length > 0 && (
+                <Card>
+                  <CardHead
+                    title="Most walked routes"
+                    sub="The first four pages of a session. Longer than that and every route is unique, which tells you nothing."
+                  />
+                  <div className="card__body card__body--flush">
+                    <div className="balklijst">
+                      {(alleRoutes ? data.routes : data.routes.slice(0, 5)).map((r) => (
+                        <div className="balkrij balkrij--stil balkrij--route" key={r.route}>
+                          <span className="balkrij__vulling"
+                                style={{ width: (r.sessies / (data.routes[0]?.sessies || 1)) * 100 + "%" }} />
+                          <span className="balkrij__naam"><code>{r.route}</code></span>
+                          {r.orders > 0 && (
+                            <span className="balkrij__delta small">
+                              {heel(r.orders)} {r.orders === 1 ? "order" : "orders"}
+                            </span>
+                          )}
+                          <span className="balkrij__aantal num">{heel(r.sessies)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {data.routes.length > 5 && (
+                    <button type="button" className="meer" onClick={() => setAlleRoutes((a) => !a)}>
+                      {alleRoutes ? "Show less" : "Show all " + data.routes.length + " routes"}
+                    </button>
+                  )}
+                </Card>
+              )}
+            </div>
 
             <Banner tone="info">
               <strong>Session detail is kept for thirty days; the daily totals stay for good.</strong>{" "}

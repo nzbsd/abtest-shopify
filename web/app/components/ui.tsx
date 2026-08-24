@@ -168,7 +168,9 @@ export function Segmented<T extends string>({
 export function Track({ value, color }: { value: number; color: string }) {
   return (
     <span className="track" aria-hidden>
-      <span style={{ width: Math.max(Math.min(value, 1) * 100, 1.5) + "%", background: color }} />
+      {/* De ondergrens van 1.5% houdt een heel klein aandeel zichtbaar, maar
+          geldt niet voor nul: een streepje bij 0 leest als 'een beetje'. */}
+      <span style={{ width: (value > 0 ? Math.max(Math.min(value, 1) * 100, 1.5) : 0) + "%", background: color }} />
     </span>
   );
 }

@@ -63,6 +63,9 @@ export type Punt = { label: string; bezoekers: number; sessies: number; pageview
 export type PadRij = {
   path: string; pageviews: number; instappen: number; uitstappen: number;
   gemSec: number; gemScroll: number;
+  /** Sessies die hier begonnen en niets anders zagen. Tegen instappen, niet
+   *  tegen pageviews: bouncen kun je alleen op de pagina waar je binnenkwam. */
+  bounces: number;
 };
 
 export type SiteData = {
@@ -334,13 +337,18 @@ export async function siteData(
 
   /* ── pagina's ───────────────────────────────────────────────────────── */
   const paginas: PadRij[] = (() => {
-    const m = new Map<string, { pv: number; in: number; uit: number; duur: number; scroll: number; n: number }>();
-    const bij = (p: string) => m.get(p) ?? { pv: 0, in: 0, uit: 0, duur: 0, scroll: 0, n: 0 };
+    const m = new Map<string, { pv: number; in: number; uit: number; duur: number; scroll: number; n: number; bounce: number }>();
+    const bij = (p: string) => m.get(p) ?? { pv: 0, in: 0, uit: 0, duur: 0, scroll: 0, n: 0, bounce: 0 };
     for (const r of s) {
       for (const p of (r.paden ?? []) as string[]) {
         const h = bij(p); h.pv += 1; m.set(p, h);
       }
-      if (r.instap) { const h = bij(r.instap); h.in += 1; m.set(r.instap, h); }
+      if (r.instap) {
+        const h = bij(r.instap);
+        h.in += 1;
+        if ((Number(r.pageviews) || 0) <= 1) h.bounce += 1;
+        m.set(r.instap, h);
+      }
       if (r.uitstap) {
         const h = bij(r.uitstap);
         h.uit += 1;
@@ -352,7 +360,7 @@ export async function siteData(
     }
     return Array.from(m.entries())
       .map(([path, h]) => ({
-        path, pageviews: h.pv, instappen: h.in, uitstappen: h.uit,
+        path, pageviews: h.pv, instappen: h.in, uitstappen: h.uit, bounces: h.bounce,
         gemSec: h.n ? Math.round(h.duur / 1000 / h.n) : 0,
         gemScroll: h.n ? Math.round(h.scroll / h.n) : 0,
       }))
