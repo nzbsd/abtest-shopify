@@ -114,7 +114,10 @@ function Voortgang({ stap, naar }: { stap: Stap; naar: (s: Stap) => void }) {
               disabled={i >= stap}
             >
               <span className="wizard__bol">{i < stap ? "✓" : i + 1}</span>
-              {label}
+              {/* De naam in een eigen span, zodat hij op een telefoon weg kan:
+                  vijf namen naast elkaar passen daar niet en dan schoof stap 5
+                  buiten beeld. */}
+              <span className="wizard__naam">{label}</span>
             </button>
           </li>
         );

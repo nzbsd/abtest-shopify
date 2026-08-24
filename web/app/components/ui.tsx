@@ -34,7 +34,10 @@ export function CardHead({ title, sub, action }: { title: string; sub?: string; 
         <h2 className="card__title">{title}</h2>
         {sub && <p className="card__sub">{sub}</p>}
       </div>
-      {action && <div style={{ flex: "none" }}>{action}</div>}
+      {/* De knoppen stonden op flex:none met een inline stijl, en dat wint van
+          elke media query: op een telefoon liepen twee keuzerijen naast elkaar
+          149 pixels buiten het scherm. Nu mogen ze afbreken. */}
+      {action && <div className="card__head__actie">{action}</div>}
     </header>
   );
 }

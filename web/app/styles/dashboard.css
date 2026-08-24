@@ -265,19 +265,43 @@ button { cursor: pointer; font: inherit; }
   min-width: 0;
 }
 
+/* De kop mag afbreken in plaats van de titel plat te drukken.
+
+   De knoppen rechts stonden op flex:none en de titel mocht tot nul krimpen,
+   dus zodra de kaart smal werd hield de titel op te bestaan - op het
+   analyticsscherm was "Daily trend" letterlijk nul pixels breed naast zijn
+   eigen keuzeknoppen. Nul pixels titel is erger dan knoppen op een tweede
+   regel. */
 .card__head {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px 12px;
   padding: 14px 18px 10px;
 }
+.card__head > :first-child { flex: 1 1 190px; min-width: 0; }
+.card__head__actie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Vangnet: past één keuzerij op zichzelf al niet, dan schuift hij liever
+   binnen zijn eigen breedte dan dat hij de pagina uit loopt. */
+.segmented, .minitabs { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.segmented::-webkit-scrollbar, .minitabs::-webkit-scrollbar { display: none; }
+.segmented button, .minitabs button { flex: none; white-space: nowrap; }
 .card__title { font-size: 14.5px; font-weight: 700; letter-spacing: -.02em; }
 .card__sub { margin-top: 2px; font-size: 12px; color: var(--ink-3); }
 .card__body { padding: 0 18px 18px; }
 .card__body--flush { padding: 0; }
 
-.grid { display: grid; gap: 14px; }
+.grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .grid--2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
 .grid--3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .grid--4 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
@@ -294,7 +318,16 @@ button { cursor: pointer; font: inherit; }
 @media (max-width: 1100px) {
   .grid--paar, .grid--gelijk { grid-template-columns: minmax(0, 1fr); }
 }
-.stack { display: grid; gap: 14px; }
+/* minmax(0, 1fr) en niet de standaard auto-track.
+
+   Een auto-kolom wordt zo breed als zijn breedste kind en krimpt niet mee met
+   de pagina. Dat viel nergens op zolang alles smal genoeg was, maar zodra er
+   één blok in stond dat 398 pixels nodig had, schoof de hele pagina 51 pixels
+   naar buiten - inclusief de blokken die zelf prima pasten.
+
+   Dit zit om elke pagina heen, dus deze regel scheelt hetzelfde probleem op
+   elk scherm dat er ooit bij komt. */
+.stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 
 /* ══════════════════════════════════════════════════════ kpi-kaart */
 
@@ -553,10 +586,10 @@ tbody td:first-child { text-align: left; font-weight: 600; }
 }
 
 /* Trechter */
-.funnel { display: grid; gap: 10px; }
+.funnel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .funnel__row { display: grid; grid-template-columns: 104px 1fr auto; gap: 12px; align-items: center; }
 .funnel__label { font-size: 13px; font-weight: 600; color: var(--ink-2); }
-.funnel__bars { display: grid; gap: 5px; }
+.funnel__bars { display: grid; grid-template-columns: minmax(0, 1fr); gap: 5px; }
 .funnel__bar { height: 18px; border-radius: var(--r-xs); position: relative; min-width: 2px; transition: width .5s var(--ease-out); }
 .funnel__bar span {
   position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
@@ -611,12 +644,23 @@ code {
 .small { font-size: 12.5px; }
 
 /* Productkiezer */
-.picker { display: grid; gap: 8px; max-height: 340px; overflow-y: auto; padding-right: 4px; }
+/* minmax(0, 1fr) en niet de standaard auto-track: een auto-kolom wordt zo
+   breed als zijn inhoud en krimpt niet mee. Op een telefoon liep een
+   productrij daardoor 118 pixels buiten de modal, en omdat die afkapt was de
+   Preview-knop niet eens meer te raken. */
+.picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
 
 /* Rij = kiesknop + previewlink naast elkaar. De link staat NAAST de knop en
    niet erin: een link in een button is ongeldige markup en maakt onvoorspelbaar
    wat er gebeurt als je op de rij klikt. */
-.picker__row { display: flex; align-items: center; gap: 8px; }
+.picker__row { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .picker__row .picker__item { flex: 1; min-width: 0; }
 .picker__item {
   display: flex;
@@ -896,6 +940,15 @@ tbody tr:hover { background: var(--wash); }
 
 .wizard__step--nu button { color: var(--ink); }
 .wizard__step--nu .wizard__bol { background: var(--iris-lit); color: #fff; }
+
+/* Op een telefoon alleen de bolletjes, en de naam van de stap waar je staat.
+   Vijf namen naast elkaar zijn 460 pixels: dan schuift stap 5 buiten beeld en
+   zie je juist niet hoe ver je bent. */
+@media (max-width: 700px) {
+  .wizard__step:not(.wizard__step--nu) .wizard__naam { display: none; }
+  .wizard__step button { gap: 0; padding: 5px; }
+  .wizard__step--nu button { gap: 7px; padding-right: 10px; }
+}
 
 .wizard__paneel { padding: 18px; min-height: 300px; }
 .wizard__kop { font-size: 16px; font-weight: 700; letter-spacing: -.02em; }
