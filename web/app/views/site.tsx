@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useSearchParams } from "@remix-run/react";
 import { PageHead } from "~/components/shell";
+import { Globe } from "~/components/globe";
 import { Banner, Card, CardHead, Delta, Leeg, Segmented, Track } from "~/components/ui";
 import { geld, heel, procent } from "~/lib/analytics";
 import type { SiteBereik, SiteData, Rij, Vergelijking } from "~/lib/site.server";
@@ -474,6 +475,23 @@ export function SiteView({
                 </div>
               </Card>
             </div>
+
+            {/* ── de bol ──────────────────────────────────────────────────
+             * Staat hier en niet bovenaan: eerst wat er gebeurde, dan waar.
+             * En hij komt vlak voor de lijsten, want de landenlijst eronder
+             * is precies zijn legenda.
+             * ──────────────────────────────────────────────────────────── */}
+            {data.globe.length > 0 && (
+              <Card>
+                <CardHead
+                  title="Where they are"
+                  sub={"One beam per country, scaled to the square root of its sessions - " +
+                       "linear would make this one tall bar and nothing else. The heads that " +
+                       "pulse have someone on the site right now. Drag to spin."}
+                />
+                <Globe punten={data.globe} />
+              </Card>
+            )}
 
             {/* ── lijsten ─────────────────────────────────────────────── */}
             <div className="lijstkop">

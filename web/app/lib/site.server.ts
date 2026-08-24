@@ -93,6 +93,9 @@ export type SiteData = {
   /** Komt dit uit sessies (filterbaar, dertig dagen) of uit dagtotalen? */
   uitSessies: boolean;
   detailTot: string | null;
+  /** Alle landen met bezoek, voor de bol. Niet afgekapt op twaalf zoals de
+   *  lijst: een globe met twaalf stippen is een lijst met extra stappen. */
+  globe: { land: string; sessies: number; actief: number }[];
   /**
    * Vanaf wanneer cart, kassa en orders gemeten worden.
    *
@@ -335,6 +338,11 @@ export async function siteData(
       orders: Number(r.orders) || 0,
     })),
     uitSessies,
+    globe: ((o.globe ?? []) as any[]).map((r) => ({
+      land: String(r.land),
+      sessies: Number(r.sessies) || 0,
+      actief: Number(r.actief) || 0,
+    })),
     detailTot: o.detailTot ? String(o.detailTot) : null,
     signaalVanaf: meldSignaal ? signaal : null,
     kernSindsSignaal: meldSignaal ? naarKern(o.kernSinds) : null,

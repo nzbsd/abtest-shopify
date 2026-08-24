@@ -1977,3 +1977,55 @@ tbody tr:hover { background: var(--wash); }
 .stapregel { margin-bottom: 10px; }
 .stapregel__kop { margin-bottom: 4px; }
 .staafjes { height: 120px; }
+
+/* ═════════════════════════════════════════════════════════════ de bol */
+
+/* Donker paneel, zoals de navigatiebalk. Op wit zou een bol van stippen
+   grijs en vlak worden; op donker gloeien de baken en leest de kaart als
+   een kaart. Het is ook de enige plek in de app die donker is, wat helpt:
+   je weet meteen waar je kijkt. */
+.globe {
+  position: relative;
+  background: radial-gradient(120% 90% at 50% 8%, #1c1a25 0%, var(--rail) 62%);
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
+  overflow: hidden;
+}
+.globe__doek { height: 340px; width: 100%; touch-action: none; cursor: grab; }
+.globe__doek:active { cursor: grabbing; }
+.globe__doek canvas { display: block; }
+
+/* Labels als HTML boven het doek: 3D-tekst op een bol van 340 pixels is
+   altijd wazig, en dit zijn getallen die je moet kunnen lezen. */
+.globe__label {
+  position: absolute;
+  transform: translate(-50%, -140%);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(16, 15, 20, .72);
+  border: 1px solid var(--rail-line);
+  color: var(--rail-ink-2);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  white-space: nowrap;
+  pointer-events: none;
+  transition: opacity .3s linear;
+  backdrop-filter: blur(4px);
+}
+.globe__label b { color: var(--rail-ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+.globe__label i { color: #b6a2ff; font-style: normal; font-size: 10px; }
+.globe__label--leeft { border-color: rgba(182, 162, 255, .35); }
+
+.globe__voet, .globe__uitleg {
+  position: absolute;
+  left: 16px;
+  bottom: 12px;
+  margin: 0;
+  color: var(--rail-ink-2);
+  font-size: 11.5px;
+}
+
+@media (max-width: 700px) { .globe__doek { height: 260px; } }
