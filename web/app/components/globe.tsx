@@ -115,13 +115,12 @@ export function Globe({ punten }: { punten: GlobePunt[] }) {
        * hoogte de krappe kant, niet de breedte. Straal 1 plus een baken van
        * bijna een halve eenheid, plus wat lucht - dat moet erin.
        */
-      // Het drukste land staat naar de camera gedraaid, dus zíjn baken wijst
-      // naar je toe en niet omhoog. Wat omhoog kan steken is het op één na
-      // drukste, en dat is door de wortelschaal altijd flink korter.
-      const PAST = 1.38;
+      // Hoeveel er in beeld moet passen wordt verderop uit de baken bepaald;
+      // op een vaste waarde stond de bol onnodig klein.
+      let past = 1.35;
       const zetCamera = () => {
         camera.aspect = doos.clientWidth / Math.max(doos.clientHeight, 1);
-        camera.position.z = PAST / Math.tan(((camera.fov / 2) * Math.PI) / 180);
+        camera.position.z = past / Math.tan(((camera.fov / 2) * Math.PI) / 180);
         camera.updateProjectionMatrix();
       };
       zetCamera();
@@ -192,6 +191,23 @@ export function Globe({ punten }: { punten: GlobePunt[] }) {
           draai: new THREE.Quaternion().setFromUnitVectors(omhoog, richting),
         };
       });
+
+      /**
+       * Hoe ver de camera terug moet.
+       *
+       * Het drukste land staat naar de camera gedraaid, dus zíjn baken wijst
+       * naar je toe en steekt nergens boven uit. Wat wél omhoog kan steken is
+       * het op één na drukste, en dat is door de wortelschaal meestal een stuk
+       * korter - bij deze winkel 0,17 tegen 0,47.
+       *
+       * Vast op 1,38 hield dus ruimte vrij voor een baken dat er niet is, en
+       * de bol was daardoor kleiner dan hij hoefde te zijn.
+       */
+      past = 1.06 + (plekken.length > 1
+        ? Math.max(...plekken.slice(1).map((p) => p.hoogte))
+        : 0.16);
+      past = Math.max(1.2, Math.min(1.55, past));
+      zetCamera();
 
       const m = new THREE.Matrix4();
       const schaal = new THREE.Vector3();

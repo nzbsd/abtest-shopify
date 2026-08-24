@@ -1907,73 +1907,122 @@ tbody tr:hover { background: var(--wash); }
 .tabstrook .minitabs { min-width: min-content; }
 .card__title, .card__sub { overflow-wrap: anywhere; }
 
-/* ── kengetallen als één strook ─────────────────────────────────────────────
+/* ── de zes kengetallen ─────────────────────────────────────────────────────
    Zes losse kaarten waren zes keer icoon, label, groot getal en voetnoot -
    goed voor duizend pixels scrollen voordat je iets anders zag. Terwijl de
    hele reden dat je hier komt één blik is op hoe het ervoor staat.
 
-   Nu één kaart met zes cellen, gescheiden door haarlijnen. Geen iconen: bij
-   zes getallen naast elkaar zijn ze decoratie, en ze kosten de ruimte die de
-   getallen nodig hebben.
+   Geen iconen: bij zes getallen bij elkaar zijn ze decoratie, en ze kosten
+   precies de ruimte die de getallen nodig hebben.
    ────────────────────────────────────────────────────────────────────────── */
 
-.kengetallen {
+/* De kop van het bezoekersscherm: zes cijfers links, de bol rechts.
+
+   Los van elkaar waren dit twee banden over de volle breedte, waarvan de
+   tweede voor driekwart leeg was - een bol is rond en een paneel is breed.
+   Samen is het één blok, is de lege ruimte weg en kan de bol groter.
+
+   De cijfers krijgen de smalle kant: ze staan in drie kolommen van twee en
+   hebben geen breedte nodig, de bol wel. */
+.kop {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  background: var(--surface);
+  grid-template-columns: minmax(320px, 0.82fr) minmax(0, 1.18fr);
+  background: radial-gradient(120% 120% at 78% 10%, #201d2c 0%, var(--rail) 58%);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-card);
   overflow: hidden;
 }
+.kop--zonder-bol { grid-template-columns: 1fr; }
+
+.kop__cijfers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: center;
+  gap: 22px 18px;
+  padding: 26px 24px;
+}
+
+/* De bol zet de hoogte, niet de cijfers.
+   Andersom geprobeerd en dat gaf een blok van tweehonderd pixels: twee rijen
+   getallen zijn nu eenmaal niet hoog, en de bol kromp mee tot een knikker. */
+.kop__bol { position: relative; min-height: 400px; }
+.kop__bol .globe { position: absolute; inset: 0; border-radius: 0; background: none; }
+.kop__bol .globe__doek { height: 100%; }
+/* De uitleg staat onder de cijfers en niet in de bolhoek.
+   Rechtsonder gelegd raakte hij de onderrand van de bol - die is rond, dus
+   waar hij smal is lijkt er ruimte die er bij de volgende winkel niet is.
+   Links is er onder twee rijen getallen sowieso plek over. */
+.kop__hint {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  max-width: 46ch;
+  color: var(--rail-ink-2);
+  font-size: 11px;
+  line-height: 1.55;
+  opacity: .7;
+}
+.kop__bol .globe__voet { left: 18px; bottom: 14px; font-size: 11px; }
+
+/* Op donker zijn de gewone delta-kleuren te donker om te lezen: die pastel
+   achtergronden zijn voor wit gemaakt. */
+.kop .delta--up   { background: rgba(60, 200, 150, .16); color: #5fd8a6; }
+.kop .delta--down { background: rgba(255, 122, 106, .16); color: #ff9182; }
+.kop .delta--flat { background: rgba(244, 243, 248, .08); color: var(--rail-ink-2); }
 .kengetal {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 12px 16px;
-  border-left: 1px solid var(--line);
+  gap: 3px;
   min-width: 0;
 }
-.kengetal:first-child { border-left: 0; }
 .kengetal__label {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 650;
-  letter-spacing: .03em;
+  letter-spacing: .05em;
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--rail-ink-2);
 }
 .kengetal__rij { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .kengetal__waarde {
-  font-size: 21px;
+  color: var(--rail-ink);
+  font-size: 23px;
   font-weight: 700;
   letter-spacing: -.03em;
   line-height: 1.2;
 }
 .kengetal__noot {
   font-size: 11px;
-  color: var(--ink-3);
+  color: var(--rail-ink-2);
+  opacity: .8;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* Onder 1100px in drieën, onder 700 in tweeën. Zes cellen naast elkaar op een
-   telefoon geeft kolommen van veertig pixels, en dan lees je geen enkel getal. */
+/* Onder 1100px past de bol niet meer naast de cijfers zonder dat allebei te
+   klein worden, dus dan onder elkaar. Onder 700 nog twee kolommen cijfers:
+   drie naast elkaar op een telefoon geeft kolommen van honderd pixels en dan
+   past "$1,234.56" er niet meer in. */
 @media (max-width: 1100px) {
-  .kengetallen { grid-template-columns: repeat(3, 1fr); }
-  .kengetal:nth-child(4) { border-left: 0; }
-  .kengetal:nth-child(n+4) { border-top: 1px solid var(--line); }
+  .kop { grid-template-columns: minmax(0, 1fr); }
+  .kop__bol { min-height: 340px; }
+  /* Gestapeld is de volle breedte beschikbaar, dus alle zes op één rij. In
+     drieën bleef er per cel driehonderd pixels lucht naast een getal van vijf
+     tekens staan. */
+  .kop__cijfers { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0 18px; }
+  .kop__hint { margin-top: 18px; }
+}
+@media (max-width: 900px) {
+  .kop__cijfers { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px 16px; }
 }
 @media (max-width: 700px) {
-  .kengetallen { grid-template-columns: repeat(2, 1fr); }
-  .kengetal:nth-child(odd) { border-left: 0; }
-  .kengetal:nth-child(even) { border-left: 1px solid var(--line); }
-  .kengetal:nth-child(n+3) { border-top: 1px solid var(--line); }
+  .kop__cijfers { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 14px; padding: 20px 18px; }
+  .kop__bol { min-height: 280px; }
 }
 
 /* Compacter op het bezoekersscherm.
    Dit is een scherm om snel iets van af te lezen, niet om doorheen te lezen.
    Kaartkoppen en trechterstappen mogen daarom strakker dan elders. */
-.page .kengetallen + .card .card__head { padding-bottom: 8px; }
+.page .kop + .grid .card__head { padding-bottom: 8px; }
 .stapregel { margin-bottom: 10px; }
 .stapregel__kop { margin-bottom: 4px; }
 .staafjes { height: 120px; }

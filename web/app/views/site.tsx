@@ -325,41 +325,57 @@ export function SiteView({
           </Card>
         ) : (
           <>
-            {/* ── kengetallen ───────────────────────────────────────────
-             * Eén strook in plaats van zes kaarten. Zes kaarten onder elkaar
-             * is duizend pixels scrollen voordat je iets anders ziet, en de
-             * hele reden dat je hier komt is één blik op hoe het staat.
+            {/* ── de kop van het scherm ────────────────────────────────
+             * De zes cijfers en de bol in één blok, want het is één vraag:
+             * hoe staat het ervoor en waar. Los van elkaar waren het twee
+             * banden over de volle breedte, waarvan de tweede voor driekwart
+             * leeg was - de bol is rond en het paneel is breed.
+             *
+             * Nu vult de linkerhelft die ruimte met iets dat je toch al wilde
+             * zien, en kan de bol groter.
              * ──────────────────────────────────────────────────────────── */}
-            <div className="kengetallen">
-              {[
-                { label: "Visitors", waarde: heel(k.bezoekers),
-                  noot: heel(k.sessies) + " sessions",
-                  delta: <Verschil nu={k.bezoekers} toen={v?.bezoekers} /> },
-                { label: "Pageviews", waarde: heel(k.pageviews),
-                  noot: perSessie.toFixed(1) + " per session",
-                  delta: <Verschil nu={k.pageviews} toen={v?.pageviews} /> },
-                { label: "Bounce", waarde: procent(bounce, 0),
-                  noot: "one page only",
-                  delta: <Verschil nu={bounce} toen={vorigeBounce} omlaagIsGoed /> },
-                { label: "Time", waarde: seconden(duur),
-                  noot: "per session",
-                  delta: <Verschil nu={duur} toen={vorigeDuur} /> },
-                { label: "Conversion", waarde: procent(cvr, 1),
-                  noot: heel(k.orders) + " orders",
-                  delta: <Verschil nu={cvr} toen={vorigeCvr} /> },
-                { label: "Revenue", waarde: geld(k.omzetCents / 100),
-                  noot: geld(rpv) + " per visitor",
-                  delta: <Verschil nu={k.omzetCents} toen={v?.omzetCents} /> },
-              ].map((x) => (
-                <div className="kengetal" key={x.label}>
-                  <span className="kengetal__label">{x.label}</span>
-                  <span className="kengetal__rij">
-                    <span className="kengetal__waarde num">{x.waarde}</span>
-                    {x.delta}
-                  </span>
-                  <span className="kengetal__noot">{x.noot}</span>
+            <div className={"kop" + (data.globe.length ? "" : " kop--zonder-bol")}>
+              <div className="kop__cijfers">
+                {[
+                  { label: "Visitors", waarde: heel(k.bezoekers),
+                    noot: heel(k.sessies) + " sessions",
+                    delta: <Verschil nu={k.bezoekers} toen={v?.bezoekers} /> },
+                  { label: "Pageviews", waarde: heel(k.pageviews),
+                    noot: perSessie.toFixed(1) + " per session",
+                    delta: <Verschil nu={k.pageviews} toen={v?.pageviews} /> },
+                  { label: "Bounce", waarde: procent(bounce, 0),
+                    noot: "one page only",
+                    delta: <Verschil nu={bounce} toen={vorigeBounce} omlaagIsGoed /> },
+                  { label: "Time", waarde: seconden(duur),
+                    noot: "per session",
+                    delta: <Verschil nu={duur} toen={vorigeDuur} /> },
+                  { label: "Conversion", waarde: procent(cvr, 1),
+                    noot: heel(k.orders) + " orders",
+                    delta: <Verschil nu={cvr} toen={vorigeCvr} /> },
+                  { label: "Revenue", waarde: geld(k.omzetCents / 100),
+                    noot: geld(rpv) + " per visitor",
+                    delta: <Verschil nu={k.omzetCents} toen={v?.omzetCents} /> },
+                ].map((x) => (
+                  <div className="kengetal" key={x.label}>
+                    <span className="kengetal__label">{x.label}</span>
+                    <span className="kengetal__rij">
+                      <span className="kengetal__waarde num">{x.waarde}</span>
+                      {x.delta}
+                    </span>
+                    <span className="kengetal__noot">{x.noot}</span>
+                  </div>
+                ))}
+                <p className="kop__hint">
+                  One beam per country, scaled to the square root of its sessions. Heads that
+                  pulse have someone on the site right now. Drag the globe to spin it.
+                </p>
+              </div>
+
+              {data.globe.length > 0 && (
+                <div className="kop__bol">
+                  <Globe punten={data.globe} />
                 </div>
-              ))}
+              )}
             </div>
 
             {/* Grafiek en trechter naast elkaar. Het zijn allebei antwoorden
@@ -475,23 +491,6 @@ export function SiteView({
                 </div>
               </Card>
             </div>
-
-            {/* ── de bol ──────────────────────────────────────────────────
-             * Staat hier en niet bovenaan: eerst wat er gebeurde, dan waar.
-             * En hij komt vlak voor de lijsten, want de landenlijst eronder
-             * is precies zijn legenda.
-             * ──────────────────────────────────────────────────────────── */}
-            {data.globe.length > 0 && (
-              <Card>
-                <CardHead
-                  title="Where they are"
-                  sub={"One beam per country, scaled to the square root of its sessions - " +
-                       "linear would make this one tall bar and nothing else. The heads that " +
-                       "pulse have someone on the site right now. Drag to spin."}
-                />
-                <Globe punten={data.globe} />
-              </Card>
-            )}
 
             {/* ── lijsten ─────────────────────────────────────────────── */}
             <div className="lijstkop">
