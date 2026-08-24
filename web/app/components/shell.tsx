@@ -1,4 +1,4 @@
-import { Form, NavLink } from "@remix-run/react";
+import { Form, NavLink, useNavigation } from "@remix-run/react";
 import type { ReactNode } from "react";
 import { IconChart, IconFlask, IconGrid, IconUsers } from "./ui";
 
@@ -11,6 +11,28 @@ import { IconChart, IconFlask, IconGrid, IconUsers } from "./ui";
  *
  * De schermen eronder zijn in beide gevallen exact dezelfde componenten.
  */
+/**
+ * De laadbalk.
+ *
+ * Elk scherm hier haalt zijn eigen cijfers op en dat duurt merkbaar - de query
+ * plus een serverloze functie die koud kan staan. Tot nu toe gebeurde er in die
+ * tijd niets: het oude scherm bleef staan en je wist niet of je klik was
+ * aangekomen. Nu weet je dat binnen een frame.
+ *
+ * Remix weet het al: useNavigation staat op "loading" zodra een loader draait.
+ * Dit werkt daarmee voor de eigen rail én voor het menu in de Shopify-admin,
+ * want App Bridge stuurt die door dezelfde router.
+ */
+function Laadbalk() {
+  const nav = useNavigation();
+  if (nav.state === "idle") return null;
+  return (
+    <div className="laadbalk" role="status" aria-label="Loading">
+      <span />
+    </div>
+  );
+}
+
 export function Shell({
   basis,
   embedded,
@@ -36,11 +58,17 @@ export function Shell({
   ];
 
   if (embedded) {
-    return <div className="shell shell--embedded">{children}</div>;
+    return (
+      <div className="shell shell--embedded">
+        <Laadbalk />
+        {children}
+      </div>
+    );
   }
 
   return (
     <div className="shell shell--railed">
+      <Laadbalk />
       <aside className="rail">
         <a className="rail__brand" href={basis}>
           <span className="rail__mark"><span /></span>
@@ -49,7 +77,9 @@ export function Shell({
 
         <nav className="rail__nav">
           {nav.map(({ to, label, Icon, end }) => (
-            <NavLink key={to} to={to} end={end} className="rail__link">
+            <NavLink key={to} to={to} end={end}
+                     className={({ isPending }) =>
+                       "rail__link" + (isPending ? " rail__link--wacht" : "")}>
               <Icon />
               {label}
             </NavLink>

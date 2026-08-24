@@ -197,10 +197,23 @@ export async function siteData(
   const filterObject: Record<string, string> = {};
   for (const f of filters) filterObject[f.sleutel] = f.waarde;
 
-  // Vandaag en gisteren opnieuw oprollen: de nachtelijke taak is het vangnet,
-  // niet de bron. Mag falen zonder het scherm mee te nemen.
-  await supabase.rpc("site_oprollen", { vanaf: dagStart(1).toISOString().slice(0, 10) })
+  /**
+   * Vandaag en gisteren opnieuw oprollen.
+   *
+   * Dit kost honderdtwintig milliseconde en stond vóór de rest te wachten, op
+   * elke paginaweergave, terwijl het bij een bereik binnen de bewaartermijn
+   * niet eens gelezen wordt - daar komen de cijfers uit de sessies zelf. Nu
+   * loopt het mee in dezelfde ronde.
+   *
+   * Alleen voorbij de dertig dagen worden de dagtotalen wél gelezen, en dan
+   * moet het oprollen er eerst doorheen zijn - anders mist vandaag in het
+   * antwoord. Dat is precies het geval waarin die honderdtwintig milliseconde
+   * ook echt ergens voor is.
+   */
+  const oprollen = supabase
+    .rpc("site_oprollen", { vanaf: dagStart(1).toISOString().slice(0, 10) })
     .then(() => undefined, () => undefined);
+  if (dagen > 30) await oprollen;
 
   const [overzicht, dagRijen, vorigeDagRijen] = await Promise.all([
     supabase.rpc("site_overzicht", {
@@ -218,7 +231,7 @@ export async function siteData(
     supabase.from("site_dag").select("*").eq("shop", shop)
       .gte("dag", vorigeVanaf.toISOString().slice(0, 10))
       .lt("dag", vorigeTot.toISOString().slice(0, 10)),
-  ]);
+  ]).finally(() => oprollen);
 
   const o = (overzicht.data ?? {}) as any;
 

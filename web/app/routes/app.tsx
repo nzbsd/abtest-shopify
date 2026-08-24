@@ -12,9 +12,12 @@ export const links: LinksFunction = () => [{ rel: "stylesheet", href: styles }];
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   // Waar de winkel staat, hooguit één keer per dag opgehaald en bewaard zodat
-  // het losse dashboard er ook bij kan. Wacht niet op het antwoord: het is voor
-  // de bogen op de bol en niet voor deze pagina.
-  void bewaarWinkelLand(admin, session.shop);
+  // het losse dashboard er ook bij kan.
+  //
+  // Wél afwachten. Een belofte die je laat lopen wordt op Vercel afgekapt zodra
+  // het antwoord de deur uit is, en dan gebeurt het dus nooit. De dagcontrole
+  // is één indexlookup; alleen die ene keer per dag kost het echt iets.
+  await bewaarWinkelLand(admin, session.shop);
   const basis = (process.env.SHOPIFY_APP_URL || "").replace(/\/+$/, "");
   // Kortlevend kaartje om hetzelfde dashboard in een eigen venster te openen,
   // zonder daar opnieuw een wachtwoord te hoeven intypen.

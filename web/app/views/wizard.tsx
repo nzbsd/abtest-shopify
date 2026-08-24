@@ -552,6 +552,17 @@ export function Wizard({
   const [guardrails, setGuardrails] = useState<MetricKey[]>([]);
   const [confidence, setConfidence] = useState("95");
   const [mde, setMde] = useState("10");
+
+  /**
+   * Staan de instellingen open?
+   *
+   * Dicht bij het openen, want ze hebben allemaal al een antwoord. Wie iets wil
+   * verzetten klapt ze open; de rest leest de regel en gaat door. Twee losse
+   * schakelaars, want stap 3 en stap 4 open laten staan omdat je in de ander
+   * iets aanpaste zou nergens op slaan.
+   */
+  const [fijnAf, setFijnAf] = useState(false);
+  const [wieOpen, setWieOpen] = useState(false);
   const [devices, setDevices] = useState<string[]>([]);
   const [landen, setLanden] = useState("");
 
@@ -824,96 +835,107 @@ export function Wizard({
                 })}
               </div>
 
-              {/* Betrouwbaarheid en effectgrootte zijn niet twee losse velden
-                  maar twee knoppen op hetzelfde apparaat, en dat apparaat heeft
-                  een uitkomst: wat dit je aan verkeer kost. Die uitkomst stond
-                  eerder als banner onderaan - de pointe op de laatste regel. */}
-              <div className="doel__onder">
-              <div className="paneel">
-                <div className="paneel__knoppen">
-                  <div className="field">
-                    <span className="field__label">How sure do you need to be</span>
-                    <Segmented
-                      value={confidence}
-                      options={[
-                        { key: "90", label: "90%" },
-                        { key: "95", label: "95%" },
-                        { key: "99", label: "99%" },
-                      ]}
-                      onChange={setConfidence}
-                    />
-                    <span className="field__hint">
-                      {confidence === "90" ? "Quicker answers, more false alarms. Fine for cheap, reversible changes."
-                        : confidence === "99" ? "Slowest and strictest. For changes that are expensive to undo."
-                        : "The usual choice."}
-                    </span>
-                  </div>
+              {/* Alles hieronder heeft al een antwoord.
 
-                  <div className="field">
-                    <span className="field__label">Smallest lift worth finding</span>
-                    <div className="stapper">
-                      <button type="button" onClick={() => setMde(String(Math.max(1, Number(mde) - 1)))}
-                              aria-label="Less">−</button>
-                      <input type="number" min={1} max={100} value={mde}
-                             onChange={(e) => setMde(e.target.value)} className="num" />
-                      <span className="stapper__eenheid">%</span>
-                      <button type="button" onClick={() => setMde(String(Math.min(100, Number(mde) + 1)))}
-                              aria-label="More">+</button>
-                    </div>
-                    <span className="field__hint">
-                      Halving this roughly quadruples the traffic you need.
-                    </span>
-                  </div>
-                </div>
-
-                <div className="uitlezing">
-                  {raming ? (
-                    <>
-                      <span className="uitlezing__getal num">{raming.n.toLocaleString("en-US")}</span>
-                      <span className="uitlezing__eenheid">visitors per group</span>
-                      <span className="uitlezing__voet">
-                        to detect a {mde}% change in {raming.m.naam.toLowerCase()} at {confidence}% confidence
-                      </span>
-                      {raming.n > 40000 && (
-                        <span className="uitlezing__let">
-                          That is a lot. Test a bigger change, or pick a metric that moves earlier.
-                        </span>
+                  Het stond eerst even groot en even wit als de keuze erboven,
+                  en dan weet je bij het openen niet waar je moet beginnen. Nu
+                  toont het zijn eigen antwoord in plaats van zijn titel: je
+                  leest wat er staat en klapt alleen open als het niet klopt. */}
+              <div className="instel">
+                <button type="button" className="instel__knop"
+                        aria-expanded={fijnAf}
+                        onClick={() => setFijnAf((v) => !v)}>
+                  <span className="instel__tekst">
+                    <span className="instel__label">How it is measured</span>
+                    <span className="instel__antwoord">
+                      <b>{confidence}%</b> confidence, looking for a <b>{mde}%</b> lift
+                      {raming
+                        ? <> &middot; about <b>{raming.n.toLocaleString("en-US")}</b> visitors per group</>
+                        : <> &middot; size fills in after a day of traffic</>}
+                      {guardrails.length > 0 && (
+                        <> &middot; <b>{guardrails.length}</b>{" "}
+                          {guardrails.length === 1 ? "guardrail" : "guardrails"}</>
                       )}
-                    </>
-                  ) : (
-                    <>
-                      <span className="uitlezing__getal uitlezing__getal--leeg">—</span>
-                      <span className="uitlezing__eenheid">visitors per group</span>
-                      <span className="uitlezing__voet">
-                        {metricInfo(metric).naam} is sized from the spread in your own data, so this
-                        fills in after a day of traffic. Expect more than a rate-based metric needs.
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
+                    </span>
+                  </span>
+                  <span className="instel__actie">{fijnAf ? "Done" : "Adjust"}</span>
+                </button>
 
-              <div className="field doel__guard">
-                <span className="field__label">Guardrails</span>
-                <p className="field__hint" style={{ marginTop: 0, marginBottom: 8 }}>
-                  These do not have to win — they only must not measurably lose.
-                </p>
-                <div className="doel__lijst doel__lijst--klein">
-                  {METRICS.filter((m) => m.key !== metric).map((m) => (
-                    <button key={m.key} type="button" className="doelrij doelrij--vink"
-                            aria-pressed={guardrails.includes(m.key)}
-                            onClick={() => wissel(guardrails, setGuardrails, m.key)}>
-                      <span className="doelrij__vink" aria-hidden />
-                      <span className="doelrij__body">
-                        <span className="doelrij__regel">
-                          <span className="doelrij__naam">{m.naam}</span>
-                          <span className="doelrij__kort">{m.kort}</span>
+                {fijnAf && (
+                  <div className="instel__body">
+                    <div className="instel__rij">
+                      <div className="field" style={{ margin: 0 }}>
+                        <span className="field__label">How sure do you need to be</span>
+                        <Segmented
+                          value={confidence}
+                          options={[
+                            { key: "90", label: "90%" },
+                            { key: "95", label: "95%" },
+                            { key: "99", label: "99%" },
+                          ]}
+                          onChange={setConfidence}
+                        />
+                        <span className="field__hint">
+                          {confidence === "90" ? "Quicker answers, more false alarms. Fine for cheap, reversible changes."
+                            : confidence === "99" ? "Slowest and strictest. For changes that are expensive to undo."
+                            : "The usual choice."}
                         </span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+                      </div>
+
+                      <div className="field" style={{ margin: 0 }}>
+                        <span className="field__label">Smallest lift worth finding</span>
+                        <div className="stapper">
+                          <button type="button" onClick={() => setMde(String(Math.max(1, Number(mde) - 1)))}
+                                  aria-label="Less">−</button>
+                          <input type="number" min={1} max={100} value={mde}
+                                 onChange={(e) => setMde(e.target.value)} className="num" />
+                          <span className="stapper__eenheid">%</span>
+                          <button type="button" onClick={() => setMde(String(Math.min(100, Number(mde) + 1)))}
+                                  aria-label="More">+</button>
+                        </div>
+                        <span className="field__hint">
+                          Halving this roughly quadruples the traffic you need.
+                        </span>
+                      </div>
+                    </div>
+
+                    {raming && raming.n > 40000 && (
+                      <p className="field__hint" style={{ color: "var(--test)", marginTop: 12 }}>
+                        {raming.n.toLocaleString("en-US")} visitors per group is a lot. Test a bigger
+                        change, or pick a metric that moves earlier.
+                      </p>
+                    )}
+                    {!raming && (
+                      <p className="field__hint" style={{ marginTop: 12 }}>
+                        {metricInfo(metric).naam} is sized from the spread in your own data, so the
+                        number fills in after a day of traffic. Expect more than a rate-based metric
+                        needs.
+                      </p>
+                    )}
+
+                    <div className="field" style={{ marginTop: 18, marginBottom: 0 }}>
+                      <span className="field__label">Guardrails</span>
+                      <p className="field__hint" style={{ marginTop: 0, marginBottom: 8 }}>
+                        These do not have to win — they only must not measurably lose.
+                      </p>
+                      <div className="doel__lijst doel__lijst--klein">
+                        {METRICS.filter((m) => m.key !== metric).map((m) => (
+                          <button key={m.key} type="button" className="doelrij doelrij--vink"
+                                  aria-pressed={guardrails.includes(m.key)}
+                                  onClick={() => wissel(guardrails, setGuardrails, m.key)}>
+                            <span className="doelrij__vink" aria-hidden />
+                            <span className="doelrij__body">
+                              <span className="doelrij__regel">
+                                <span className="doelrij__naam">{m.naam}</span>
+                                <span className="doelrij__kort">{m.kort}</span>
+                              </span>
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -927,77 +949,44 @@ export function Wizard({
                 been counted against it.
               </p>
 
-              {/* De verdeling is een verdeling, geen getalveld. Je verdeelt echt
-                  verkeer in tweeën, en dat hoort te zien te zijn - inclusief
-                  welke helft welke kleur heeft, dezelfde kleuren als in de
-                  uitslag straks. */}
+              {/* De verdeling is de beslissing van deze stap - het is het enige
+                  wat je niet meer kunt terugdraaien - dus die houdt het wit en
+                  de ruimte. De balk ís de knop: er stonden eerst twee dingen
+                  onder elkaar die hetzelfde zeiden, een balk om naar te kijken
+                  en een schuif om aan te trekken. Dit is de enige plek in de
+                  flow waar je letterlijk iets in tweeën deelt; dan pak je de
+                  naad. De schuif ligt er onzichtbaar overheen, zodat muis,
+                  aanraking en toetsenbord alle drie gewoon werken. */}
               <div className="verdeling">
-                <div className="verdeling__kop">
-                  <span className="field__label" style={{ margin: 0 }}>Traffic split</span>
-                  <span className="verdeling__cijfers num">
-                    <span className="verdeling__ctl">{100 - Number(split || 0)}% control</span>
-                    <span className="verdeling__tst">{split}% test</span>
+                <span className="field__label" style={{ margin: 0 }}>Traffic split</span>
+
+                <div className="verdeling__spoor">
+                  <span className="verdeling__helft verdeling__helft--control"
+                        style={{ width: (100 - Number(split || 0)) + "%" }}>
+                    {Number(split) <= 80 && <span>{100 - Number(split || 0)}% control</span>}
                   </span>
+                  <span className="verdeling__helft verdeling__helft--test"
+                        style={{ width: Number(split || 0) + "%" }}>
+                    {Number(split) >= 20 && <span>{split}% test</span>}
+                  </span>
+                  <span className="verdeling__naad" style={{ left: (100 - Number(split || 0)) + "%" }} />
+                  <input
+                    className="verdeling__schuif"
+                    type="range" min={1} max={99} step={1} value={split}
+                    onChange={(e) => setSplit(e.target.value)}
+                    aria-label="Percentage of traffic in the test group"
+                  />
                 </div>
-
-                <div className="verdeling__balk">
-                  <span className="verdeling__deel verdeling__deel--control"
-                        style={{ width: (100 - Number(split || 0)) + "%" }} />
-                  <span className="verdeling__deel verdeling__deel--test"
-                        style={{ width: Number(split || 0) + "%" }} />
-                </div>
-
-                <input
-                  className="verdeling__schuif"
-                  type="range" min={1} max={99} step={1} value={split}
-                  onChange={(e) => setSplit(e.target.value)}
-                  aria-label="Percentage of traffic in the test group"
-                />
 
                 <span className="field__hint">
                   {split === "50"
                     ? "50/50 gets you an answer soonest — any other split needs more total traffic for the same certainty."
                     : "Off 50/50, so the smaller group decides how long this takes. It needs more total traffic than an even split would."}
+                  {" "}Once traffic has been counted against it, this is fixed.
                 </span>
               </div>
 
-              <div className="doel__onder">
-                <div className="veldkaart">
-                  <span className="veldkaart__kop">Devices</span>
-                  <div className="doel__lijst doel__lijst--klein" style={{ marginTop: 8 }}>
-                    {DEVICES.map((d) => (
-                      <button key={d.key} type="button" className="doelrij doelrij--vink"
-                              aria-pressed={devices.includes(d.key)}
-                              onClick={() => wissel(devices, setDevices, d.key)}>
-                        <span className="doelrij__vink" aria-hidden />
-                        <span className="doelrij__body">
-                          <span className="doelrij__regel">
-                            <span className="doelrij__naam">{d.naam}</span>
-                            <span className="doelrij__kort">{d.sub}</span>
-                          </span>
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                  <span className="field__hint">
-                    {devices.length
-                      ? "Everyone else sees the original and is not counted at all."
-                      : "None ticked means every device."}
-                  </span>
-                </div>
-
-                <div className="veldkaart">
-                  <span className="veldkaart__kop">Countries</span>
-                  <input type="text" value={landen} placeholder="US, GB, DE"
-                         onChange={(e) => setLanden(e.target.value)} style={{ marginTop: 8 }} />
-                  <span className="field__hint">
-                    Two-letter codes, comma separated. Empty means everywhere. Read from Shopify’s
-                    own localisation — the same country your prices and shipping run on.
-                  </span>
-                </div>
-              </div>
-
-              <div className="veldkaart">
+              <div className="veldkaart" style={{ marginTop: 16 }}>
                 <span className="veldkaart__kop">Naming it</span>
                 <div className="row" style={{ marginTop: 8 }}>
                   <div className="field" style={{ margin: 0 }}>
@@ -1016,24 +1005,88 @@ export function Wizard({
                 </span>
               </div>
 
-              <label className="schakelrij">
-                <input type="checkbox" checked={abo} onChange={(e) => setAbo(e.target.checked)} />
-                <span className="schakelrij__body">
-                  <span className="schakelrij__naam">This is a subscription product</span>
-                  <span className="schakelrij__sub">
-                    Adds a Forecast tab that projects the difference over a customer lifetime, and
-                    works out how much retention the variant could afford to lose.
+              {/* Targeting en het abonnementsvinkje hebben allebei al een
+                  antwoord - iedereen, overal, en nee - dus die zakken weg en
+                  tonen dat antwoord in plaats van hun titel. */}
+              <div className="instel">
+                <button type="button" className="instel__knop"
+                        aria-expanded={wieOpen}
+                        onClick={() => setWieOpen((v) => !v)}>
+                  <span className="instel__tekst">
+                    <span className="instel__label">Who sees it</span>
+                    <span className="instel__antwoord">
+                      <b>
+                        {devices.length === 0 || devices.length === DEVICES.length
+                          ? "Every device"
+                          : devices.map((d) => DEVICES.find((x) => x.key === d)?.naam).join(", ")}
+                      </b>
+                      {", "}
+                      <b>{landen.trim() ? landen.trim().toUpperCase() : "everywhere"}</b>
+                      {abo && <> &middot; subscription forecast on</>}
+                    </span>
                   </span>
-                </span>
-                {abo && (
-                  <span className="schakelrij__extra" onClick={(e) => e.preventDefault()}>
-                    <input type="number" step="0.1" min={1} max={60} value={cycles}
-                           onChange={(e) => setCycles(e.target.value)} className="num"
-                           aria-label="Average billing cycles per customer" />
-                    <span>cycles per customer</span>
-                  </span>
+                  <span className="instel__actie">{wieOpen ? "Done" : "Narrow it"}</span>
+                </button>
+
+                {wieOpen && (
+                  <div className="instel__body">
+                    <div className="instel__rij">
+                      <div className="field" style={{ margin: 0 }}>
+                        <span className="field__label">Devices</span>
+                        <div className="doel__lijst doel__lijst--klein">
+                          {DEVICES.map((d) => (
+                            <button key={d.key} type="button" className="doelrij doelrij--vink"
+                                    aria-pressed={devices.includes(d.key)}
+                                    onClick={() => wissel(devices, setDevices, d.key)}>
+                              <span className="doelrij__vink" aria-hidden />
+                              <span className="doelrij__body">
+                                <span className="doelrij__regel">
+                                  <span className="doelrij__naam">{d.naam}</span>
+                                  <span className="doelrij__kort">{d.sub}</span>
+                                </span>
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                        <span className="field__hint">
+                          {devices.length
+                            ? "Everyone else sees the original and is not counted at all."
+                            : "None ticked means every device."}
+                        </span>
+                      </div>
+
+                      <div className="field" style={{ margin: 0 }}>
+                        <span className="field__label">Countries</span>
+                        <input type="text" value={landen} placeholder="US, GB, DE"
+                               onChange={(e) => setLanden(e.target.value)} />
+                        <span className="field__hint">
+                          Two-letter codes, comma separated. Empty means everywhere. Read from
+                          Shopify localisation — the same country your prices and shipping run on.
+                        </span>
+                      </div>
+                    </div>
+
+                    <label className="schakelrij" style={{ marginTop: 16 }}>
+                      <input type="checkbox" checked={abo} onChange={(e) => setAbo(e.target.checked)} />
+                      <span className="schakelrij__body">
+                        <span className="schakelrij__naam">This is a subscription product</span>
+                        <span className="schakelrij__sub">
+                          Adds a Forecast tab that projects the difference over a customer lifetime,
+                          and works out how much retention the variant could afford to lose.
+                        </span>
+                      </span>
+                      {abo && (
+                        <span className="schakelrij__extra" onClick={(e) => e.preventDefault()}>
+                          <input type="number" step="0.1" min={1} max={60} value={cycles}
+                                 onChange={(e) => setCycles(e.target.value)} className="num"
+                                 aria-label="Average billing cycles per customer" />
+                          <span>cycles per customer</span>
+                        </span>
+                      )}
+                    </label>
+                  </div>
                 )}
-              </label>
+              </div>
             </div>
           )}
 
