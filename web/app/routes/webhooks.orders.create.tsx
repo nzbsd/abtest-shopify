@@ -46,6 +46,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       if (a?.name) attrsAlle[String(a.name)] = String(a.value ?? "");
     }
     const sess = attrsAlle["_pt_sess"];
+    const bezoeker = attrsAlle["_pt_visitor"];
     const bron = String((payload as any)?.source_name || "");
 
     if (sess && bron === "web") {
@@ -69,6 +70,30 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         p_order_id: Number((payload as any)?.id),
         p_sessie: sess,
         p_cents: cents,
+      });
+    } else if (bezoeker && bron === "web") {
+      /**
+       * Geen sessie-kenmerk, wel een bezoekers-id.
+       *
+       * De winkelwagen kan vervangen zijn tussen het bezoek en de bestelling,
+       * of het snippet kwam niet aan bod. Dan is de sessie nog te herleiden via
+       * de bezoeker: dezelfde persoon, laatste sessie die vóór de bestelling
+       * begon, binnen een halfuur.
+       *
+       * Op 26 augustus was dit zeventien van de vijfentwintig orders die anders
+       * nergens meetelden - van tweeënzestig naar negenenzeventig op een dag.
+       *
+       * Alleen binnen dat halfuur. Verder terug wordt het gokken, en een order
+       * aan de verkeerde sessie hangen is erger dan hem niet toekennen: dan
+       * staat er een conversie op een bezoek dat hem niet heeft opgeleverd.
+       */
+      const cents = Math.round(parseFloat((payload as any)?.total_price || "0") * 100);
+      await supabase.rpc("site_order_via_bezoeker", {
+        p_shop: shop,
+        p_order_id: Number((payload as any)?.id),
+        p_bezoeker: bezoeker,
+        p_cents: cents,
+        p_besteld: (payload as any)?.created_at || new Date().toISOString(),
       });
     }
   } catch {
