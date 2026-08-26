@@ -760,6 +760,43 @@
     document.addEventListener("visibilitychange", function () {
       if (document.visibilityState === "hidden") vertrek();
     });
+
+    /**
+     * Tussentijds melden, niet alleen bij vertrek.
+     *
+     * WAAROM
+     * pagehide is het enige moment waarop de leestijd de deur uit ging, en dat
+     * moment komt lang niet altijd. Dertien procent van de sessies had daardoor
+     * duur 0 en scroll 0 - vierduizend in een week. Dat waren geen bots: hun
+     * scherm, taal en apparaatmix waren gelijk aan de rest, vijfentwintig van
+     * ze legden iets in de winkelwagen en zes zijn door Shopify's eigen web
+     * pixel bevestigd. Het waren mensen die weg waren voordat de beacon kon
+     * vertrekken. Op mobiel in een in-app browser is dat doodnormaal: terug
+     * naar de app en de WebView wordt bevroren.
+     *
+     * Het gevolg zat niet in bounce of conversie - die kijken naar pageviews
+     * en orders - maar in de gemiddelde leestijd en scrolldiepte. Daar zaten
+     * vierduizend nullen in die er niet horen.
+     *
+     * HOE
+     * vertrek() stuurt alleen het stuk dat nog niet gemeld is en de server telt
+     * op, dus vaker sturen levert geen dubbeltelling. Het eerste bericht is het
+     * belangrijkste: daarna is er hoe dan ook een ondergrens in plaats van een
+     * nul.
+     *
+     * Dicht op elkaar aan het begin, daarna steeds ruimer. Wie na vijf seconden
+     * al weg is heeft de meeste kans zijn afscheid te missen; wie een minuut
+     * blijft leest gewoon door en kan best even wachten. Na een kwartier stopt
+     * het: dan is er genoeg gemeld en hoeft een tabblad dat open blijft staan
+     * niet elke minuut iets te sturen.
+     */
+    var hartslagen = [5, 15, 30, 60, 120, 240, 480, 900];
+    hartslagen.forEach(function (na) {
+      setTimeout(function () {
+        if (document.visibilityState === "hidden") return;  /* onzichtbaar telt toch niet mee */
+        vertrek();
+      }, na * 1000);
+    });
   })();
 
   /**
