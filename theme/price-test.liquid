@@ -244,16 +244,63 @@
       teTaggen._pt_cohort = cohort;
     }
   }
+  /* Het sessie-id, gezet zodra de analytics-sessie bestaat. Staat hier buiten
+     omdat tagCart eronder het nodig heeft en dat blok eerder in het bestand
+     staat dan de sessie zelf. */
+  var sessieVoorCart = "";
+
+  /**
+   * Het winkelwagentoken van Shopify.
+   *
+   * Verandert zodra de wagen opnieuw wordt aangemaakt - leeggemaakt, verlopen,
+   * of afgerekend. Precies het moment waarop onze attributen weg zijn en er
+   * opnieuw geschreven moet worden.
+   */
+  function cartToken() {
+    var m = document.cookie.match(/(?:^|;s*)cart=([^;]+)/);
+    return m ? m[1] : "";
+  }
+
+  /**
+   * De kenmerken in de winkelwagen zetten.
+   *
+   * WAAROM DIT ANDERS IS DAN EERST
+   * _pt_sess ging hiervoor één keer per sessie de deur uit, achter een guard in
+   * sessionStorage. Raakte de wagen daarna leeg of kreeg hij een nieuw token,
+   * dan was dat kenmerk voorgoed weg - terwijl de cohort-kenmerken hieronder
+   * op elke pagina opnieuw werden gezet.
+   *
+   * Dat is precies wat er in de orders te zien was: orders met _pt_cohort,
+   * _pt_test en _pt_visitor maar zonder _pt_sess, en die zijn aan geen enkele
+   * sessie te koppelen. Van veertig web-orders op een dag droegen er achtentwintig
+   * het sessie-id; de overige twaalf telden dus niet mee in de conversie.
+   *
+   * Nu gaat alles in één bericht en is de bewaking het cart-token in plaats van
+   * de sessie. Zolang de wagen dezelfde is schrijven we niets - een pageview
+   * kost dus nog steeds geen verzoek - en zodra hij vervangen wordt staan de
+   * kenmerken er meteen weer in.
+   */
   function tagCart() {
-    var keys = Object.keys(teTaggen);
-    if (!keys.length) return;
-    teTaggen._pt_market = MARKET;
-    teTaggen._pt_visitor = visitor;
+    var attributen = {};
+    for (var k in teTaggen) if (Object.prototype.hasOwnProperty.call(teTaggen, k)) attributen[k] = teTaggen[k];
+    if (sessieVoorCart) attributen._pt_sess = sessieVoorCart;
+    attributen._pt_market = MARKET;
+    attributen._pt_visitor = visitor;
+    if (!attributen._pt_sess && !Object.keys(teTaggen).length) return;  /* niets zinnigs te melden */
+
+    try {
+      /* Per token één keer. Bij een nieuwe wagen valt deze vergelijking uit
+         elkaar en schrijven we opnieuw. */
+      var stempel = cartToken() + "|" + sessieVoorCart;
+      if (sessionStorage.getItem("_pt_getagd") === stempel) return;
+      sessionStorage.setItem("_pt_getagd", stempel);
+    } catch (e) { /* geen opslag: dan maar elke keer schrijven */ }
+
     try {
       fetch("/cart/update.js", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ attributes: teTaggen })
+        body: JSON.stringify({ attributes: attributen })
       }).catch(function () {});
     } catch (e) {}
   }
@@ -278,6 +325,9 @@
       if (nu - laatst < 2000) return;
       laatst = nu;
       for (var i = 0; i < paren.length; i++) report(paren[i][0], paren[i][1], "atc");
+      /* Een add-to-cart kan een nieuwe wagen hebben aangemaakt. tagCart kijkt
+         zelf of het token veranderd is en doet anders niets. */
+      setTimeout(tagCart, 400);
     };
     var isAdd = function (u) { return typeof u === "string" && u.indexOf("/cart/add") !== -1; };
 
@@ -416,7 +466,11 @@
          the visitor would end up somewhere neither test intended. */
       if (raak) return;
     }
-    if (gemeten.length) { tagCart(); watchAddToCart(gemeten); }
+    /* Ook zonder test. De cohort-kenmerken zijn dan leeg, maar _pt_sess moet er
+       hoe dan ook in - anders is een order van deze bezoeker straks aan niets te
+       koppelen. */
+    tagCart();
+    if (gemeten.length) watchAddToCart(gemeten);
   }
 
   /* ═══════════════════════════════════════════════ pageview-poort ═══════
@@ -611,16 +665,12 @@
      * It also beats a pixel on the thank-you page: the amount then comes from
      * Shopify rather than from JavaScript an ad blocker can stop.
      */
-    try {
-      if (!sessionStorage.getItem("_pt_cart_" + sessie.id)) {
-        sessionStorage.setItem("_pt_cart_" + sessie.id, "1");
-        fetch("/cart/update.js", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({ attributes: { _pt_sess: sessie.id } })
-        }).catch(function () {});
-      }
-    } catch (e) {}
+    /* Het sessie-id doorgeven aan tagCart, die het samen met de cohort-kenmerken
+       wegschrijft en per cart-token bewaakt. Hier stond eerst een eigen
+       /cart/update.js achter een guard op de sessie; die schreef één keer en
+       nooit meer, waardoor het kenmerk verdween zodra de wagen vervangen werd. */
+    sessieVoorCart = sessie.id;
+    tagCart();
 
     /**
      * Cart and checkout from behaviour, not from a page view.

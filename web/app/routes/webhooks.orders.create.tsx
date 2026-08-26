@@ -50,7 +50,26 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     if (sess && bron === "web") {
       const cents = Math.round(parseFloat((payload as any)?.total_price || "0") * 100);
-      await supabase.rpc("site_order", { p_sessie: sess, p_cents: cents });
+      /**
+       * Via het orderboek, niet rechtstreeks optellen.
+       *
+       * site_order deed vroeger `orders = orders + 1` zonder ergens vast te
+       * leggen wélke order dat was. Shopify levert een webhook soms twee keer,
+       * en dan telde hij twee keer. Erger nog: er viel achteraf niet te zien
+       * wat er al in zat, dus een herstelactie kon alleen door alles op nul te
+       * zetten en opnieuw op te bouwen.
+       *
+       * site_order_toekennen schrijft eerst een regel in site_orderboek met
+       * (shop, order_id) als sleutel. Bestaat die al, dan gebeurt er niets
+       * meer. Zo is deze webhook idempotent en blijft er een spoor van welke
+       * orders geteld zijn.
+       */
+      await supabase.rpc("site_order_toekennen", {
+        p_shop: shop,
+        p_order_id: Number((payload as any)?.id),
+        p_sessie: sess,
+        p_cents: cents,
+      });
     }
   } catch {
     // Een mislukte koppeling mag de rest van deze webhook niet meenemen.
