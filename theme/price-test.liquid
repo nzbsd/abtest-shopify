@@ -335,6 +335,7 @@
       else params.delete("variant");
     }
     var q = params.toString();
+    laatViewVervallen();
     window.location.replace("/products/" + t.testHandle + (q ? "?" + q : "") + window.location.hash);
     return true;
   }
@@ -351,6 +352,7 @@
     if (cohort === "control") return meet(t.id, "control");
 
     params.set("view", t.suffix);
+    laatViewVervallen();
     window.location.replace(window.location.pathname + "?" + params.toString() + window.location.hash);
     return true;
   }
@@ -364,6 +366,7 @@
     if (cohort === "control") return meet(t.id, "control");
 
     var q = window.location.search;
+    laatViewVervallen();
     window.location.replace(t.testPath + q + window.location.hash);
     return true;
   }
@@ -394,6 +397,7 @@
 
     var params = new URLSearchParams(window.location.search);
     params.set("preview_theme_id", String(t.themeId));
+    laatViewVervallen();
     window.location.replace(window.location.pathname + "?" + params.toString() + window.location.hash);
     return true;
   }
@@ -414,6 +418,49 @@
     }
     if (gemeten.length) { tagCart(); watchAddToCart(gemeten); }
   }
+
+  /* ═══════════════════════════════════════════════ pageview-poort ═══════
+   *
+   * Een pagina die doorverwijst vóórdat hij schildert, heeft de bezoeker
+   * nooit gezien. Die hoort dus geen pageview te zijn.
+   *
+   * Dat het er toch een was, bleef lang onzichtbaar omdat het de cijfers de
+   * goede kant op duwde: wie werd doorgestuurd en meteen wegklikte had twee
+   * pageviews, en bounce is "hoogstens één". Op de hoofdpagina van de winkel
+   * gaf dat 46% bounce waar 84% de waarheid was. Diezelfde nepstap stond
+   * bovendien bovenaan de meestgelopen routes, met eenentwintig keer het
+   * verkeer van de eerste echte route.
+   *
+   * Daarom wacht de pageview nu op de uitkomst van de A/B-beslissing. Wordt
+   * er doorverwezen, dan vervalt hij en meet de bestemming. Zo niet, dan gaat
+   * hij alsnog weg.
+   *
+   * WAAROM WACHTEN EN NIET DE VOLGORDE OMDRAAIEN
+   * De config zit in sessionStorage met twee minuten geldigheid, dus de
+   * eerste pagina van elke sessie is altijd een cachemisser - en dat is net
+   * de pagina waar de doorverwijzing gebeurt. De beslissing valt daar dus pas
+   * ná de fetch. Wachten is het enige dat beide gevallen dekt.
+   *
+   * NIETS RAAKT ZOEK
+   * Blijft het antwoord uit, dan gaat de pageview na twee seconden alsnog
+   * weg. Vertrekt de bezoeker eerder, dan stuurt pagehide hem. Van de twee
+   * mogelijke fouten - een view te veel of een view te weinig - is te weinig
+   * de erge: die maakt een bezoeker onzichtbaar.
+   */
+  var viewKlaar     = null;   /* de functie die de pageview verstuurt */
+  var viewBeslist   = false;  /* beslissing gevallen: verstuurd of vervallen */
+  var viewVerstuurd = false;  /* er is er echt een de deur uit gegaan */
+
+  function meldView() {
+    if (viewBeslist) return;
+    viewBeslist = true;
+    if (viewKlaar) { viewVerstuurd = true; viewKlaar(); }
+  }
+
+  /* Aanroepen vlak vóór elke location.replace. Die volgorde is niet
+     vrijblijvend: de navigatie vuurt pagehide, en die roept meldView aan.
+     Staat dit erna, dan wint pagehide en gaat de view alsnog weg. */
+  function laatViewVervallen() { viewBeslist = true; }
 
   /* ═══════════════════════════════════════════ site-wide analytics ═══════
    *
@@ -462,7 +509,12 @@
           if (s && s.id && nu - s.at < SESSIE_MS) {
             sessionStorage.setItem(SESSIE, JSON.stringify({ id: s.id, at: nu, n: s.n }));
             sessieCookie(s.id);
-            return { id: s.id, nieuw: false };
+            /* s.n en niet false. Sinds de pageview kan vervallen bij een
+               doorverwijzing, is het de bestemming die de sessie aanmaakt -
+               en die zou anders elke doorgestuurde bezoeker als terugkerend
+               inschrijven. De server kijkt alleen bij het aanmaken naar deze
+               vlag, dus hem op elke view meesturen verandert verder niets. */
+            return { id: s.id, nieuw: !!s.n };
           }
         }
         var id = nu.toString(36) + Math.random().toString(36).slice(2, 10);
@@ -660,14 +712,21 @@
       }
     } catch (e) {}
 
-    stuur({
+    /* Niet versturen maar klaarzetten. Zie de pageview-poort hierboven: pas
+       als vaststaat dat deze pagina niet doorverwijst, gaat hij weg. */
+    viewKlaar = function () { stuur({
       shop: SHOP, sid: sessie.id, vid: visitor, t: "view", path: hierPad,
       ref: document.referrer || "", country: COUNTRY, device: DEVICE,
       new: sessie.nieuw,
       browser: tech.browser, os: tech.os, taal: tech.taal, scherm: tech.scherm,
       us: params.get("utm_source"), um: params.get("utm_medium"),
       uc: params.get("utm_campaign")
-    });
+    }); };
+
+    /* De vangnetten. Komt het antwoord niet of vertrekt de bezoeker eerder,
+       dan gaat de pageview alsnog weg. */
+    setTimeout(meldView, 2000);
+    window.addEventListener("pagehide", meldView);
 
     /* Engagement. Measured from when the page became visible rather than from
        load, so a tab left open in the background does not count as reading. */
@@ -708,6 +767,9 @@
      */
     var gemeld = 0;
     function vertrek() {
+      /* Verviel de pageview, dan bestaat deze pagina voor de meting niet en
+         hoort er ook geen leestijd bij. */
+      if (!viewVerstuurd) return;
       tel();
       var nieuw = opgeteld - gemeld;
       if (nieuw < 1000 && gemeld > 0) return;   /* niets noemenswaardigs erbij */
@@ -740,7 +802,7 @@
     var raw = sessionStorage.getItem(CACHE);
     if (raw) {
       var c = JSON.parse(raw);
-      if (c && c.at && Date.now() - c.at < CACHE_MS) { handle(c.data); return; }
+      if (c && c.at && Date.now() - c.at < CACHE_MS) { handle(c.data); meldView(); return; }
     }
   } catch (e) { /* private mode, no storage - just fetch */ }
 
@@ -749,8 +811,12 @@
     .then(function (data) {
       try { sessionStorage.setItem(CACHE, JSON.stringify({ at: Date.now(), data: data })); } catch (e) {}
       handle(data);
+      meldView();
     })
-    .catch(function () { /* no config, no test: the visitor sees the normal page */ });
+    .catch(function () {
+      /* no config, no test: the visitor sees the normal page - en die telt dus */
+      meldView();
+    });
 
 })();
 </script>
