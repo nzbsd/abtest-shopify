@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "@remix-run/react";
 import { PageHead } from "~/components/shell";
+import { Icoon } from "~/components/iconen";
 import { Globe } from "~/components/globe";
 import { useLive } from "~/lib/useLive";
 import { Banner, Card, CardHead, Delta, Leeg, Segmented, Track } from "~/components/ui";
@@ -125,6 +126,7 @@ function Lijst({
                   naast de naam duwt hij de namen in een smalle kolom, en toen
                   hij op de rijbreedte stond liep hij het kader uit. */}
               <span className="balkrij__vulling" style={{ width: (w.balk / top) * 100 + "%" }} />
+              <Icoon dim={sleutel} naam={r.naam} />
               <span className="balkrij__naam">{r.naam}</span>
               {r.vorigeSessies > 0 && maat === "sessies" && (
                 <span className="balkrij__delta">

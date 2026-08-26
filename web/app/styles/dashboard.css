@@ -2303,3 +2303,23 @@ tbody tr:hover { background: var(--wash); }
   .tabstrook { overflow-x: visible; }
   .tabstrook .minitabs { flex-wrap: wrap; }
 }
+
+/* ── herkenningstekens in de lijsten ──────────────────────────────────
+   Vast breed, ook als er geen teken is. Anders springen de namen van rij
+   tot rij een paar pixels heen en weer, precies bij een lijst waar je met
+   je oog langs de linkerkant naar beneden scant. */
+.balkrij__icoon,
+.balkrij__vlag {
+  position: relative;      /* boven de balkvulling, die erachter ligt */
+  flex: 0 0 16px;
+  width: 16px;
+  text-align: center;
+  line-height: 1;
+}
+.balkrij__icoon { opacity: .8; }
+.balkrij__vlag { font-size: 13px; }
+
+/* De rij heeft gap:10px; tussen teken en naam is dat te veel - dan hoort
+   het teken bij niets meer. */
+.balkrij__icoon + .balkrij__naam,
+.balkrij__vlag + .balkrij__naam { margin-left: -4px; }
