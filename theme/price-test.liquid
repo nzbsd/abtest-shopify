@@ -257,7 +257,17 @@
    * opnieuw geschreven moet worden.
    */
   function cartToken() {
-    var m = document.cookie.match(/(?:^|;s*)cart=([^;]+)/);
+    /* ;\s* en niet ;s* - dat laatste leest als "puntkomma gevolgd door nul of
+       meer letters s". Browsers scheiden cookies met "; " (mét spatie), dus die
+       spatie werd nooit gematcht en dit vond het token alleen wanneer cart
+       toevallig de eerste cookie was. Op herbies.co staat hij op plek drie van
+       elf: cartToken() gaf de hele sessie een lege string terug.
+
+       Daardoor was de stempel hieronder een sessie lang constant en schreef
+       tagCart precies één keer - de eerste keer, en dat is de aanroep vanuit de
+       analytics die nog geen cohort kent. Het cohort kwam dus nooit op de wagen
+       en dus ook niet op de order: de A/B-test kon geen enkele omzet toewijzen. */
+    var m = document.cookie.match(/(?:^|;\s*)cart=([^;]+)/);
     return m ? m[1] : "";
   }
 
@@ -289,9 +299,20 @@
     if (!attributen._pt_sess && !Object.keys(teTaggen).length) return;  /* niets zinnigs te melden */
 
     try {
-      /* Per token één keer. Bij een nieuwe wagen valt deze vergelijking uit
-         elkaar en schrijven we opnieuw. */
-      var stempel = cartToken() + "|" + sessieVoorCart;
+      /* Per token één keer, maar de stempel draagt nu ook wát we schrijven.
+         Zonder dat blokkeerde de eerste aanroep alle volgende, ook als die meer
+         te melden hadden: tagCart wordt aangeroepen zodra de sessie bestaat én
+         opnieuw zodra handle() het cohort heeft toegewezen. Op een verse pagina
+         bestaat de wagen dan nog niet, dus was het token in beide gevallen leeg
+         en zag de tweede aanroep dezelfde stempel - hij schreef niets, en het
+         cohort bleef achter.
+
+         Met de inhoud erin schrijven we opnieuw zodra er iets bijkomt, en nog
+         steeds niets als er niets veranderd is. Een pageview kost dus nog altijd
+         geen verzoek. */
+      var stempel = cartToken() + "|" + Object.keys(attributen).sort().map(function (k) {
+        return k + "=" + attributen[k];
+      }).join(",");
       if (sessionStorage.getItem("_pt_getagd") === stempel) return;
       sessionStorage.setItem("_pt_getagd", stempel);
     } catch (e) { /* geen opslag: dan maar elke keer schrijven */ }
