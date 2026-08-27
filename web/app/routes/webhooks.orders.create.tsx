@@ -112,6 +112,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const num = (gid: string) => String(gid).split("/").pop();
     const lineItems: any[] = (payload as any)?.line_items || [];
 
+    const attrs: Record<string, string> = {};
+    for (const a of (payload as any)?.note_attributes || []) {
+      if (a?.name) attrs[String(a.name)] = String(a.value ?? "");
+    }
+
     for (const t of tests) {
       const controlNum = num(t.control_product_id);
       const testNum = num(t.test_product_id);
@@ -166,12 +171,23 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
       }
 
-      if (!cohort) continue;
-
-      const attrs: Record<string, string> = {};
-      for (const a of (payload as any)?.note_attributes || []) {
-        if (a?.name) attrs[String(a.name)] = String(a.value ?? "");
+      /**
+       * Bij een template-, url- of themetest verkopen beide armen hetzelfde
+       * product. Er is dan geen test_product_id, dus de vergelijking hierboven
+       * kan de armen niet uit elkaar houden: elke orderregel matcht control en
+       * iedere bestelling zou in die groep belanden. Het resultaat zou er
+       * kloppend uitzien en volledig onjuist zijn.
+       *
+       * Het thema kent het cohort wel en schrijft het mee op de winkelwagen als
+       * _pt_<testId>. Dat is hier de enige bron die klopt, want die zegt wat de
+       * bezoeker daadwerkelijk te zien heeft gekregen.
+       */
+      if (!t.test_product_id) {
+        const gemeld = attrs["_pt_" + t.id];
+        cohort = gemeld === "control" || gemeld === "test" ? gemeld : null;
       }
+
+      if (!cohort) continue;
 
       await supabase.from("price_test_events").upsert(
         {
@@ -179,7 +195,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           test_id: t.id,
           cohort,
           event_type: "purchase",
-          product_id: cohort === "test" ? t.test_product_id : t.control_product_id,
+          // Zonder test_product_id draaien beide armen op hetzelfde product, en
+          // die kolom staat op NOT NULL: zonder deze terugval zou elke order in
+          // de testarm van een template-test alsnog stuklopen.
+          product_id:
+            cohort === "test"
+              ? t.test_product_id || t.control_product_id
+              : t.control_product_id,
           market: attrs["_pt_market"] || null,
           currency: (payload as any)?.currency || null,
           visitor_id: attrs["_pt_visitor"] || null,
