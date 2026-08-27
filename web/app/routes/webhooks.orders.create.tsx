@@ -101,13 +101,37 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   try {
-    const { data: tests } = await supabase
+    const { data: alleTests } = await supabase
       .from("price_tests")
-      .select("id, control_product_id, test_product_id")
+      .select("id, control_product_id, test_product_id, started_at, stopped_at")
       .eq("shop", shop)
       .in("status", ["running", "stopped"]);
 
-    if (!tests?.length) return new Response(null, { status: 200 });
+    if (!alleTests?.length) return new Response(null, { status: 200 });
+
+    /**
+     * Alleen tests die liepen toen er besteld werd.
+     *
+     * Gestopte tests stonden hier bewust bij: hun bestellingen komen soms pas
+     * na het stoppen binnen, en die horen er nog bij. Maar er werd niet gekeken
+     * WANNEER de bestelling geplaatst is, dus een gestopte test bleef ook alle
+     * latere bestellingen opeisen.
+     *
+     * Test 2 stopte op 26 augustus en legde de dag erna negenendertig
+     * bestellingen vast - bestellingen van bezoekers die zijn pagina nooit
+     * gezien hadden. Erger nog: zolang de idempotentie-sleutel geen test_id
+     * kende, blokkeerde dat de test die wel liep.
+     */
+    const besteldOp = Date.parse((payload as any)?.created_at || "") || Date.now();
+    const tests = alleTests.filter((t: any) => {
+      const start = Date.parse(t.started_at || "");
+      if (Number.isFinite(start) && besteldOp < start) return false;
+      const stop = Date.parse(t.stopped_at || "");
+      if (Number.isFinite(stop) && besteldOp > stop) return false;
+      return true;
+    });
+
+    if (!tests.length) return new Response(null, { status: 200 });
 
     const num = (gid: string) => String(gid).split("/").pop();
     const lineItems: any[] = (payload as any)?.line_items || [];
@@ -214,7 +238,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           variant_id: variantId,
           variant_title: variantTitle,
         },
-        { onConflict: "shop,order_id", ignoreDuplicates: true },
+        // Per test, niet per winkel: een bezoeker kan in meer dan een test
+        // tegelijk zitten en dan hoort elke test zijn eigen regel te krijgen.
+        // Met (shop, order_id) claimde de eerste test de bestelling en kwamen
+        // de andere nooit aan bod.
+        { onConflict: "shop,test_id,order_id", ignoreDuplicates: true },
       );
     }
   } catch (_e) {
