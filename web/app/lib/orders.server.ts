@@ -1,4 +1,5 @@
 import type { PriceTest } from "./priceTest.server";
+import supabase from "~/db.server";
 
 /**
  * Order numbers read straight from Shopify instead of from webhook events.
@@ -146,13 +147,80 @@ export async function orderCijfers(
 
   let cursor: string | null = null;
 
+  /**
+   * Eerst alle orders ophalen, dan pas tellen.
+   *
+   * Dat is nodig voor de terugval hieronder: die zoekt de bezoekers van
+   * ongetagde orders in één keer op in de vastgelegde views, en dat kan alleen
+   * als je weet welke bezoekers je zoekt.
+   */
+  const verzameld: any[] = [];
+
   for (let p = 0; p < MAX_PAGINAS; p++) {
     const res: any = await admin.graphql(QUERY, { variables: { q, cursor } });
     const j = await res.json();
     const blok = j?.data?.orders;
     if (!blok) break;
 
-    for (const order of blok.nodes || []) {
+    verzameld.push(...(blok.nodes || []));
+
+    if (!blok.pageInfo?.hasNextPage) break;
+    cursor = blok.pageInfo.endCursor;
+    if (p === MAX_PAGINAS - 1) uit.afgekapt = true;
+  }
+
+  /**
+   * Welk cohort hoort bij welke order?
+   *
+   * Eerst het kenmerk op de winkelwagen. Ontbreekt dat, dan kijken we welk
+   * cohort deze bezoeker kreeg toen hij de pagina zag - dat staat vast in zijn
+   * eigen view-gebeurtenis, en dat is geen gok maar dezelfde toewijzing.
+   *
+   * Die terugval is er omdat het kenmerk maandenlang niet aankwam: cartToken()
+   * had een ontbrekende backslash in zijn cookie-regex, waardoor de bewaking in
+   * tagCart een sessie lang op dezelfde waarde bleef staan en het cohort nooit
+   * naar de winkelwagen ging. Van de eerste vijfendertig orders van de
+   * paginatest droeg er één het kenmerk. Op de bezoeker kwamen er drieëndertig
+   * terug, en bij de drie die het kenmerk wél hadden gaf de opzoeking exact
+   * hetzelfde antwoord.
+   */
+  const ongetagdeBezoekers = new Set<string>();
+  for (const order of verzameld) {
+    if (String(order?.sourceName || "") !== "web") continue;
+    const a: Record<string, string> = {};
+    for (const x of order?.customAttributes || []) if (x?.key) a[String(x.key)] = String(x.value ?? "");
+    const eigen = a["_pt_" + test.id];
+    const oud = String(a["_pt_test"] || "") === String(test.id) ? a["_pt_cohort"] : undefined;
+    if (eigen !== "control" && eigen !== "test" && oud !== "control" && oud !== "test") {
+      const v = a["_pt_visitor"];
+      if (v) ongetagdeBezoekers.add(v);
+    }
+  }
+
+  const bezoekerCohort = new Map<string, "control" | "test">();
+  if (ongetagdeBezoekers.size) {
+    try {
+      // Alleen de bezoekers die we nodig hebben. Een test kan honderdduizend
+      // bezoekers hebben; die hele lijst ophalen om er dertig te vinden zou
+      // het scherm traag maken zonder iets toe te voegen.
+      const { data } = await supabase
+        .from("price_test_events")
+        .select("visitor_id, cohort")
+        .eq("shop", test.shop)
+        .eq("test_id", test.id)
+        .eq("event_type", "view")
+        .in("visitor_id", [...ongetagdeBezoekers]);
+      for (const r of data || []) {
+        const c = String((r as any).cohort);
+        if (c === "control" || c === "test") bezoekerCohort.set(String((r as any).visitor_id), c);
+      }
+    } catch {
+      // Geen terugval dan: die orders blijven ongetagd, precies zoals eerst.
+    }
+  }
+
+  {
+    for (const order of verzameld) {
       // See the note at the top: renewals are not a response to the tested price.
       if (String(order?.sourceName || "") !== "web") {
         uit.rebillsOvergeslagen += 1;
@@ -171,7 +239,12 @@ export async function orderCijfers(
       // deze verandering toegewezen blijven.
       const eigen = attrs["_pt_" + test.id];
       const oud = String(attrs["_pt_test"] || "") === String(test.id) ? attrs["_pt_cohort"] : undefined;
-      const getagd = eigen ?? oud;
+      let getagd: string | undefined = eigen ?? oud;
+      if (getagd !== "control" && getagd !== "test") {
+        // Geen kenmerk op de wagen: terugval op het cohort dat deze bezoeker
+        // kreeg toen hij de pagina zag.
+        getagd = bezoekerCohort.get(attrs["_pt_visitor"] || "");
+      }
       if (getagd !== "control" && getagd !== "test") { uit.ongetagd += 1; continue; }
       const cohort: "control" | "test" = getagd;
 
@@ -224,10 +297,6 @@ export async function orderCijfers(
       uit.perValuta[valuta] ||= leegPaar();
       tel(uit.perValuta[valuta][cohort]);
     }
-
-    if (!blok.pageInfo?.hasNextPage) break;
-    cursor = blok.pageInfo.endCursor;
-    if (p === MAX_PAGINAS - 1) uit.afgekapt = true;
   }
 
   cache.set(test.id, { at: Date.now(), data: uit });
