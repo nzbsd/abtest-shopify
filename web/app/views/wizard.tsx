@@ -1,6 +1,6 @@
 import { useFetcher } from "@remix-run/react";
 import type { VerzendMethode } from "~/lib/verzending.server";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Banner, Card, Delta, Modal, Segmented } from "~/components/ui";
 import { geld } from "~/lib/analytics";
 import { matchVariants, prijsVergelijking, type ProductInfo } from "~/lib/variants";
@@ -1165,6 +1165,29 @@ export function Wizard({
   const fetcher = useFetcher<{ ok: boolean; bericht: string }>();
   const bezig = fetcher.state !== "idle";
 
+  /**
+   * Wachten op het antwoord voordat de wizard dichtgaat.
+   *
+   * DIT SLOOT EERST METEEN. bewaar() deed fetcher.submit() en daarna onKlaar(),
+   * zonder ooit naar fetcher.data te kijken. Ging het opslaan mis, dan verdween
+   * het scherm en verscheen er niets in de lijst - het enige dat je zag was dat
+   * je test weg was. De server gaf de reden keurig terug; die kwam alleen nergens
+   * aan.
+   *
+   * Nu blijft de wizard staan bij een fout, met de reden erbij, zodat de
+   * ingevulde velden ook blijven staan. Alles opnieuw moeten typen omdat de
+   * server iets niet lustte is de tweede straf voor dezelfde fout.
+   */
+  const [verstuurd, setVerstuurd] = useState(false);
+  const [bewaarFout, setBewaarFout] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!verstuurd || fetcher.state !== "idle" || !fetcher.data) return;
+    setVerstuurd(false);
+    if (fetcher.data.ok) onKlaar();
+    else setBewaarFout(fetcher.data.bericht || "This test could not be saved.");
+  }, [verstuurd, fetcher.state, fetcher.data, onKlaar]);
+
   const [stap, setStap] = useState<Stap>(0);
   const [type, setType] = useState<TestType>("price");
 
@@ -1317,8 +1340,9 @@ export function Wizard({
       ));
     }
     if (type === "theme") { fd.set("themeId", thema!.id); fd.set("themeName", thema!.naam); }
+    setBewaarFout(null);
+    setVerstuurd(true);
     fetcher.submit(fd, { method: "post" });
-    onKlaar();
   };
 
   return (
@@ -2065,6 +2089,14 @@ export function Wizard({
           )}
 
         </div>
+
+        {/* Boven de knoppen en niet in een toast: de reden hoort te blijven
+            staan naast de velden waar hij over gaat. */}
+        {bewaarFout && (
+          <div className="wizard__fout">
+            <Banner tone="error">{bewaarFout}</Banner>
+          </div>
+        )}
 
         {/* ── navigatie ─────────────────────────────────────────────────── */}
         <div className="wizard__voet">

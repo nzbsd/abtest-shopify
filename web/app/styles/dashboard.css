@@ -3887,3 +3887,7 @@ thead th:last-child, tbody td:last-child, tfoot td:last-child { padding-right: 2
 @media (max-width: 560px) {
   .ckplaats .row { grid-template-columns: 1fr; }
 }
+
+/* De reden waarom opslaan mislukte, boven de knoppen. Binnen de paneelmarges
+   zodat hij bij de velden hoort en niet bij de navigatie eronder. */
+.wizard__fout { padding: 0 24px 4px; }
