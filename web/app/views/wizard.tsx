@@ -1183,6 +1183,14 @@ export function Wizard({
   const [ckTest, setCkTest] = useState<CkKant>(ckLeeg());
   const [ckControl, setCkControl] = useState<CkKant>(ckLeeg());
 
+  /* Krijgt de controlegroep ook iets te zien?
+     Standaard niet, want dat is bij dit testtype veruit het gewone geval:
+     "verandert het iets als hier iets staat". Hem toch altijd tonen betekende
+     een volledige editor - bij een FAQ zelfs een genummerd vraagblok met een
+     antwoordveld - voor een kant die je meestal leeg laat, en dat is precies
+     de helft van de rommel op dit scherm. */
+  const [ckControlAan, setCkControlAan] = useState(false);
+
   /* De verzendtest staat los. Hij heeft geen twee kanten om naast elkaar te
      zetten: de controlegroep krijgt de verzendopties zoals ze zijn, en dat is
      precies het punt. */
@@ -1258,7 +1266,7 @@ export function Wizard({
      uitvalt - een spatie, een regel zonder tekst - is geen verschil, en zou
      hier anders een test laten starten die per definitie niets meet. */
   const ckTestCfg = type === "checkout" ? ckNaarConfig(ckSoort, ckTest) : null;
-  const ckControlCfg = type === "checkout" ? ckNaarConfig(ckSoort, ckControl) : null;
+  const ckControlCfg = type === "checkout" && ckControlAan ? ckNaarConfig(ckSoort, ckControl) : null;
   const ckGelijk = Boolean(ckTestCfg && ckControlCfg &&
     JSON.stringify(ckTestCfg) === JSON.stringify(ckControlCfg));
 
@@ -1515,13 +1523,31 @@ export function Wizard({
                           <span className="duel__kop">
                             <span className="swatch swatch--control" /> Control
                           </span>
-                          <CkVelden soort={ckSoort} kant={ckControl} producten={producten}
-                                    isControl
-                                    zet={(v) => setCkControl({ ...ckControl, ...v })} />
+                          {ckControlAan ? (
+                            <>
+                              <CkVelden soort={ckSoort} kant={ckControl} producten={producten}
+                                        isControl
+                                        zet={(v) => setCkControl({ ...ckControl, ...v })} />
+                              <button type="button" className="btn btn--sm"
+                                      onClick={() => setCkControlAan(false)}>
+                                Show this group nothing
+                              </button>
+                            </>
+                          ) : (
+                            <div className="ckleeg">
+                              <span className="ckleeg__tekst">
+                                This group sees the checkout as it is today.
+                              </span>
+                              <button type="button" className="btn btn--sm"
+                                      onClick={() => setCkControlAan(true)}>
+                                Give this group something too
+                              </button>
+                            </div>
+                          )}
                           <span className="duel__sub">
-                            {ckNaarConfig(ckSoort, ckControl)
+                            {ckControlAan
                               ? "two versions against each other"
-                              : "empty is the usual choice: does adding anything help at all?"}
+                              : "the usual choice: does adding anything help at all?"}
                           </span>
                         </div>
 

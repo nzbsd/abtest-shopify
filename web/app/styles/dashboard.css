@@ -496,7 +496,31 @@ input[type="text"], input[type="number"], input[type="password"], input[type="se
   outline: none;
   transition: border-color .15s, background-color .15s, box-shadow .15s;
 }
-input::placeholder { color: var(--ink-3); }
+/* Een textarea stond hier nooit in en kreeg dus de browserstandaard: monospace,
+   een dunne grijze rand en geen radius. Naast een gestileerd invoerveld ziet
+   dat eruit alsof er iets stuk is - en in dit scherm staan ze naast elkaar. */
+textarea {
+  width: 100%;
+  padding: 9px 12px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink);
+  background: var(--wash);
+  border: 1px solid var(--line-loud);
+  border-radius: var(--r-md);
+  outline: none;
+  resize: vertical;
+  transition: border-color .15s, background-color .15s, box-shadow .15s;
+}
+textarea:hover { border-color: var(--ink-4); background: var(--surface); }
+textarea:focus {
+  background: var(--surface);
+  border-color: var(--iris);
+  box-shadow: 0 0 0 3px var(--iris-pale);
+}
+
+input::placeholder, textarea::placeholder { color: var(--ink-3); }
 input[type="text"]:hover, input[type="number"]:hover, input[type="search"]:hover, select:hover {
   border-color: var(--ink-4);
 }
@@ -3538,15 +3562,25 @@ thead th:last-child, tbody td:last-child, tfoot td:last-child { padding-right: 2
 .keuze__stip--warning  { background: #c88a12; }
 .keuze__stip--critical { background: #c0392f; }
 
-/* Twee tekstvelden naast elkaar in de duel-kolommen. Zonder dit lopen ze uit
-   hun kolom, want een textarea groeit standaard niet mee met zijn ouder. */
-.duel__kant input[type="text"],
-.duel__kant textarea {
-  width: 100%;
-  margin-top: 6px;
-}
+/* Velden in een duel-kolom moeten de kolom vullen.
 
-.duel__kant textarea { resize: vertical; min-height: 68px; }
+   .duel__kant staat op align-items: flex-start, want daar staan normaal een
+   naam en een knop in en die horen niet uitgerekt te worden. Een invulveld wel:
+   zonder dit krimpt het tot zijn eigen inhoud en staat er een veld van tweehonderd
+   pixels in een kolom van achthonderd, met de rest leeg ernaast. Vandaar
+   align-self per element in plaats van het voor de hele kolom omzetten. */
+.duel__kant > input,
+.duel__kant > textarea,
+.duel__kant > select,
+.duel__kant > .ckregels,
+.duel__kant > .ckleeg,
+.duel__kant > .duel__sub { align-self: stretch; }
+
+.duel__kant > input,
+.duel__kant > textarea,
+.duel__kant > select { margin-top: 6px; }
+
+.duel__kant textarea { min-height: 68px; }
 
 @media (prefers-reduced-motion: reduce) {
   .keuze { transition: none; }
@@ -3640,11 +3674,16 @@ thead th:last-child, tbody td:last-child, tfoot td:last-child { padding-right: 2
 
 .soortraster {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(172px, 1fr));
+  align-items: stretch;
   gap: 8px;
 }
 
 .soortkaart {
+  /* Zonder dit blaast de langste omschrijving zijn kolom op: een grid-item
+     staat standaard op min-width: auto en krimpt dus niet onder zijn inhoud,
+     dus de tekst loopt de kaart uit in plaats van af te breken. */
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -3667,7 +3706,12 @@ thead th:last-child, tbody td:last-child, tfoot td:last-child { padding-right: 2
 
 .soortkaart__naam { font-size: 13.5px; font-weight: 600; color: var(--ink); }
 .soortkaart.is-aan .soortkaart__naam { color: var(--iris); }
-.soortkaart__kort { font-size: 11.5px; color: var(--ink-3); line-height: 1.35; }
+.soortkaart__kort {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
 
 /* ── regels binnen een kassatest ─────────────────────────────────────────── */
 
@@ -3758,4 +3802,88 @@ thead th:last-child, tbody td:last-child, tfoot td:last-child { padding-right: 2
 @media (prefers-reduced-motion: reduce) {
   .soortkaart { transition: none; }
   .soortkaart:hover { transform: none; }
+}
+
+/* ── de nieuwe setupschermen rechttrekken ─────────────────────────────────
+
+   Dezelfde twee oorzaken op elke nieuwe stap, dus hier bij elkaar.
+
+   1. Een flex- of grid-item staat standaard op min-width/min-height: auto en
+      krimpt dus niet onder zijn inhoud. Een lange productnaam of een lange
+      omschrijving blaast daarmee zijn eigen kolom op in plaats van af te
+      breken. Vandaar min-width: 0 op alles wat in een raster staat.
+
+   2. Een kolom die op align-items: flex-start staat laat zijn kinderen tot
+      hun inhoud krimpen. Voor een naam en een knop klopt dat; voor een
+      invulveld, een fotovak of een knoppenrij niet - dan staat er een veld
+      van tweehonderd pixels in een kolom van achthonderd met de rest leeg
+      ernaast.                                                              */
+
+/* Wat in een duel-kolom hoort te vullen. */
+.duel__kant > .fotokiezer__groot,
+.duel__kant > .ckregels,
+.duel__kant > .ckleeg,
+.duel__kant > .keuzerij,
+.duel__kant > .row { align-self: stretch; }
+
+/* Een knop niet. Die hoort zo breed te zijn als zijn label, ook binnen een
+   kolom die verder alles uitrekt - een "Add question" over de volle breedte
+   leest als een balk en niet als een knop. */
+.ckregels > .btn,
+.ckleeg > .btn,
+.duel__kant > .btn { align-self: flex-start; }
+
+.ckregels { min-width: 0; }
+.ckregels > input,
+.ckregels > textarea,
+.ckregels > select { width: 100%; }
+
+/* Lege controlekant. Geen editor maar een mededeling: bij dit testtype is
+   "deze groep ziet niets" het gewone geval, en een volledig invulblok voor
+   iets dat je meestal leeg laat is precies de helft van de rommel. */
+.ckleeg {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 16px 14px;
+  border: 1px dashed var(--line-loud);
+  border-radius: var(--r-md);
+  background: var(--wash);
+}
+
+.ckleeg__tekst { font-size: 12.5px; color: var(--ink-2); }
+
+/* De verzendtest staat niet in een duel maar op volle breedte, met een blok
+   per bewerking. Ruimte ertussen, want hernoemen, verbergen en herordenen
+   zijn drie losse beslissingen en niet één lange lijst. */
+.ckverzend > .field { margin: 0; }
+.ckverzend .ckregel { margin-top: 6px; }
+.ckverzend .field__hint { margin-top: 8px; }
+
+/* Op een smal venster past de naam van een verzendmethode niet meer naast het
+   veld. Dan eronder, in plaats van een naam die tot drie tekens is ingekort. */
+@media (max-width: 720px) {
+  .ckregel { flex-wrap: wrap; }
+  .ckregel__naam { width: 100%; }
+  .ckregel select { width: 100%; }
+}
+
+/* Productraster: zelfde min-width-verhaal als de mechaniekkaarten. */
+.prodkaart { min-width: 0; }
+.prodkaart__naam { overflow-wrap: anywhere; }
+
+/* De fotokiezer staat in een duel-kolom en moet die vullen, anders staat er
+   een vierkant van tweehonderd pixels in een kolom van achthonderd. */
+.fotokiezer__strip { min-width: 0; }
+
+/* Twee velden naast elkaar binnen een uitklap. Zonder dit krijgen ze allebei
+   de volle breedte onder elkaar en leest "control slot" en "test slot" niet
+   meer als een paar. */
+.ckplaats .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ckplaats .field { margin: 0; }
+
+@media (max-width: 560px) {
+  .ckplaats .row { grid-template-columns: 1fr; }
 }
