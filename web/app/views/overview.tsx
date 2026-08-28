@@ -1,7 +1,8 @@
 import { Link } from "@remix-run/react";
 import { PageHead } from "~/components/shell";
+import { Matrix, Piek } from "~/components/charts";
 import {
-  Badge, Banner, Card, CardHead, Delta, IconCoins, IconFlask, IconUsers, Kpi, Leeg, Track,
+  Badge, Banner, Card, CardHead, Delta, IconCart, IconCoins, IconFlask, IconUsers, Kpi, Leeg, Track,
 } from "~/components/ui";
 import {
   combineer, geld, heel, looptDagen, ondertekend, procent, telOp, type StatRij,
@@ -56,6 +57,37 @@ export function OverviewView({
   const alleOrders = alleCijfers.reduce((a, o) => a + o.control.orders + o.test.orders, 0);
   const alleOmzet = alleCijfers.reduce((a, o) => a + o.control.revenueCents + o.test.revenueCents, 0);
 
+  /**
+   * Orders en omzet per dag, opgeteld over alle tests en beide armen.
+   *
+   * Voor de stippenmatrices op de kaarten hieronder. Bewust opgeteld en niet
+   * per arm: dit scherm gaat over hoeveel er in totaal gebeurt, niet over wie
+   * wint - daar is het uitslagscherm voor. Een matrix die stiekem één arm
+   * toont zou dat verschil onzichtbaar maken.
+   */
+  const perDag = (() => {
+    const bak: Record<string, { orders: number; cents: number }> = {};
+    for (const o of alleCijfers) {
+      for (const [dag, paar] of Object.entries(o.perDag ?? {})) {
+        bak[dag] ||= { orders: 0, cents: 0 };
+        bak[dag].orders += paar.control.orders + paar.test.orders;
+        bak[dag].cents += paar.control.revenueCents + paar.test.revenueCents;
+      }
+    }
+    /* Laatste veertien dagen. Meer kolommen maken de stippen zo smal dat de
+       vorm verdwijnt, en verder terug zegt het op een startscherm niets. */
+    return Object.entries(bak).sort(([a], [b]) => a.localeCompare(b)).slice(-14)
+      .map(([dag, v]) => ({ dag, ...v }));
+  })();
+
+  /** De dag met de meeste orders, als er iets te wijzen valt. */
+  const piek = perDag.length >= 3
+    ? perDag.reduce((a, b) => (b.orders > a.orders ? b : a))
+    : null;
+  const piekDag = piek && piek.orders > 0
+    ? new Date(piek.dag + "T00:00:00Z").toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" })
+    : null;
+
   return (
     <main className="page">
       <PageHead
@@ -65,16 +97,40 @@ export function OverviewView({
       />
 
       <div className="stack">
+        {/* Een eigen tint per kaart, en uitdrukkelijk niet control en test.
+            Die stonden hier eerst, en dat is een codeerfout: iris betekent op
+            elk ander scherm "controlegroep", terwijl dit totalen over beide
+            armen zijn. Violet, blauw, groenblauw en magenta zeggen alleen
+            "andere categorie" - precies wat je hier bedoelt. */}
         <div className="grid grid--4">
-          <Kpi icon={<IconFlask />} tone="control" label="Running tests"
+          <Kpi icon={<IconFlask />} tone="iris" label="Running tests"
                value={heel(lopend.length)}
                note={tests.length ? heel(tests.length) + " in total" : "none created yet"} />
-          <Kpi icon={<IconUsers />} tone="neutral" label="Visitors measured"
+          <Kpi icon={<IconUsers />} tone="blauw" label="Visitors measured"
                value={heel(alleBezoekers)} note="people who saw a tested page" />
-          <Kpi icon={<IconCoins />} tone="neutral" label="Orders"
-               value={heel(alleOrders)} note="placed after seeing one" />
-          <Kpi icon={<IconCoins />} tone="test" label="Revenue"
-               value={geld(alleOmzet / 100)} note="within the tests" />
+          <Kpi icon={<IconCart />} tone="teal" label="Orders"
+               value={heel(alleOrders)} note="placed after seeing one"
+               voet={perDag.length >= 3 && (
+                 <div className="kpi__matrix">
+                   <Matrix
+                     waarden={perDag.map((d) => d.orders)}
+                     kleur="var(--wid-teal)"
+                     label={"Orders per day over the last " + perDag.length + " days"}
+                   />
+                   {piekDag && <Piek label={"Peak: " + piekDag} />}
+                 </div>
+               )} />
+          <Kpi icon={<IconCoins />} tone="roze" label="Revenue"
+               value={geld(alleOmzet / 100)} note="within the tests"
+               voet={perDag.length >= 3 && (
+                 <div className="kpi__matrix">
+                   <Matrix
+                     waarden={perDag.map((d) => d.cents)}
+                     kleur="var(--wid-roze)"
+                     label={"Revenue per day over the last " + perDag.length + " days"}
+                   />
+                 </div>
+               )} />
         </div>
 
         {!tests.length && (

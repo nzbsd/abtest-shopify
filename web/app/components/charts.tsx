@@ -248,3 +248,61 @@ export function Sparkline({
     </svg>
   );
 }
+
+/**
+ * Stippenmatrix: een staafdiagram zonder assen.
+ *
+ * Kolommen van stipjes waarbij de hoogte de waarde is. Het leest als een
+ * staafdiagram maar houdt zijn vorm op tachtig pixel breed, en het is
+ * onmiskenbaar een schatting - je telt geen stipjes af, je ziet een patroon.
+ * Dat is precies goed voor een kengetalkaart, waar het exacte getal er al
+ * boven staat.
+ *
+ * Waarom stippen en geen staafjes: een staafje suggereert een continue schaal
+ * die je kunt aflezen, en dan wil je er assen bij. Stippen zijn zichtbaar
+ * discreet en vragen daar niet om.
+ */
+export function Matrix({
+  waarden, kleur, stappen = 5, label,
+}: {
+  waarden: number[];
+  kleur: string;
+  /** Hoeveel stipjes een volle kolom hoog is. */
+  stappen?: number;
+  label: string;
+}) {
+  if (!waarden.length) return null;
+  const max = Math.max(...waarden, 1);
+
+  return (
+    <div className="matrix" role="img" aria-label={label}>
+      {waarden.map((w, i) => {
+        /* Minstens één stip zodra er iets is. Een lege kolom naast een dag
+           met verkeer leest als "geen data", terwijl het "weinig" betekent. */
+        const n = w > 0 ? Math.max(1, Math.round((w / max) * stappen)) : 0;
+        return (
+          <span key={i} className="matrix__kolom">
+            {Array.from({ length: stappen }, (_, r) => (
+              <span
+                key={r}
+                className={"matrix__stip" + (r >= stappen - n ? " is-aan" : "")}
+                style={{ background: r >= stappen - n ? kleur : undefined }}
+              />
+            ))}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Het label bij een piek.
+ *
+ * Eén badge bij het hoogste punt in plaats van een waarde bij elk punt. Dat is
+ * de enige aflezing die op een overzichtskaart iets toevoegt: waar zit de piek?
+ * De rest van de reeks is vorm, en vorm heeft geen cijfers nodig.
+ */
+export function Piek({ label }: { label: string }) {
+  return <span className="piek">{label}</span>;
+}

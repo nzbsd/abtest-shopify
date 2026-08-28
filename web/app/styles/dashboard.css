@@ -47,6 +47,22 @@
   --test:         #d2531f;
   --test-pale:    #fdeade;
 
+  /* Widget-tinten.
+     Voor kaarten die géén vergelijking tonen: totalen, aantallen, bedragen.
+     Daar zeggen control en test niets, en ze gebruiken is ronduit misleidend -
+     iris betekent op elk ander scherm "controlegroep".
+
+     Bewust geen groen of rood: die zijn status, en een groene kaart naast een
+     groene delta laat je zoeken naar een betekenis die er niet is. Violet,
+     blauw, groenblauw en magenta zijn onderling goed te onderscheiden en
+     lezen geen van alle als een oordeel. */
+  --wid-blauw:      #2f6fd8;
+  --wid-blauw-pale: #e7eefb;
+  --wid-teal:       #0e8f96;
+  --wid-teal-pale:  #e2f3f4;
+  --wid-roze:       #c2358a;
+  --wid-roze-pale:  #fbe6f1;
+
   /* Status — gereserveerd, nooit een seriekleur */
   --up:      #12805a;
   --up-bg:   #e6f5ee;
@@ -217,8 +233,12 @@ button { cursor: pointer; font: inherit; }
   flex-wrap: wrap;
 }
 
-.page__title { font-size: 21px; font-weight: 700; letter-spacing: -.03em; }
-.page__sub { margin-top: 3px; font-size: 12.5px; color: var(--ink-3); }
+/* Eenendertig pixel titel boven kaarten met cijfers van veertig leest als een
+   tussenkopje: de pagina heeft dan geen kop meer, alleen inhoud. In de
+   dashboards die er duur uitzien is de paginatitel het grootste woord op het
+   scherm en staat alles eronder een duidelijke trap lager. */
+.page__title { font-size: 34px; font-weight: 700; letter-spacing: -.035em; line-height: 1.1; }
+.page__sub { margin-top: 6px; font-size: 13px; color: var(--ink-3); }
 
 /* Onder 1000px verdwijnt de rail en gaat navigatie naar een balk onderin,
    in plaats van achter een hamburger waar niemand hem zoekt. */
@@ -362,6 +382,10 @@ button { cursor: pointer; font: inherit; }
 .chip--control { background: var(--control-pale); color: var(--control); }
 .chip--test    { background: var(--test-pale);    color: var(--test); }
 .chip--neutral { background: var(--wash);         color: var(--ink-2); }
+.chip--iris    { background: var(--iris-pale);     color: var(--iris); }
+.chip--blauw   { background: var(--wid-blauw-pale); color: var(--wid-blauw); }
+.chip--teal    { background: var(--wid-teal-pale);  color: var(--wid-teal); }
+.chip--roze    { background: var(--wid-roze-pale);  color: var(--wid-roze); }
 
 /* Het label een stap stiller en een stap kleiner: het is een bijschrift bij het
    getal, geen kop erboven. Hoe rustiger dit is, hoe harder het cijfer landt. */
@@ -2559,3 +2583,63 @@ tbody tr:hover { background: var(--wash); }
 @media (prefers-reduced-motion: reduce) {
   .uitslag__cijfer { animation: none; }
 }
+
+/* ── stippenmatrix ────────────────────────────────────────────────────
+   Een staafdiagram zonder assen. Stippen en geen staafjes, want een staafje
+   suggereert een continue schaal die je kunt aflezen - en dan wil je er
+   assen bij. Stippen zijn zichtbaar discreet en vragen daar niet om. */
+.matrix { display: flex; align-items: flex-end; gap: 4px; }
+.matrix__kolom { display: grid; gap: 3px; }
+.matrix__stip {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  /* De uitstaande stippen blijven zichtbaar als een heel lichte raster, zodat
+     je de hoogte van een kolom afleest tegen een achtergrond in plaats van
+     tegen niets. Zonder dat zweven de aan-stippen los in de kaart. */
+  background: var(--line);
+}
+.matrix__stip.is-aan { animation: stipAan .3s var(--ease-out) both; }
+@keyframes stipAan { from { transform: scale(.4); opacity: 0; } }
+
+/* Kolom voor kolom, van links naar rechts, zodat de reeks zich opbouwt in de
+   richting waarin je hem leest. Kort gehouden: veertien kolommen maal twintig
+   milliseconde is nog geen drie tienden. */
+.matrix__kolom:nth-child(1)  .is-aan { animation-delay: 0ms; }
+.matrix__kolom:nth-child(2)  .is-aan { animation-delay: 20ms; }
+.matrix__kolom:nth-child(3)  .is-aan { animation-delay: 40ms; }
+.matrix__kolom:nth-child(4)  .is-aan { animation-delay: 60ms; }
+.matrix__kolom:nth-child(5)  .is-aan { animation-delay: 80ms; }
+.matrix__kolom:nth-child(6)  .is-aan { animation-delay: 100ms; }
+.matrix__kolom:nth-child(7)  .is-aan { animation-delay: 120ms; }
+.matrix__kolom:nth-child(8)  .is-aan { animation-delay: 140ms; }
+.matrix__kolom:nth-child(9)  .is-aan { animation-delay: 160ms; }
+.matrix__kolom:nth-child(10) .is-aan { animation-delay: 180ms; }
+.matrix__kolom:nth-child(n+11) .is-aan { animation-delay: 200ms; }
+
+.piek {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--wash);
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .matrix__stip.is-aan { animation: none; }
+}
+
+/* De matrix in een kengetalkaart: onderaan, met de piekbadge ernaast.
+   Anders dan de sparkline niet full-bleed - een stippenraster tot tegen de
+   rand leest als een patroon dat doorloopt buiten de kaart, terwijl het een
+   afgebakende reeks dagen is. */
+.kpi__matrix {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+
+}
+.kpi__voet { margin-top: 18px; }

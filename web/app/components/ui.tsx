@@ -45,20 +45,36 @@ export function CardHead({ title, sub, action }: { title: string; sub?: string; 
 /* ── kpi ────────────────────────────────────────────────────────────────── */
 
 export function Kpi({
-  icon, tone = "neutral", label, value, note, delta, spark,
+  icon, tone = "neutral", label, value, note, delta, spark, voet,
 }: {
   icon: ReactNode;
-  tone?: "control" | "test" | "neutral";
+  /**
+   * control en test alleen waar de kaart écht een arm van een test toont.
+   * Op een scherm met totalen zeggen die kleuren niets en zijn ze misleidend,
+   * want iris betekent overal elders "controlegroep" - gebruik daar iris,
+   * blauw, teal of roze.
+   */
+  tone?: "control" | "test" | "neutral" | "iris" | "blauw" | "teal" | "roze";
   label: string;
   value: string;
   note?: ReactNode;
   delta?: ReactNode;
   /**
-   * Een sparkline onderaan de kaart. Optioneel, want lang niet elk kengetal
-   * heeft een verloop dat iets zegt - een totaal aantal bezoekers stijgt per
-   * definitie, en die lijn tekenen voegt niets toe.
+   * Een sparkline tegen de onderrand, buiten de padding. Optioneel, want lang
+   * niet elk kengetal heeft een verloop dat iets zegt - een totaal aantal
+   * bezoekers stijgt per definitie, en die lijn tekenen voegt niets toe.
    */
   spark?: ReactNode;
+  /**
+   * Inhoud onderaan de kaart maar binnen de padding: een stippenmatrix, een
+   * piekbadge, een vergelijking met de vorige periode.
+   *
+   * Apart van spark omdat de twee wezenlijk anders liggen. Een sparkline hoort
+   * de randen te raken - hij is achtergrond bij het cijfer. Een matrix is een
+   * afgebakende reeks dagen en hoort binnen de marges te blijven, anders leest
+   * hij als een patroon dat buiten de kaart doorloopt.
+   */
+  voet?: ReactNode;
 }) {
   return (
     <article className={"card kpi" + (spark ? " kpi--spark" : "")}>
@@ -69,6 +85,7 @@ export function Kpi({
       <p className="kpi__label">{label}</p>
       <p className="kpi__value num">{value}</p>
       {note && <p className="kpi__note">{note}</p>}
+      {voet && <div className="kpi__voet">{voet}</div>}
       {/* Onderaan en over de volle breedte: de sparkline is achtergrond bij het
           cijfer, geen tweede kolom die erom concurreert. */}
       {spark && <div className="kpi__spark">{spark}</div>}
