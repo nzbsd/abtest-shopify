@@ -3,7 +3,7 @@ import { useSearchParams } from "@remix-run/react";
 import { PageHead } from "~/components/shell";
 import { Lijn, Sparkline, Trechter } from "~/components/charts";
 import {
-  Badge, Banner, Card, CardHead, Delta, IconCart, IconCheck, IconCoins,
+  Aandeel, Badge, Banner, Card, CardHead, Delta, IconCart, IconCheck, IconCoins,
   Kpi, Leeg, Legend, Segmented, Tabs, Track, Verdeling, Vergelijk,
 } from "~/components/ui";
 import {
@@ -751,9 +751,9 @@ export function AnalyticsView({
                       <tr key={naam}>
                         <td>{naam}</td>
                         <td>{heel(oc2)}</td>
-                        <td>{oc.orders ? procent((oc2 / oc.orders) * 100, 0) : "—"}</td>
+                        <td><Aandeel deel={oc.orders ? oc2 / oc.orders : null} kleur="var(--control)" /></td>
                         <td>{heel(ot2)}</td>
-                        <td>{ot.orders ? procent((ot2 / ot.orders) * 100, 0) : "—"}</td>
+                        <td><Aandeel deel={ot.orders ? ot2 / ot.orders : null} kleur="var(--test)" /></td>
                         <td>{geld(Number(rt?.revenueCents || 0) / 100)}</td>
                       </tr>
                     );

@@ -256,8 +256,25 @@ export function Legend() {
   );
 }
 
-export function Leeg({ children }: { children: ReactNode }) {
-  return <div className="empty">{children}</div>;
+/**
+ * De lege toestand.
+ *
+ * Grijze tekst in het midden van een kaart leest als "er ging iets mis" -
+ * hetzelfde beeld dat je krijgt als een grafiek niet laadt. Een teken erboven
+ * en een omlijning eromheen maken er een toestand van in plaats van een gat:
+ * dit hoort hier te zijn, er is alleen nog niets te tonen.
+ *
+ * De omlijning is gestippeld en niet doorgetrokken, want dat is de gangbare
+ * taal voor "hier komt iets" - een doorgetrokken kader zou een tweede kaart
+ * binnen de kaart suggereren.
+ */
+export function Leeg({ children, icoon }: { children: ReactNode; icoon?: ReactNode }) {
+  return (
+    <div className="empty">
+      <span className="empty__mark" aria-hidden>{icoon ?? <IconChart />}</span>
+      <div className="empty__tekst">{children}</div>
+    </div>
+  );
 }
 
 /**
@@ -366,5 +383,27 @@ export function Verdeling({
         </div>
       ))}
     </div>
+  );
+}
+
+/**
+ * Een aandeel in een tabelcel: het getal met een balkje eronder.
+ *
+ * "34%" en "9%" onder elkaar lezen als twee getallen die je moet vergelijken;
+ * twee balkjes lezen als een verhouding die je ziet. In een tabel met zes
+ * kolommen is dat het verschil tussen scannen en rekenen.
+ *
+ * Bewust smal: dit hoort de cel te ondersteunen, niet over te nemen. Wie het
+ * exacte getal wil, leest het - het staat er nog steeds.
+ */
+export function Aandeel({ deel, kleur }: { deel: number | null; kleur: string }) {
+  if (deel === null || !Number.isFinite(deel)) return <span className="muted">—</span>;
+  return (
+    <span className="aandeel">
+      <span className="aandeel__getal num">{Math.round(deel * 100)}%</span>
+      <span className="aandeel__balk">
+        <span style={{ width: Math.min(100, deel * 100) + "%", background: kleur }} />
+      </span>
+    </span>
   );
 }

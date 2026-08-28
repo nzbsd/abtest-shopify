@@ -663,12 +663,31 @@ tbody td:first-child { text-align: left; font-weight: 600; }
 .empty {
   display: grid;
   place-items: center;
-  min-height: 150px;
+  gap: 14px;
+  min-height: 190px;
+  margin: 4px 0;
   color: var(--ink-3);
-  font-size: 13px;
+  font-size: 13.5px;
+  line-height: 1.55;
   text-align: center;
-  padding: 24px;
+  padding: 32px 24px;
+  border: 1px dashed var(--line-loud);
+  border-radius: var(--r-md);
+  background: linear-gradient(var(--wash), var(--wash)) padding-box;
 }
+
+/* Het teken erboven. Gedempt en klein: het is een aanduiding dat hier iets
+   hoort, geen illustratie die om aandacht vraagt. */
+.empty__mark {
+  display: grid;
+  place-items: center;
+  width: 40px; height: 40px;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--line);
+  color: var(--ink-4);
+}
+.empty__tekst { max-width: 46ch; }
 
 /* Trechter */
 .funnel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
@@ -3018,3 +3037,27 @@ tbody tr:hover { background: var(--wash); }
 @media (prefers-reduced-motion: reduce) {
   .drempel__onder, .drempel__ruit { animation: none; }
 }
+
+/* ── aandeel in een tabelcel ──────────────────────────────────────────
+   Het getal met een balkje eronder. Twee percentages onder elkaar lees je
+   als getallen die je moet vergelijken; twee balkjes lees je als een
+   verhouding. In een tabel met zes kolommen is dat het verschil tussen
+   scannen en rekenen.
+
+   Rechts uitgelijnd omdat de hele kolom dat is, en smal genoeg om de cel te
+   ondersteunen in plaats van over te nemen. */
+.aandeel { display: inline-grid; gap: 4px; justify-items: end; min-width: 54px; }
+.aandeel__getal { line-height: 1.2; }
+.aandeel__balk {
+  display: block;
+  width: 54px; height: 4px;
+  border-radius: 999px;
+  background: var(--wash);
+  overflow: hidden;
+}
+.aandeel__balk > span {
+  display: block; height: 100%; border-radius: inherit;
+  transform-origin: left;
+  animation: groeiBalk .45s var(--ease-out) both;
+}
+@media (prefers-reduced-motion: reduce) { .aandeel__balk > span { animation: none; } }
