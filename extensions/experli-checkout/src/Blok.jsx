@@ -160,10 +160,18 @@ function Vertrouwen({ v }) {
    koppen te zijn. Het label erboven mag klein en grijs: het zegt alleen wat
    voor blok dit is, en dat zie je toch al.
 
-   s-heading en niet s-text met een maat erop: s-text kent geen maat, alleen
-   semantiek, en de maat volgt daaruit. Dat is geen beperking maar het systeem -
-   een kop die groter is omdat het een kop is blijft ook kloppen als de winkel
-   zijn kassa-typografie verandert.
+   VET EN NIET GROTER, EN DAT IS EEN AFWEGING GEWEEST.
+   s-heading maakt de vraag wel groter, maar is een blok-element: het vult de
+   regel, en de chevron die s-summary zelf tekent zakt dan naar de regel
+   eronder. Dat leest als twee dingen in plaats van een rij die je aanklikt.
+
+   De enige manier om groter en de chevron ernaast te krijgen is de rij zelf
+   bouwen met s-clickable. Dat kost toetsenbordbediening - de documentatie zegt
+   het met zoveel woorden - en dat is in een kassa geen ruil die je wilt maken
+   voor een paar pixels lettergrootte.
+
+   Dus s-text type="strong": vet, inline, chevron ernaast, en alles blijft
+   bedienbaar zonder muis.
 
    Kader en strepen zijn ook alles wat er te sturen valt. Een kassa-extensie mag
    geen eigen CSS meesturen - dat is een bewuste grens van Shopify, zodat geen
@@ -198,7 +206,7 @@ function Faq({ v }) {
           <s-box padding="base">
             <s-details>
               <s-summary>
-                <s-heading>{q.v}</s-heading>
+                <s-text type="strong">{q.v}</s-text>
               </s-summary>
               <s-stack direction="block" gap="small-300">
                 <s-text color="subdued">{q.a}</s-text>
