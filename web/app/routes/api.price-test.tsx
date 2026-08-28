@@ -13,7 +13,7 @@ import supabase from "~/db.server";
  *   price     -> send the test group to another product's URL
  *   template  -> add ?view=<suffix> on the same URL
  *   url       -> send from one path to another
- *   checkout  -> the checkout extension shows the test group a block
+ *   checkout  -> the checkout extension renders a block for each group
  */
 
 function gidToNum(gid: unknown): number | null {
@@ -44,7 +44,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       .select(
         "id, test_type, control_product_id, test_product_id, test_product_handle, " +
         "template_suffix, image_positie, control_url, test_url, test_theme_id, split_pct, variant_map, " +
-        "checkout_kop, checkout_tekst, checkout_toon, checkout_control_kop, checkout_control_tekst, " +
+        "checkout_variant, checkout_config, " +
         "target_devices, target_countries",
       )
       .eq("shop", shop)
@@ -69,24 +69,24 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         }
 
         if (type === "checkout") {
-          /* Zonder tekst voor de testgroep is er niets te tonen, en dan zou de
-             kassa-extensie beide groepen hetzelfde laten zien: een test die
-             dagen loopt en per definitie nul verschil meet. */
-          if (!row.checkout_tekst) return null;
-          return {
-            id: row.id, type, splitPct, doelgroep,
-            checkout: {
-              test: { kop: row.checkout_kop || "", tekst: String(row.checkout_tekst),
-                      toon: row.checkout_toon || "info" },
-              /* Leeg blijft leeg. De extensie leest dit als "toon niets" en
-                 niet als "toon een leeg blok" - een lege banner in de kassa is
-                 een storing, geen controlegroep. */
-              control: row.checkout_control_tekst
-                ? { kop: row.checkout_control_kop || "", tekst: String(row.checkout_control_tekst),
-                    toon: row.checkout_toon || "info" }
-                : null,
-            },
-          };
+          const soort = String(row.checkout_variant || "");
+          const cfg = row.checkout_config || {};
+
+          /* Een verzendtest komt hier niet uit. Die wordt niet door de
+             kassa-extensie uitgevoerd maar door een Shopify Function, en die
+             leest haar instellingen uit een metafield op de delivery
+             customization - niet uit dit eindpunt. Hem toch meesturen zou de
+             extensie een test laten zien waar ze niets mee kan, en dan meldt
+             ze een view voor een blok dat ze niet tekent. */
+          if (soort === "verzending") return null;
+
+          /* Zonder inhoud voor de testgroep is er niets te tonen, en zouden
+             beide groepen hetzelfde zien: een test die dagen loopt en per
+             definitie nul verschil meet. */
+          if (!cfg.test) return null;
+
+          return { id: row.id, type, splitPct, doelgroep, soort,
+                   test: cfg.test, control: cfg.control ?? null };
         }
 
         if (type === "theme") {

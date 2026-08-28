@@ -87,9 +87,14 @@ const PRODUCT_VELDEN = `
   onlineStoreUrl
   onlineStorePreviewUrl
   featuredImage { url }
-  /* De galerij, voor de afbeeldingstest: je moet kunnen zien welke foto je
-     kiest, en hoeveel er zijn. Twintig is ruim - meer foto's op een
-     productpagina komt zelden voor en zou de kiezer onleesbaar maken. */
+  # De galerij, voor de afbeeldingstest: je moet kunnen zien welke foto je
+  # kiest, en hoeveel er zijn. Twintig is ruim - meer foto's op een
+  # productpagina komt zelden voor en zou de kiezer onleesbaar maken.
+  #
+  # En met een hekje, niet met /* */. GraphQL kent dat tweede niet: de hele
+  # query werd er ongeldig van, elke productquery gaf een fout terug, en het
+  # scherm meldde doodleuk "No products found" - want een lege lijst en een
+  # kapotte query zien er van buiten precies hetzelfde uit.
   media(first: 20) {
     nodes {
       ... on MediaImage { id image { url altText } }

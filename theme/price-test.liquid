@@ -615,6 +615,24 @@
   function doeCheckout(t) {
     var cohort = bucket(visitor + ":" + t.id) < t.splitPct ? "test" : "control";
     noteerCohort(t.id, cohort);
+
+    /* EN NOG EEN KEER ONDER EEN VASTE SLEUTEL.
+     *
+     * Een verzendtest wordt niet door de kassa-extensie uitgevoerd maar door
+     * een Shopify Function, en die kan geen sleutel samenstellen: haar
+     * invoerquery staat in een bestand en wordt bij het bouwen vastgelegd, dus
+     * "_pt_" + t.id is er niet op te vragen. Vandaar een tweede paar met een
+     * naam die nooit verandert.
+     *
+     * Het id gaat mee zodat de Function kan controleren dat dit cohort van
+     * háár test komt. Zonder die controle zou een blijven hangen kenmerk van
+     * een eerdere, gestopte kassatest de verzendopties van een volgende test
+     * gaan sturen - en dat is van buiten niet te zien.
+     *
+     * Eén tegelijk dus. Twee verzendtests naast elkaar zouden om dezelfde
+     * verzendopties vechten, en dan meet geen van beide iets. */
+    teTaggen._pt_ck = cohort;
+    teTaggen._pt_ck_test = String(t.id);
     return false;
   }
 
