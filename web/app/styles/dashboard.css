@@ -278,7 +278,9 @@ button { cursor: pointer; font: inherit; }
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px 12px;
-  padding: 14px 18px 10px;
+  /* Mee met de kpi-kaarten: die gingen van 15/16 naar 22/24, en een kaartkop
+     die daarnaast op 14/18 blijft staan laat de pagina ongelijk ademen. */
+  padding: 20px 24px 12px;
 }
 .card__head > :first-child { flex: 1 1 190px; min-width: 0; }
 .card__head__actie {
@@ -298,13 +300,18 @@ button { cursor: pointer; font: inherit; }
 .segmented button, .minitabs button { flex: none; white-space: nowrap; }
 .card__title { font-size: 14.5px; font-weight: 700; letter-spacing: -.02em; }
 .card__sub { margin-top: 2px; font-size: 12px; color: var(--ink-3); }
-.card__body { padding: 0 18px 18px; }
+.card__body { padding: 0 24px 22px; }
 .card__body--flush { padding: 0; }
 
-.grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+/* Ook de ruimte tússen de kaarten mee omhoog. Grotere kaarten met dezelfde
+   veertien pixel ertussen gaan aan elkaar plakken, en dan is de winst van de
+   binnenruimte weer weg. */
+.grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
 .grid--2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
 .grid--3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-.grid--4 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+/* Van 200 naar 230: op veertig pixel heeft een bedrag als $1.402,74 meer
+   breedte nodig voordat het gaat breken. */
+.grid--4 { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
 /* Lijstkaarten hebben meer nodig dan een kengetalkaartje: een naam, een
    verschil en een getal op één regel. Op --4 werden het er drie van 215 pixels
    naast elkaar, en dan is de naam - het enige waar de rij over gaat - "fac…".
@@ -333,11 +340,17 @@ button { cursor: pointer; font: inherit; }
 
    Dit zit om elke pagina heen, dus deze regel scheelt hetzelfde probleem op
    elk scherm dat er ooit bij komt. */
-.stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
 
 /* ══════════════════════════════════════════════════════ kpi-kaart */
 
-.kpi { padding: 15px 16px; }
+/* De opbouw klopte al - icoon en delta bovenin, dan label, dan getal - maar de
+   schaal was die van een tabel, niet die van een dashboard. Een cijfer van
+   vijfentwintig pixel in een kaart met vijftien pixel padding leest als data;
+   hetzelfde cijfer op veertig in een kaart met vierentwintig leest als een
+   antwoord. Dat is het hele verschil tussen deze kaarten en de dashboards die
+   er duur uitzien: geen extra kleur, geen extra element, alleen lucht en maat. */
+.kpi { padding: 22px 24px; }
 .kpi__top { display: flex; align-items: flex-start; justify-content: space-between; }
 
 .chip {
@@ -350,15 +363,27 @@ button { cursor: pointer; font: inherit; }
 .chip--test    { background: var(--test-pale);    color: var(--test); }
 .chip--neutral { background: var(--wash);         color: var(--ink-2); }
 
-.kpi__label { margin-top: 13px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
-.kpi__value {
-  margin-top: 3px;
-  font-size: 25px;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -.03em;
+/* Het label een stap stiller en een stap kleiner: het is een bijschrift bij het
+   getal, geen kop erboven. Hoe rustiger dit is, hoe harder het cijfer landt. */
+.kpi__label {
+  margin-top: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-3);
+  letter-spacing: .005em;
 }
-.kpi__note { margin-top: 8px; font-size: 11.5px; color: var(--ink-3); }
+.kpi__value {
+  margin-top: 5px;
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.02;
+  /* Strakker naarmate het groter wordt - op veertig pixel valt de standaard
+     spatiëring uit elkaar, vooral tussen cijfers en een valutateken. */
+  letter-spacing: -.04em;
+  /* Lange bedragen mogen krimpen in plaats van uit de kaart lopen. */
+  overflow-wrap: anywhere;
+}
+.kpi__note { margin-top: 12px; font-size: 11.5px; color: var(--ink-3); }
 
 /* ══════════════════════════════════════════════════════════ delta */
 
@@ -865,8 +890,11 @@ code {
 
 /* De uitslag bovenaan, compact genoeg om naast de cijfers te passen. */
 .verdict { display: flex; align-items: center; gap: 26px; flex-wrap: wrap; }
-.verdict__cijfer { font-size: 30px; font-weight: 700; letter-spacing: -.035em; line-height: 1; }
-.verdict__naast { font-size: 16px; font-weight: 600; color: var(--ink-2); }
+/* De uitslag is het enige getal waar iemand voor komt. Die mag het grootste
+   ding op het scherm zijn; op dertig stond hij even zwaar als de kaarten
+   eronder en moest je zoeken waar je moest kijken. */
+.verdict__cijfer { font-size: 46px; font-weight: 700; letter-spacing: -.045em; line-height: 1; }
+.verdict__naast { font-size: 16px; font-weight: 600; color: var(--ink-3); }
 .verdict__tekst { flex: 1; min-width: 260px; font-size: 13px; color: var(--ink-2); }
 
 .stack--strak { gap: 12px; }
@@ -2323,3 +2351,22 @@ tbody tr:hover { background: var(--wash); }
    het teken bij niets meer. */
 .balkrij__icoon + .balkrij__naam,
 .balkrij__vlag + .balkrij__naam { margin-left: -4px; }
+
+/* ── grote cijfers, kleine schermen ───────────────────────────────────
+   De kaarten kregen meer lucht en de getallen meer maat, maar deze app
+   draait ingebed in de Shopify-admin en die kolom kan smal zijn. Veertig
+   pixel in tweehonderddertig breedte laat een bedrag breken, en een kaart
+   met vierentwintig padding houdt daar te weinig van over.
+
+   Onderaan het bestand zodat deze regels sowieso later komen dan de
+   basiswaarden - anders beslist de volgorde en niet het schermbereik. */
+@media (max-width: 700px) {
+  .kpi { padding: 18px 18px; }
+  .kpi__label { margin-top: 16px; }
+  .kpi__value { font-size: 32px; }
+  .kpi__note { margin-top: 10px; }
+  .verdict__cijfer { font-size: 36px; }
+  .card__head { padding: 16px 18px 10px; }
+  .card__body { padding: 0 18px 18px; }
+  .grid, .stack { gap: 14px; }
+}
