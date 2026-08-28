@@ -135,15 +135,34 @@ export function Trechter({
   const max = Math.max(...stappen.flatMap((s) => [s.control, s.test]), 1);
   const heel = (v: number) => Math.round(v).toLocaleString("en-US");
 
+  /**
+   * Welke stap staat in focus?
+   *
+   * Zonder focus zijn vijf even felle balken vijf dingen die tegelijk om
+   * aandacht vragen, en dan lees je een trechter als een tabel. Met focus lees
+   * je hem als een verhaal: dit is de stap waar het misgaat, en de rest is
+   * context.
+   *
+   * De stappen die niet in focus staan worden gearceerd in plaats van grijs.
+   * Dat is het verschil dat telt: grijs gooit de kleurcodering weg, waardoor je
+   * niet meer ziet welke balk control is en welke test. Arceren neemt alleen de
+   * nadruk weg en laat de kleur staan.
+   */
+  const [focus, setFocus] = useState<number | null>(null);
+
   return (
-    <div className="funnel">
+    <div className="funnel" onMouseLeave={() => setFocus(null)}>
       {stappen.map((s, i) => {
         const vorige = i > 0 ? stappen[i - 1] : null;
         const behoudC = vorige && vorige.control ? (s.control / vorige.control) * 100 : null;
         const behoudT = vorige && vorige.test ? (s.test / vorige.test) * 100 : null;
 
         return (
-          <div className="funnel__row" key={s.label}>
+          <div
+            className={"funnel__row" + (focus !== null && focus !== i ? " funnel__row--dof" : "")}
+            key={s.label}
+            onMouseEnter={() => setFocus(i)}
+          >
             <span className="funnel__label">{s.label}</span>
             <div className="funnel__bars">
               {([["control", s.control], ["test", s.test]] as const).map(([k, v]) => {

@@ -4,7 +4,7 @@ import { PageHead } from "~/components/shell";
 import { Lijn, Sparkline, Trechter } from "~/components/charts";
 import {
   Badge, Banner, Card, CardHead, Delta, IconCart, IconCheck, IconCoins,
-  Kpi, Leeg, Legend, Segmented, Tabs, Track, Vergelijk,
+  Kpi, Leeg, Legend, Segmented, Tabs, Track, Verdeling, Vergelijk,
 } from "~/components/ui";
 import {
   bedragVerschil, beperkTotDagen, combineer, dagReeks, geld, heel, korteDatum, looptDagen, ondertekend, procent,
@@ -814,6 +814,33 @@ export function AnalyticsView({
                       segments at {betrouwbaarheid}% and roughly one in five tests throws up a false
                       alarm somewhere.
                     </Banner>
+                  </div>
+                )}
+                {/* Waar zit het verkeer eigenlijk?
+                    De kop van deze kaart zegt dat een variant die overall wint
+                    maar verliest waar het meeste verkeer zit geen winnaar is -
+                    en juist dát was in de tabel eronder niet te zien. Zes rijen
+                    met percentages laten je optellen; zes balken laten je kijken.
+                    Een segment dat verliest op negen procent van je verkeer is
+                    iets heel anders dan hetzelfde verlies op zestig. */}
+                {segmenten.length > 1 && (
+                  <div style={{ padding: "0 24px 20px" }}>
+                    <Verdeling
+                      rijen={segmenten.map((s, i) => {
+                        const n = (s.controle.visitors || s.controle.orders || 0) +
+                                  (s.test.visitors || s.test.orders || 0);
+                        return {
+                          naam: s.naam,
+                          waarde: n,
+                          toon: heel(n),
+                          /* Vier tinten die rouleren. Bewust niet control en
+                             test: deze balken tellen beide armen op, en die
+                             kleuren zouden hier "arm" suggereren. */
+                          kleur: ["var(--wid-blauw)", "var(--wid-teal)",
+                                  "var(--wid-roze)", "var(--iris)"][i % 4],
+                        };
+                      })}
+                    />
                   </div>
                 )}
                 <div className="table-scroll">

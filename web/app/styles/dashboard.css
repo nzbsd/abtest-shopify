@@ -2643,3 +2643,85 @@ tbody tr:hover { background: var(--wash); }
 
 }
 .kpi__voet { margin-top: 18px; }
+
+/* ── verdeling ────────────────────────────────────────────────────────
+   Rijen met een balk eronder, in plaats van een taartdiagram. De labels
+   staan naast de waarden en hebben geen legenda nodig; bij een taart moet
+   je kleur en tekst apart matchen en dat lukt boven de drie punten niemand. */
+.verdeling { display: grid; gap: 2px; }
+
+.verdeling__rij {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 14px;
+  align-items: baseline;
+  padding: 11px 0;
+}
+.verdeling__rij + .verdeling__rij { border-top: 1px solid var(--line); }
+
+.verdeling__naam   { font-size: 13.5px; font-weight: 600; min-width: 0; }
+.verdeling__waarde { font-size: 13.5px; font-weight: 700; color: var(--ink-2); }
+
+.verdeling__balk {
+  grid-column: 1 / -1;
+  display: block;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--wash);
+  overflow: hidden;
+}
+.verdeling__balk > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  /* Vanaf links groeien in plaats van verschijnen: een balk die er al staat is
+     een plaatje, een die groeit is een meting. transform en niet width, want
+     dat scheelt een layoutberekening per frame. */
+  transform-origin: left;
+  animation: groeiBalk .5s var(--ease-out) both;
+}
+@keyframes groeiBalk { from { transform: scaleX(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .verdeling__balk > span { animation: none; }
+}
+
+/* ── trechter: focus door arcering ────────────────────────────────────
+   Wijs je een stap aan, dan worden de andere gearceerd. Bewust arceren en
+   niet vergrijzen: grijs gooit de kleurcodering weg, waardoor je niet meer
+   ziet welke balk control is en welke test. Een arcering neemt de nadruk
+   weg en laat de kleur staan.
+
+   De arcering ligt als een laag óver de balk in plaats van als achtergrond,
+   zodat hij werkt ongeacht welke kleur de balk zelf heeft - die komt uit een
+   inline stijl en is hier niet bekend. */
+.funnel__row { transition: opacity .18s var(--ease-out); }
+
+.funnel__row--dof .funnel__bar { position: relative; }
+.funnel__row--dof .funnel__bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, .82) 0 2px,
+    transparent 2px 5px
+  );
+}
+.funnel__row--dof .funnel__label,
+.funnel__row--dof .funnel__buiten,
+.funnel__row--dof .small { opacity: .5; }
+
+@media (prefers-reduced-motion: reduce) {
+  .funnel__row { transition: none; }
+}
+
+/* Op aanraakschermen bestaat hover niet, en dan zou de helft van de trechter
+   permanent gearceerd kunnen blijven staan na een tik. Daar geen focus. */
+@media (hover: none) {
+  .funnel__row--dof .funnel__bar::after { display: none; }
+  .funnel__row--dof .funnel__label,
+  .funnel__row--dof .funnel__buiten,
+  .funnel__row--dof .small { opacity: 1; }
+}

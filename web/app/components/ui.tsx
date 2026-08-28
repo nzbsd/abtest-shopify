@@ -334,3 +334,37 @@ export function Tabs<T extends string>({
     </div>
   );
 }
+
+/**
+ * Verdeling: waar zit het verkeer, als rijen met een balk eronder.
+ *
+ * Vervangt een taartdiagram, en is beter om een saaie reden: je kunt de labels
+ * lezen zonder legenda. Bij een taart moet je kleur en tekst apart matchen, en
+ * bij meer dan drie punten lukt dat niemand.
+ *
+ * Waarom dit hier staat en niet als tabelkolom: het gaat niet om de exacte
+ * percentages maar om de verhouding. Een segment dat verliest terwijl er negen
+ * procent van je verkeer zit is iets anders dan hetzelfde verlies op zestig
+ * procent, en dat verschil zie je in balken meteen en in een kolom cijfers
+ * niet.
+ */
+export function Verdeling({
+  rijen,
+}: {
+  rijen: { naam: string; waarde: number; toon: string; kleur: string }[];
+}) {
+  const totaal = rijen.reduce((a, r) => a + r.waarde, 0) || 1;
+  return (
+    <div className="verdeling">
+      {rijen.map((r) => (
+        <div className="verdeling__rij" key={r.naam}>
+          <span className="verdeling__naam">{r.naam}</span>
+          <span className="verdeling__waarde num">{r.toon}</span>
+          <span className="verdeling__balk">
+            <span style={{ width: (r.waarde / totaal) * 100 + "%", background: r.kleur }} />
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
