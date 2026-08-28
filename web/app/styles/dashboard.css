@@ -2458,3 +2458,40 @@ tbody tr:hover { background: var(--wash); }
   .verdict__hero { margin: 0 -18px 14px; padding: 24px 18px 22px; }
   .verdict__hero .verdict__cijfer { font-size: 42px; }
 }
+
+/* ── sparkline op een kengetalkaart ───────────────────────────────────
+   Onderaan, over de volle breedte, en met de kaartpadding weggewerkt zodat
+   de lijn de randen raakt. Een sparkline met marge eromheen leest als een
+   tweede grafiekje; een die de kaart vult leest als achtergrond bij het
+   cijfer, en dat is wat hij hoort te zijn. */
+.kpi--spark { position: relative; padding-bottom: 46px; }
+
+.kpi__spark {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 38px;
+  /* De onderhoeken volgen de kaart, anders steekt het gevulde vlak eruit. */
+  border-bottom-left-radius: var(--r-lg);
+  border-bottom-right-radius: var(--r-lg);
+  overflow: hidden;
+  pointer-events: none;
+}
+.kpi__spark .spark { display: block; width: 100%; height: 100%; }
+
+/* Uittekenen bij binnenkomst, net als de grote lijngrafiek. Een lijn die er
+   al staat is een plaatje; een die zich tekent is een meting. */
+@keyframes tekenSpark { from { stroke-dashoffset: 200; } }
+.kpi__spark polyline {
+  stroke-dasharray: 200;
+  animation: tekenSpark .6s var(--ease-out) both;
+}
+.kpi__spark polygon { animation: verschijn .5s .2s var(--ease-out) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .kpi__spark polyline, .kpi__spark polygon { animation: none; stroke-dasharray: none; }
+}
+
+@media (max-width: 700px) {
+  .kpi--spark { padding-bottom: 40px; }
+  .kpi__spark { height: 32px; }
+}

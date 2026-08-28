@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSearchParams } from "@remix-run/react";
 import { PageHead } from "~/components/shell";
-import { Lijn, Trechter } from "~/components/charts";
+import { Lijn, Sparkline, Trechter } from "~/components/charts";
 import {
   Badge, Banner, Card, CardHead, Delta, IconCart, IconCheck, IconCoins,
   Kpi, Leeg, Legend, Segmented, Tabs, Track, Vergelijk,
@@ -232,9 +232,13 @@ export function AnalyticsView({
   const days = looptDagen(test.started_at);
   /* Days come from two places: visitors from our own events, orders and money
      from Shopify. Merged here so one chart can switch between them. */
-  const points = (() => {
-    const geldMaat = metric === "rpv" || metric === "orders" || metric === "cr";
-    const bezoekersReeks = dagReeks(ownDaily, geldMaat ? "visitors" : metric);
+  /* Als functie in plaats van als eenmalige berekening, zodat een kaart een
+     andere maat kan opvragen dan de grafiek eronder toont. De sparklines op de
+     omzetkaarten willen altijd omzet per bezoeker, ongeacht welk tabblad van de
+     grafiek openstaat. */
+  const maakPunten = (m: Metric) => {
+    const geldMaat = m === "rpv" || m === "orders" || m === "cr";
+    const bezoekersReeks = dagReeks(ownDaily, geldMaat ? "visitors" : m);
     if (!geldMaat) return bezoekersReeks;
 
     const dagen = Array.from(new Set([
@@ -248,14 +252,17 @@ export function AnalyticsView({
       const waarde = (co: "control" | "test") => {
         const g = o?.[co];
         if (!g) return 0;
-        if (metric === "orders") return g.orders;
+        if (m === "orders") return g.orders;
         const v = co === "control" ? bez?.control ?? 0 : bez?.test ?? 0;
-        if (metric === "cr") return v ? (g.orders / v) * 100 : 0;
+        if (m === "cr") return v ? (g.orders / v) * 100 : 0;
         return v ? g.revenueCents / 100 / v : 0;
       };
       return { dag, control: waarde("control"), test: waarde("test") };
     });
-  })();
+  };
+
+  const points = maakPunten(metric);
+  const rpvPunten = maakPunten("rpv");
 
   const format: Record<Metric, (v: number) => string> = {
     rpv: geld,
@@ -453,12 +460,26 @@ export function AnalyticsView({
             icon={<IconCoins />} tone="control" label="Revenue / visitor — control"
             value={geld(c.rpv)}
             note={heel(c.visitors) + " visitors · " + heel(c.orders) + " orders"}
+            spark={
+              <Sparkline
+                punten={rpvPunten.map((p) => p.control)}
+                kleur="var(--control)"
+                label={"Revenue per visitor for control over the last " + rpvPunten.length + " days"}
+              />
+            }
           />
           <Kpi
             icon={<IconCoins />} tone="test" label="Revenue / visitor — test"
             value={geld(t.rpv)}
             note={heel(t.visitors) + " visitors · " + heel(t.orders) + " orders"}
             delta={<Delta waarde={revenueTest.lift} />}
+            spark={
+              <Sparkline
+                punten={rpvPunten.map((p) => p.test)}
+                kleur="var(--test)"
+                label={"Revenue per visitor for test over the last " + rpvPunten.length + " days"}
+              />
+            }
           />
         </div>
 

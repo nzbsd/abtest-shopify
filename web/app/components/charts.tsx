@@ -174,3 +174,69 @@ export function Trechter({
     </div>
   );
 }
+
+/**
+ * Sparkline: het verloop zonder het meubilair.
+ *
+ * Geen assen, geen gridlijnen, geen punten. Op een kengetalkaart wil niemand
+ * een waarde aflezen - die staat er als cijfer boven. Wat een sparkline
+ * toevoegt is de vorm: stijgt het, zakt het, of schommelt het? Dat is precies
+ * wat een groot getal alleen niet kan vertellen, en het is de reden dat één
+ * cijfer zonder context altijd een beetje liegt.
+ *
+ * Wie de waarden wél wil, klikt door naar de grafiek eronder. Die heeft assen,
+ * en daar horen ze.
+ */
+export function Sparkline({
+  punten, kleur, hoogte = 30, label,
+}: {
+  punten: number[];
+  kleur: string;
+  hoogte?: number;
+  label: string;
+}) {
+  /* Onder de twee punten valt er geen verloop te tekenen. Een enkele stip of
+     een vlakke streep suggereert stabiliteit die je niet gemeten hebt, dus dan
+     liever niets. */
+  if (punten.length < 2) return null;
+
+  const max = Math.max(...punten);
+  const min = Math.min(...punten);
+  /* Vanaf de laagste waarde in plaats van vanaf nul. Bij omzet per bezoeker
+     schommelt alles tussen 0,70 en 1,20 en dan is een nullijn een vlakke lijn
+     bovenin de kaart - je ziet de vorm niet meer. De sparkline gaat over
+     richting, niet over absolute hoogte; het cijfer erboven doet dat al. */
+  const spanne = max - min || 1;
+  const marge = 2;
+  const bruikbaar = hoogte - marge * 2;
+
+  const xy = punten.map((p, i) => [
+    (i / (punten.length - 1)) * 100,
+    marge + (1 - (p - min) / spanne) * bruikbaar,
+  ]);
+  const pad = xy.map(([x, y]) => x.toFixed(2) + "," + y.toFixed(2)).join(" ");
+
+  return (
+    <svg
+      className="spark"
+      viewBox={"0 0 100 " + hoogte}
+      preserveAspectRatio="none"
+      role="img"
+      aria-label={label}
+    >
+      <polygon points={"0," + hoogte + " " + pad + " 100," + hoogte} fill={kleur} opacity=".12" />
+      {/* non-scaling-stroke: de viewBox rekt niet-uniform op naar de kaart, en
+          zonder dit wordt de lijn in een brede kaart een wigvormige streep die
+          links dun en rechts dik is. */}
+      <polyline
+        points={pad}
+        fill="none"
+        stroke={kleur}
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}

@@ -45,7 +45,7 @@ export function CardHead({ title, sub, action }: { title: string; sub?: string; 
 /* ── kpi ────────────────────────────────────────────────────────────────── */
 
 export function Kpi({
-  icon, tone = "neutral", label, value, note, delta,
+  icon, tone = "neutral", label, value, note, delta, spark,
 }: {
   icon: ReactNode;
   tone?: "control" | "test" | "neutral";
@@ -53,9 +53,15 @@ export function Kpi({
   value: string;
   note?: ReactNode;
   delta?: ReactNode;
+  /**
+   * Een sparkline onderaan de kaart. Optioneel, want lang niet elk kengetal
+   * heeft een verloop dat iets zegt - een totaal aantal bezoekers stijgt per
+   * definitie, en die lijn tekenen voegt niets toe.
+   */
+  spark?: ReactNode;
 }) {
   return (
-    <article className="card kpi">
+    <article className={"card kpi" + (spark ? " kpi--spark" : "")}>
       <div className="kpi__top">
         <span className={"chip chip--" + tone}>{icon}</span>
         {delta}
@@ -63,6 +69,9 @@ export function Kpi({
       <p className="kpi__label">{label}</p>
       <p className="kpi__value num">{value}</p>
       {note && <p className="kpi__note">{note}</p>}
+      {/* Onderaan en over de volle breedte: de sparkline is achtergrond bij het
+          cijfer, geen tweede kolom die erom concurreert. */}
+      {spark && <div className="kpi__spark">{spark}</div>}
     </article>
   );
 }

@@ -10,7 +10,7 @@ is de grootste tijdverspilling bij dit soort werk.
 web/app/styles/dashboard.css     alles, ~2350 regels, platte CSS (geen Tailwind)
 web/app/components/ui.tsx        Card, CardHead, Kpi, Delta, Segmented, Track,
                                  Banner, Badge, Legend, Vergelijk, Tabs, Modal
-web/app/components/charts.tsx    Lijn (lijngrafiek), Trechter
+web/app/components/charts.tsx    Lijn (lijngrafiek), Trechter, Sparkline
 web/app/components/iconen.tsx    vlaggen, device- en bronpictogrammen
 web/app/views/                   analytics, overview, tests, site, forecast,
                                  besluit, wizard
@@ -98,21 +98,31 @@ te weten voordat je er iets aan verandert:
 
 Dit is het enige zulke vlak, en dat moet zo blijven — zie regel 3 van de skill.
 
+**De sparklines staan er.** `Sparkline` in `charts.tsx`, en `Kpi` heeft een
+optionele `spark`-prop die hem over de volle breedte onderaan de kaart zet.
+Twee keuzes die niet vanzelf spreken:
+
+- Hij schaalt vanaf de **laagste waarde**, niet vanaf nul. Omzet per bezoeker
+  schommelt tussen 0,70 en 1,20; met een nullijn wordt dat een vlakke streep
+  bovenin en zie je de vorm niet meer. Een sparkline gaat over richting - het
+  cijfer erboven doet de absolute hoogte al.
+- Onder de twee punten tekent hij **niets**. Een enkele stip of een vlakke lijn
+  suggereert stabiliteit die je niet gemeten hebt.
+
+De prop is optioneel omdat lang niet elk kengetal een verloop heeft dat iets
+zegt. Een totaal aantal bezoekers stijgt per definitie; die lijn tekenen voegt
+niets toe behalve inkt.
+
 ## Wat nog open staat
 
 Op volgorde van wat het meest oplevert:
 
-1. **Micrografieken.** Er is een volledige lijngrafiek met assen, gridlijnen en
-   tooltip (`Lijn`), en dat is goed op een detailscherm. Op de kpi-kaarten
-   ontbreekt de kleine variant: een stippenmatrix of sparkline zonder assen.
-   Recepten in `components.md` §3 en §4.
-
-2. **Bento in plaats van een uniform raster.** Nu staan `grid--2`, `grid--3` en
+1. **Bento in plaats van een uniform raster.** Nu staan `grid--2`, `grid--3` en
    `grid--4` naast elkaar met gelijke kaarten. Een twaalfkolomsraster waarin de
    belangrijkste kaart breder is, geeft het scherm een middelpunt.
    Recept in `components.md` §8.
 
-3. **Kleur per widget.** De series zijn nu overal iris en oranje, omdat ze
+2. **Kleur per widget.** De series zijn nu overal iris en oranje, omdat ze
    control en test onderscheiden — dat klopt en moet zo blijven. Maar kaarten
    die géén vergelijking tonen (bezoekers, omzet, apparaten) kunnen elk een
    eigen tint krijgen, zoals regel 2 van de skill beschrijft. Doe dit alleen
