@@ -2777,3 +2777,37 @@ tbody tr:hover { background: var(--wash); }
 @media (max-width: 700px) {
   .kengetal__waarde { font-size: 24px; }
 }
+
+/* ── de inhoudskaarten mee in de ladder ───────────────────────────────
+   De kengetalrij bovenaan het overzicht kreeg maat en kleur, maar de kaart
+   eronder - waar de test zelf in staat, en dus waar je voor komt - hield
+   tweeentwintig en veertienenhalf. Naast kaarten met veertig las die als
+   voetnoot bij zijn eigen onderwerp.
+
+   Niet naar veertig: er staan drie waarden naast elkaar (verschil, control,
+   test) en dan mag geen van drieen het hoofdcijfer zijn. Wel een duidelijke
+   trap: het verschil groter dan de twee waarden die het verklaren. */
+.cijfer--mid { font-size: 28px; letter-spacing: -.035em; line-height: 1.05; }
+.cijfer--sm  { font-size: 17px; font-weight: 650; letter-spacing: -.02em; }
+.cijferlabel { font-size: 11.5px; margin-bottom: 5px; }
+
+/* De voortgangsbalk op een testkaart is de enige plek waar je ziet hoe ver de
+   test is. Zes pixel hoog is een haarlijn naast cijfers van achtentwintig. */
+.test-kaart .track { height: 8px; }
+
+/* ── de testenlijst ───────────────────────────────────────────────────
+   Een lijst is geen dashboard en krijgt hier geen grafieken. Maar de naam
+   van een test is wel het onderwerp van zijn rij, en die stond op dezelfde
+   maat als de tekst eronder - dan is er geen rij meer, alleen tekst. */
+.test-row { padding: 18px 24px; gap: 18px; }
+.test-row > div:first-child > div:first-child > strong {
+  font-size: 15.5px;
+  letter-spacing: -.015em;
+}
+.pair { margin-top: 10px; font-size: 13px; }
+
+@media (max-width: 700px) {
+  .cijfer--mid { font-size: 24px; }
+  .cijfer--sm  { font-size: 15.5px; }
+  .test-row { padding: 16px 18px; }
+}

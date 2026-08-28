@@ -81,7 +81,11 @@ export function OverviewView({
   })();
 
   /** De dag met de meeste orders, als er iets te wijzen valt. */
-  const piek = perDag.length >= 3
+  /* De piekbadge pas vanaf vier dagen: bij twee is de "drukste dag" gewoon
+     de hoogste van twee en zegt dat niets. De matrix zelf mag wel vanaf twee -
+     twee kolommen stippen is een eerlijke weergave van twee dagen, terwijl
+     een sparkline met twee punten per definitie een rechte lijn is. */
+  const piek = perDag.length >= 4
     ? perDag.reduce((a, b) => (b.orders > a.orders ? b : a))
     : null;
   const piekDag = piek && piek.orders > 0
@@ -110,7 +114,7 @@ export function OverviewView({
                value={heel(alleBezoekers)} note="people who saw a tested page" />
           <Kpi icon={<IconCart />} tone="teal" label="Orders"
                value={heel(alleOrders)} note="placed after seeing one"
-               voet={perDag.length >= 3 && (
+               voet={perDag.length >= 2 && (
                  <div className="kpi__matrix">
                    <Matrix
                      waarden={perDag.map((d) => d.orders)}
@@ -122,7 +126,7 @@ export function OverviewView({
                )} />
           <Kpi icon={<IconCoins />} tone="roze" label="Revenue"
                value={geld(alleOmzet / 100)} note="within the tests"
-               voet={perDag.length >= 3 && (
+               voet={perDag.length >= 2 && (
                  <div className="kpi__matrix">
                    <Matrix
                      waarden={perDag.map((d) => d.cents)}
@@ -185,7 +189,7 @@ export function OverviewView({
           const voortgang = doelAantal ? Math.min(behaald / doelAantal, 1) : 0;
 
           return (
-            <Card key={t.id}>
+            <Card key={t.id} className="test-kaart">
               <CardHead
                 title={t.naam || t.control_title || t.test_theme_name || typeInfo(t.test_type).naam}
                 sub={
