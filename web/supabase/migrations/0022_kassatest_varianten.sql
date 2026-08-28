@@ -40,4 +40,12 @@ alter table public.price_tests
 alter table public.price_tests
   add constraint price_tests_checkout_variant_check
   check (checkout_variant is null or checkout_variant in
-         ('banner', 'trust', 'shipbar', 'upsell', 'verzending'));
+         ('banner', 'trust', 'faq', 'shipbar', 'upsell', 'verzending'));
+
+-- Waar de delivery customization van een verzendtest zit.
+--
+-- Zonder dit zou elke start een nieuwe aanmaken. Een winkel mag er
+-- vijfentwintig hebben, en een stapel wezen van gestopte tests eet die grens
+-- langzaam op zonder dat iemand kan zien waar ze vandaan komen.
+alter table public.price_tests
+  add column if not exists checkout_customization_id text;

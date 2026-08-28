@@ -27,4 +27,10 @@ network_access = true
 key = "app_url"
 type = "single_line_text_field"
 name = "Experli URL"
-description = "Waar de app draait. Laat dit staan tenzij Experli ergens anders gehost wordt."
+description = "Where Experli runs. Leave this as it is unless the app is hosted somewhere else."
+
+[[extensions.settings.fields]]
+key = "slot"
+type = "single_line_text_field"
+name = "Slot"
+description = "A letter for this spot: a, b, c. Only needed if you place the Experli block more than once — a test can then put its message in one spot for one group and another spot for the other, which makes placement itself the thing being tested. Leave empty for a."

@@ -32,7 +32,13 @@ api_version = "2026-07"
 # omzet per testgroep.
 # write_pixels en read_customer_events zijn voor de web pixel: die meet wat er
 # in de kassa gebeurt, waar themacode niet draait.
-scopes = "read_products,read_orders,read_themes,write_pixels,read_customer_events"
+# write_delivery_customizations is het enige schrijfrecht dat deze app vraagt,
+# en alleen voor het verzend-testtype. Verzendopties zijn nergens anders te
+# beinvloeden dan met een delivery customization, en die moet Experli zelf
+# aanmaken - jou vragen om met de hand JSON in een metafield te plakken zou
+# stil fout te doen zijn: een typefout geeft geen melding maar een Function
+# die niets doet, en dan loopt er een test die nul verschil rapporteert.
+scopes = "read_products,read_orders,read_themes,write_pixels,read_customer_events,write_delivery_customizations"
 optional_scopes = [ ]
 use_legacy_install_flow = false
 

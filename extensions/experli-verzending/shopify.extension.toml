@@ -1,0 +1,21 @@
+api_version = "2025-10"
+
+[[extensions]]
+name = "t:name"
+description = "t:description"
+handle = "experli-verzending"
+uid = "b0d8ff2f-1559-997d-9355-fc32f8fcac5c02ef926a"
+type = "function"
+
+# Waarom een Shopify Function en niet de kassa-extensie: de verzendopties
+# staan niet in de kassa-UI maar in Shopify's eigen berekening ervoor. Een
+# extensie kan er een blok naast zetten maar niets aan de lijst veranderen -
+# hernoemen, herordenen en verbergen kan alleen hier.
+  [[extensions.targeting]]
+  target = "cart.delivery-options.transform.run"
+  input_query = "src/run.graphql"
+  export = "run"
+
+  [extensions.build]
+  command = ""
+  path = "dist/function.wasm"

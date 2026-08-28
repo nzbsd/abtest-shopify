@@ -1,4 +1,5 @@
 import supabase from "~/db.server";
+import { verzendtestAan, verzendtestUit, verzendMethoden, type VerzendMethode } from "./verzending.server";
 import { configProbleem } from "./config.server";
 import {
   lijstProducten, loadTests, matchVariants, resolveProduct, type ProductInfo, type PriceTest,
@@ -141,10 +142,12 @@ export async function testsData(
 ): Promise<{
   shop: string | null; fout: string | null; tests: PriceTest[]; producten: ProductInfo[];
   winkelUrl: string | null; themas: ThemaInfo[]; templates: TemplateInfo[]; daily: DagRij[];
+  verzendmethoden: VerzendMethode[];
 }> {
   const leegAntwoord = {
     tests: [] as PriceTest[], producten: [] as ProductInfo[], winkelUrl: null,
     themas: [] as ThemaInfo[], templates: [] as TemplateInfo[], daily: [] as DagRij[],
+    verzendmethoden: [] as VerzendMethode[],
   };
 
   const { fout } = await shopOfFout(shop);
@@ -158,11 +161,16 @@ export async function testsData(
     // Voor thema's geldt hetzelfde, en daar is het waarschijnlijker: read_themes
     // is later toegevoegd, dus een winkel die de scope nog niet goedgekeurd
     // heeft krijgt een lege lijst in plaats van een kapot scherm.
-    const [tests, producten, winkelUrl, themas, daily] = await Promise.all([
+    const [tests, producten, winkelUrl, themas, verzendmethoden, daily] = await Promise.all([
       loadTests(shop),
       lijstProducten(admin).catch(() => [] as ProductInfo[]),
       winkelDomein(admin).catch(() => null),
       themaLijstMetSnippet(admin).catch(() => [] as ThemaInfo[]),
+      // De verzendmethoden die de winkel aanbiedt, zodat een verzendtest uit
+      // een lijst te kiezen is. De Function matcht op titel, en een titel die
+      // er één spatie naast zit vindt niets - waarna de testgroep stil de
+      // gewone lijst krijgt en de test nul verschil meet.
+      verzendMethoden(admin),
       /**
        * Bezoekers en orders per dag, voor het lijntje op elke lopende rij.
        *
@@ -192,7 +200,7 @@ export async function testsData(
       ? await productTemplates(admin, live.id).catch(() => [] as TemplateInfo[])
       : [];
 
-    return { shop, fout: null, tests, producten, winkelUrl, themas, templates, daily };
+    return { shop, fout: null, tests, producten, winkelUrl, themas, templates, daily, verzendmethoden };
   } catch (e: any) {
     return { shop, fout: e?.message ?? "Database error", ...leegAntwoord };
   }
@@ -259,37 +267,45 @@ export async function testsAction(
         /* Een kassatest hangt aan de hele winkel: iedereen die de kassa haalt
            doet mee, ongeacht wat er in de wagen zit. Vandaar geen product en
            geen pad - net als bij een themetest. */
-        const tekst = String(form.get("checkoutTekst") || "").trim();
-        if (!tekst) throw new Error("Write the message the test group should see.");
-
-        const toon = String(form.get("checkoutToon") || "info");
-        if (!["info", "success", "warning", "critical"].includes(toon)) {
-          throw new Error("Unknown tone for the checkout block.");
+        const soort = String(form.get("checkoutSoort") || "");
+        if (!["banner", "trust", "faq", "shipbar", "upsell", "verzending"].includes(soort)) {
+          throw new Error("Unknown kind of checkout test.");
         }
 
-        const controleTekst = String(form.get("checkoutControlTekst") || "").trim();
-        if (controleTekst && controleTekst === tekst) {
-          /* Twee keer dezelfde tekst is geen test. Het scherm laat het niet toe,
-             maar het formulier kan van elders komen - en dit is de soort fout
-             die pas na een week aan een verschil van nul te zien is. */
-          throw new Error("Both groups would see the same message.");
+        let cfg: any;
+        try {
+          cfg = JSON.parse(String(form.get("checkoutConfig") || "{}"));
+        } catch {
+          throw new Error("The checkout settings could not be read.");
+        }
+
+        if (soort === "verzending") {
+          /* Zonder operatie krijgt de testgroep exact dezelfde lijst als de
+             controlegroep. Het scherm laat dat niet toe, maar het formulier kan
+             van elders komen - en dit is de soort fout die pas na een week aan
+             een verschil van nul te zien is. */
+          const iets =
+            (cfg.hernoem ?? []).some((r: any) => String(r?.naar ?? "").trim()) ||
+            (cfg.verberg ?? []).length > 0 ||
+            (cfg.bovenaan ?? []).length > 0;
+          if (!iets) throw new Error("Change at least one shipping option for the test group.");
+        } else {
+          if (!cfg.test) throw new Error("Fill in what the test group should see.");
+          if (cfg.control && JSON.stringify(cfg.control) === JSON.stringify(cfg.test)) {
+            throw new Error("Both groups would see exactly the same thing.");
+          }
         }
 
         rij = {
           ...gedeeld,
-          checkout_kop: String(form.get("checkoutKop") || "").trim() || null,
-          checkout_tekst: tekst,
-          checkout_toon: toon,
-          checkout_control_kop: controleTekst
-            ? String(form.get("checkoutControlKop") || "").trim() || null
-            : null,
-          checkout_control_tekst: controleTekst || null,
+          checkout_variant: soort,
+          checkout_config: cfg,
           control_product_id: null,
           test_product_id: null,
         };
-        bericht = controleTekst
-          ? "Test saved: two messages against each other in the checkout."
-          : "Test saved: the test group sees an extra block in the checkout.";
+        bericht = soort === "verzending"
+          ? "Test saved: the test group gets different shipping options."
+          : "Test saved: " + soort + " in the checkout for the test group.";
       } else if (type === "url") {
         const a = normaliseerPad(String(form.get("controlUrl") || ""));
         const b = normaliseerPad(String(form.get("testUrl") || ""));
@@ -508,13 +524,42 @@ export async function testsAction(
               ? { besluit, besluit_notitie: notitie || null, besluit_at: new Date().toISOString() }
               : {}),
           };
+      /**
+       * Een verzendtest moet ook in Shopify aan of uit.
+       *
+       * Dit gebeurt vóór de statuswijziging bij starten en erná bij stoppen,
+       * en dat is geen willekeur. Lukt het aanzetten niet, dan mag de test in
+       * Experli niet op "running" komen te staan: dan zou het scherm zeggen
+       * dat er verkeer gesplitst wordt terwijl er in de kassa niets gebeurt.
+       * Bij stoppen ligt het andersom - stoppen mag nooit blijven hangen op
+       * een fout, want stoppen ís vaak de oplossing.
+       */
+      const { data: soortRij } = await supabase
+        .from("price_tests").select("checkout_variant, checkout_config")
+        .eq("id", id).eq("shop", shop)
+        .maybeSingle<{ checkout_variant: string | null; checkout_config: any }>();
+      const isVerzending = soortRij?.checkout_variant === "verzending";
+
+      if (isVerzending && intent === "start") {
+        const r = await verzendtestAan(admin, shop, id, soortRij?.checkout_config ?? {});
+        if (!r.ok) return { ok: false, bericht: r.bericht ?? "Not started." };
+      }
+
       const { error } = await supabase.from("price_tests").update(nieuw).eq("id", id).eq("shop", shop);
       if (error) throw new Error(error.message);
+
+      let staart = "";
+      if (isVerzending && intent === "stop") {
+        const r = await verzendtestUit(admin, shop, id);
+        if (!r.ok) return { ok: true, bericht: r.bericht ?? "Test stopped." };
+        staart = " The shipping options are back to normal.";
+      }
+
       return {
         ok: true,
         bericht: intent === "start"
           ? "Test started. Part of your traffic now gets the variant."
-          : "Test stopped. Everyone sees the original again.",
+          : "Test stopped. Everyone sees the original again." + staart,
       };
     }
 

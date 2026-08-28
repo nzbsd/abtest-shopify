@@ -128,7 +128,8 @@ export function watOntbreekt(t: {
   test_url?: string | null;
   test_theme_id?: string | null;
   image_positie?: number | null;
-  checkout_tekst?: string | null;
+  checkout_variant?: string | null;
+  checkout_config?: any;
 }): string | null {
   switch (t.test_type ?? "price") {
     case "price":
@@ -144,7 +145,8 @@ export function watOntbreekt(t: {
       if (!t.template_suffix) return "No template suffix entered.";
       return null;
     case "checkout":
-      if (!t.checkout_tekst) return "No message written for the test group.";
+      if (!t.checkout_variant) return "No kind of checkout test chosen.";
+      if (!t.checkout_config) return "Nothing configured yet.";
       return null;
     case "url":
       if (!t.control_url) return "No original URL entered.";

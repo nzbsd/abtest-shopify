@@ -1,4 +1,5 @@
 import { Link, useFetcher } from "@remix-run/react";
+import type { VerzendMethode } from "~/lib/verzending.server";
 import { useMemo, useState } from "react";
 import { PageHead } from "~/components/shell";
 import { Badge, Banner, Card, CardHead, Delta, Leeg } from "~/components/ui";
@@ -215,7 +216,7 @@ function reeksVoor(daily: DagRij[], testId: number): { control: number[]; test: 
 }
 
 export function TestsView({
-  tests, producten, templates, themas, fout, winkelUrl, shop, basis, daily = [],
+  tests, producten, templates, themas, verzendmethoden = [], fout, winkelUrl, shop, basis, daily = [],
 }: {
   tests: PriceTest[];
   /** Bezoekers en orders per dag, voor het lijntje op elke lopende rij. */
@@ -223,6 +224,8 @@ export function TestsView({
   producten: ProductInfo[];
   templates: TemplateInfo[];
   themas: ThemaInfo[];
+  /** De verzendmethoden van de winkel, voor een verzend-kassatest. */
+  verzendmethoden?: VerzendMethode[];
   fout: string | null;
   /** Winkeldomein, voor de deeplink naar de theme editor. */
   shop: string | null;
@@ -234,6 +237,23 @@ export function TestsView({
   /* Een kassaboodschap kan een hele alinea zijn, en die past niet op een regel
      naast een pijl. Afkappen op zestig tekens houdt de rij één regel hoog; de
      volledige tekst staat op het testscherm zelf. */
+  /* Wat een kassatest de testgroep laat zien, in een paar woorden. De volle
+     instellingen staan op het testscherm; hier past één regel naast een pijl. */
+  const ckOmschrijving = (t: PriceTest) => {
+    const c = t.checkout_config ?? {};
+    switch (t.checkout_variant) {
+      case "verzending": {
+        const n = (c.hernoem?.length ?? 0) + (c.verberg?.length ?? 0) + (c.bovenaan?.length ?? 0);
+        return n + " shipping change" + (n === 1 ? "" : "s");
+      }
+      case "trust":   return (c.test?.items?.length ?? 0) + " reassurance lines";
+      case "faq":     return (c.test?.vragen?.length ?? 0) + " questions";
+      case "shipbar": return "free shipping bar";
+      case "upsell":  return kort(c.test?.titel) || "add-on offer";
+      default:        return kort(c.test?.tekst) || "a message";
+    }
+  };
+
   const kort = (t: string | null | undefined) => {
     const s = String(t ?? "").trim();
     return s.length > 60 ? s.slice(0, 59) + "…" : s;
@@ -329,6 +349,7 @@ export function TestsView({
             producten={producten}
             templates={templates}
             themas={themas}
+            verzendmethoden={verzendmethoden}
             winkelUrl={winkelUrl}
             shop={shop}
             onKlaar={() => setOpen(false)}
@@ -377,14 +398,14 @@ export function TestsView({
                         <>
                           <span className="legend__item">
                             <span className="swatch swatch--control" />
-                            {t.checkout_control_tekst
-                              ? <code>{kort(t.checkout_control_tekst)}</code>
-                              : "checkout unchanged"}
+                            {t.checkout_variant === "verzending" || !t.checkout_config?.control
+                              ? "checkout unchanged"
+                              : "the other version"}
                           </span>
                           <span className="pair__arrow">&#8594;</span>
                           <span className="legend__item">
                             <span className="swatch swatch--test" />
-                            <code>{kort(t.checkout_tekst)}</code>
+                            <code>{ckOmschrijving(t)}</code>
                           </span>
                         </>
                       ) : t.test_type === "template" ? (

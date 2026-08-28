@@ -3551,3 +3551,211 @@ thead th:last-child, tbody td:last-child, tfoot td:last-child { padding-right: 2
 @media (prefers-reduced-motion: reduce) {
   .keuze { transition: none; }
 }
+
+/* ── productraster ────────────────────────────────────────────────────────
+
+   Voor de fototest, waar je een product om zijn foto's kiest en niet om zijn
+   naam. Vaste vierkante verhouding met object-fit: cover — anders dan in de
+   fotokiezer zelf, want hier gaat het om herkennen ("welk product is dit")
+   en niet om beoordelen ("werkt deze foto als opener"). Een net raster helpt
+   bij het eerste; bij het tweede zou het bijsnijden juist misleiden.        */
+
+.prodraster {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 12px;
+}
+
+.prodkaart {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+
+.prodkaart:hover {
+  border-color: var(--line-loud);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px -10px rgba(21, 20, 27, .28);
+}
+
+.prodkaart:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--iris-pale); }
+
+.prodkaart__beeld {
+  display: block;
+  aspect-ratio: 1 / 1;
+  background: var(--wash);
+  border-bottom: 1px solid var(--line);
+}
+
+.prodkaart__beeld img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.prodkaart__naam {
+  margin: 8px 10px 0;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--ink);
+  line-height: 1.3;
+  /* Twee regels en dan afkappen: productnamen op deze winkel lopen tot vijf
+     regels door, en dan staat elk kaartje op een andere hoogte. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.prodkaart__aantal { margin: 0 10px; font-size: 11.5px; color: var(--ink-3); }
+
+/* Één foto: te zien, niet te kiezen. Weghalen zou de vraag oproepen waarom
+   het product er niet bij staat, en die is met dit kaartje al beantwoord. */
+.prodkaart.is-uit {
+  cursor: not-allowed;
+  background: var(--wash);
+  border-style: dashed;
+}
+
+.prodkaart.is-uit:hover { transform: none; box-shadow: none; border-color: var(--line); }
+.prodkaart.is-uit .prodkaart__beeld img { opacity: .38; }
+.prodkaart.is-uit .prodkaart__naam { color: var(--ink-3); }
+.prodkaart__aantal.is-uit { color: var(--warn); }
+
+@media (prefers-reduced-motion: reduce) {
+  .prodkaart { transition: none; }
+  .prodkaart:hover { transform: none; }
+}
+
+/* ── kassatest ────────────────────────────────────────────────────────────
+
+   Zes mechanieken als kaartjes, niet als keuzelijst. Ze verschillen niet in
+   graad maar in soort — een FAQ en een verzendtest hebben niets met elkaar te
+   maken behalve dat ze allebei in de kassa gebeuren — en een uitklaplijst
+   verbergt precies het overzicht dat je nodig hebt om te kiezen.            */
+
+.soortraster {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+  gap: 8px;
+}
+
+.soortkaart {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .16s ease, background .16s ease, transform .16s ease;
+}
+
+.soortkaart:hover { border-color: var(--line-loud); transform: translateY(-1px); }
+.soortkaart:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--iris-pale); }
+
+.soortkaart.is-aan {
+  border-color: var(--iris);
+  background: var(--iris-pale);
+}
+
+.soortkaart__naam { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.soortkaart.is-aan .soortkaart__naam { color: var(--iris); }
+.soortkaart__kort { font-size: 11.5px; color: var(--ink-3); line-height: 1.35; }
+
+/* ── regels binnen een kassatest ─────────────────────────────────────────── */
+
+.ckregels { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+
+.ckregel { display: flex; gap: 8px; align-items: center; }
+.ckregel input[type="text"] { flex: 1; min-width: 0; }
+.ckregel select { flex: none; width: 116px; }
+
+/* Bij de verzendtest staat links de naam van de methode en rechts het veld.
+   Vaste breedte, want anders springt elk veld op een andere plek zodra er
+   een methode met een langere naam tussen staat. */
+.ckregel__naam {
+  flex: none;
+  width: 168px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ckvraag {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--wash);
+}
+
+.ckvraag__kop { display: flex; gap: 8px; align-items: center; }
+.ckvraag__kop input { flex: 1; min-width: 0; }
+.ckvraag textarea { width: 100%; resize: vertical; }
+
+.ckvraag__nr {
+  flex: none;
+  width: 20px; height: 20px;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line-loud);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+  display: grid;
+  place-items: center;
+}
+
+.ckverzend { display: flex; flex-direction: column; gap: 20px; margin-top: 16px; }
+
+/* Het rangnummer op een gekozen verzendmethode. Zonder dit is "bovenaan" een
+   verzameling aangevinkte knoppen zonder volgorde, terwijl de volgorde nu
+   juist is wat je instelt. */
+.keuze__nr {
+  display: grid;
+  place-items: center;
+  width: 16px; height: 16px;
+  margin-right: 2px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, .22);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.keuze:not(.is-aan) .keuze__nr { background: var(--veil); color: var(--ink-3); }
+
+/* Plaatsing zit onder een vouw: een winkel met één Experli-blok heeft hier
+   niets te kiezen en zou alleen een veld zien dat om een letter vraagt
+   waarvan hij de betekenis niet kent. */
+.ckplaats {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px dashed var(--line-loud);
+  border-radius: 12px;
+}
+
+.ckplaats summary {
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 550;
+  color: var(--ink-2);
+}
+
+.ckplaats summary:hover { color: var(--ink); }
+.ckplaats > p { margin: 8px 0 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .soortkaart { transition: none; }
+  .soortkaart:hover { transform: none; }
+}

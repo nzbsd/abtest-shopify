@@ -1,4 +1,5 @@
 import { useFetcher } from "@remix-run/react";
+import type { VerzendMethode } from "~/lib/verzending.server";
 import { useMemo, useState } from "react";
 import { Banner, Card, Delta, Modal, Segmented } from "~/components/ui";
 import { geld } from "~/lib/analytics";
@@ -517,6 +518,107 @@ function ThemaKiezer({
   );
 }
 
+/* ── productkiezer voor de fototest ──────────────────────────────────────────
+
+   Een raster met foto's in plaats van de lijst die de andere types gebruiken.
+
+   Niet omdat het mooier staat. Bij een prijs- of templatetest kies je een
+   product op naam, en dan is een regel met een handle en een prijs precies wat
+   je nodig hebt. Bij een fototest kies je een product óm zijn foto's, en die
+   staan in zo'n lijst als een duimnagel van dertig pixels naast tekst die er
+   niet toe doet.
+
+   Het aantal foto's staat erbij, want dat bepaalt of er hier überhaupt iets te
+   testen valt. Producten met één foto blijven staan maar zijn niet te kiezen:
+   ze weghalen zou de vraag "waarom staat dit product er niet bij" oproepen, en
+   die vraag is met een grijs kaartje en het woord "1 photo" al beantwoord.  */
+
+function FotoProductKiezer({
+  products, picked, onPick,
+}: {
+  products: ProductInfo[];
+  picked: ProductInfo | null;
+  onPick: (p: ProductInfo | null) => void;
+}) {
+  const [q, setQ] = useState("");
+
+  const zichtbaar = useMemo(() => {
+    const n = q.trim().toLowerCase();
+    const telling = (p: ProductInfo) => p.media?.length ?? 0;
+    return products
+      .filter((p) => !n || p.title.toLowerCase().includes(n) || p.handle.includes(n))
+      // Bruikbare producten eerst, en daarbinnen de rijkste galerij bovenaan.
+      // Wie niets intypt ziet dan meteen waar iets mee te doen valt in plaats
+      // van drie rijen grijze kaartjes.
+      .sort((a, b) => telling(b) - telling(a))
+      .slice(0, 36);
+  }, [products, q]);
+
+  if (picked) {
+    return (
+      <div className="field">
+        <span className="field__label">Product</span>
+        <div className="picker__item" style={{ cursor: "default" }}>
+          {picked.image
+            ? <img className="picker__img" src={picked.image} alt="" />
+            : <span className="picker__img" />}
+          <span className="picker__body">
+            <span className="picker__title" title={picked.title}>{picked.title}</span>
+            <span className="picker__meta">
+              <code>{picked.handle}</code>
+              <span className="num">{picked.media?.length ?? 0} photos</span>
+            </span>
+          </span>
+          <span style={{ display: "flex", gap: 8, flex: "none" }}>
+            {picked.url && (
+              <a className="btn btn--sm" href={picked.url} target="_blank" rel="noreferrer">Preview</a>
+            )}
+            <button type="button" className="btn btn--sm" onClick={() => onPick(null)}>Change</button>
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="field">
+      <span className="field__label">Product</span>
+      <input type="search" placeholder="Search by name or handle" value={q}
+             onChange={(e) => setQ(e.target.value)} style={{ marginBottom: 12 }} />
+
+      {!zichtbaar.length && (
+        <p className="small muted" style={{ padding: 8 }}>Nothing matches that.</p>
+      )}
+
+      <div className="prodraster">
+        {zichtbaar.map((p) => {
+          const n = p.media?.length ?? 0;
+          const kan = n > 1;
+          return (
+            <button type="button" key={p.id} disabled={!kan}
+                    className={"prodkaart" + (kan ? "" : " is-uit")}
+                    onClick={() => kan && onPick(p)}
+                    title={kan ? p.title : p.title + " — only one photo, nothing to swap"}>
+              <span className="prodkaart__beeld">
+                {p.image && <img src={p.image} alt="" loading="lazy" />}
+              </span>
+              <span className="prodkaart__naam">{p.title}</span>
+              <span className={"prodkaart__aantal" + (kan ? "" : " is-uit")}>
+                {n === 0 ? "no photos" : n === 1 ? "1 photo" : n + " photos"}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <span className="field__hint">
+        Both groups buy this, at the same price — only which photo opens the gallery differs.
+        A product needs at least two photos before there is anything to swap.
+      </span>
+    </div>
+  );
+}
+
 function FotoKiezer({
   product, waarde, onKies, previewBasis,
 }: {
@@ -620,6 +722,422 @@ function FotoKiezer({
   );
 }
 
+/* ── kassatest ───────────────────────────────────────────────────────────────
+
+   Vijf mechanieken onder één testtype.
+
+   Waarom niet vijf losse testtypes: voor de machinerie zijn ze identiek - zelfde
+   indeling, zelfde kenmerk in de wagen, zelfde toewijzing van orders. Wat
+   verschilt is alleen wat de testgroep in de kassa ziet, en dat is precies wat
+   configuratie hoort te zijn. Het typescherm zou anders elf kaarten tellen
+   waarvan er zes hetzelfde beloven.                                          */
+
+const CK_SOORTEN = [
+  {
+    key: "banner",
+    naam: "Message",
+    kort: "A block with a line of text",
+    uitleg:
+      "The plainest version, and the one to start with. Reassurance about delivery, a returns " +
+      "promise, a note about the guarantee — one sentence in a coloured block.",
+  },
+  {
+    key: "trust",
+    naam: "Reassurance list",
+    kort: "A few short lines with icons",
+    uitleg:
+      "Three or four short claims under each other, each with an icon. No block, no colour: " +
+      "these are not announcements but reassurances, and something that shouts reassures nobody.",
+  },
+  {
+    key: "faq",
+    naam: "FAQ",
+    kort: "Questions they can open right there",
+    uitleg:
+      "Up to five questions with an answer folded underneath. Shipping times, returns, what is " +
+      "in the box — the things people leave a checkout to go and look up, and often do not come " +
+      "back from. Folded shut by default, so it costs no room until someone wants it.",
+  },
+  {
+    key: "shipbar",
+    naam: "Free shipping bar",
+    kort: "How far off the free-shipping threshold they are",
+    uitleg:
+      "A progress bar with the amount still missing. The amount comes from the checkout itself, " +
+      "so it can never disagree with the total the buyer sees below it.",
+  },
+  {
+    key: "upsell",
+    naam: "Add-on offer",
+    kort: "A product they can add with one click",
+    uitleg:
+      "The only block that changes the order. It disappears once the item is in the cart, and " +
+      "if adding fails it disappears too — a red error above the pay button costs more than a " +
+      "missed upsell.",
+  },
+  {
+    key: "verzending",
+    naam: "Shipping options",
+    kort: "Rename, reorder or hide delivery methods",
+    uitleg:
+      "Not a block but the list itself. \"Standard 5-7 days\" against \"Free — arrives Tuesday\" " +
+      "is one of the few things in a checkout that changes what people actually pick. Only " +
+      "possible on Plus, and only through a Shopify function — Experli sets that up for you.",
+  },
+];
+
+/** Iconen die de kassa kent, met een naam die zegt waar je ze voor gebruikt. */
+const CK_ICONEN = [
+  { key: "checkmark", naam: "Check" },
+  { key: "delivery", naam: "Delivery" },
+  { key: "return", naam: "Returns" },
+  { key: "lock", naam: "Secure" },
+  { key: "discount", naam: "Discount" },
+  { key: "gift", naam: "Gift" },
+  { key: "info", naam: "Info" },
+  { key: "star", naam: "Star" },
+];
+
+/** Eén kant van een blok-kassatest: waar hij staat en wat erin staat. */
+type CkKant = {
+  slot: string;
+  kop: string;
+  tekst: string;
+  toon: string;
+  items: { icoon: string; tekst: string }[];
+  vragen: { v: string; a: string }[];
+  drempel: string;
+  onder: string;
+  boven: string;
+  variantId: string;
+  titel: string;
+  onderschrift: string;
+  prijsTekst: string;
+  knop: string;
+  afbeelding: string;
+};
+
+const ckLeeg = (): CkKant => ({
+  slot: "a", kop: "", tekst: "", toon: "info",
+  items: [{ icoon: "checkmark", tekst: "" }],
+  vragen: [{ v: "", a: "" }],
+  drempel: "", onder: "You are {rest} away from free shipping.",
+  boven: "You have free shipping.",
+  variantId: "", titel: "", onderschrift: "", prijsTekst: "", knop: "Add", afbeelding: "",
+});
+
+/**
+ * Van scherm naar wat er opgeslagen wordt.
+ *
+ * Alleen de velden die bij deze mechaniek horen. Alles meesturen zou de
+ * configuratie vullen met een verzendbalkdrempel op een bannertest, en dan is
+ * bij het teruglezen niet meer te zien wat er eigenlijk ingesteld was.
+ *
+ * Leeg betekent hier echt leeg: geen kant. De extensie leest dat als "toon
+ * niets" en niet als "toon een leeg blok" - een lege banner in de kassa is een
+ * storing, geen controlegroep.
+ */
+function ckNaarConfig(soort: string, k: CkKant): any | null {
+  const basis = { slot: (k.slot || "a").trim().toLowerCase() };
+  if (soort === "banner") {
+    if (!k.tekst.trim()) return null;
+    return { ...basis, kop: k.kop.trim(), tekst: k.tekst.trim(), toon: k.toon };
+  }
+  if (soort === "trust") {
+    const items = k.items.filter((i) => i.tekst.trim())
+      .map((i) => ({ icoon: i.icoon, tekst: i.tekst.trim() }));
+    return items.length ? { ...basis, items } : null;
+  }
+  if (soort === "faq") {
+    /* Een vraag zonder antwoord is een uitklapper die leeg opengaat, en een
+       antwoord zonder vraag is niet te vinden. Allebei nodig dus. */
+    const vragen = k.vragen.filter((q) => q.v.trim() && q.a.trim())
+      .map((q) => ({ v: q.v.trim(), a: q.a.trim() }));
+    return vragen.length ? { ...basis, kop: k.kop.trim(), vragen } : null;
+  }
+  if (soort === "shipbar") {
+    const d = parseFloat(k.drempel);
+    if (!Number.isFinite(d) || d <= 0) return null;
+    return { ...basis, drempel: d, onder: k.onder.trim(), boven: k.boven.trim() };
+  }
+  if (soort === "upsell") {
+    if (!k.variantId) return null;
+    return {
+      ...basis, variantId: k.variantId, kop: k.kop.trim(), titel: k.titel.trim(),
+      onderschrift: k.onderschrift.trim(), prijsTekst: k.prijsTekst.trim(),
+      knop: k.knop.trim() || "Add", afbeelding: k.afbeelding,
+    };
+  }
+  return null;
+}
+
+/* ── de editors ──────────────────────────────────────────────────────────── */
+
+function CkVelden({
+  soort, kant, zet, producten, isControl,
+}: {
+  soort: string;
+  kant: CkKant;
+  zet: (v: Partial<CkKant>) => void;
+  producten: ProductInfo[];
+  isControl: boolean;
+}) {
+  if (soort === "banner") {
+    return (
+      <>
+        <input type="text" value={kant.kop} placeholder="Heading (optional)"
+               onChange={(e) => zet({ kop: e.currentTarget.value })} />
+        <textarea rows={3} value={kant.tekst}
+                  placeholder={isControl ? "Leave empty — this group sees nothing"
+                                         : "Free shipping on every order over $50."}
+                  onChange={(e) => zet({ tekst: e.currentTarget.value })} />
+      </>
+    );
+  }
+
+  if (soort === "trust") {
+    const zetItem = (n: number, v: Partial<{ icoon: string; tekst: string }>) =>
+      zet({ items: kant.items.map((it, i) => (i === n ? { ...it, ...v } : it)) });
+    return (
+      <div className="ckregels">
+        {kant.items.map((it, n) => (
+          <div className="ckregel" key={n}>
+            <select value={it.icoon} onChange={(e) => zetItem(n, { icoon: e.currentTarget.value })}>
+              {CK_ICONEN.map((i) => <option key={i.key} value={i.key}>{i.naam}</option>)}
+            </select>
+            <input type="text" value={it.tekst}
+                   placeholder={isControl ? "Leave empty" : "Free returns within 30 days"}
+                   onChange={(e) => zetItem(n, { tekst: e.currentTarget.value })} />
+            {kant.items.length > 1 && (
+              <button type="button" className="btn btn--sm"
+                      onClick={() => zet({ items: kant.items.filter((_, i) => i !== n) })}>
+                Remove
+              </button>
+            )}
+          </div>
+        ))}
+        {/* Vier is de grens. Meer regels lezen niemand meer als geruststelling
+            maar als een lijst voorwaarden, en dat is het tegenovergestelde van
+            wat dit blok moet doen. */}
+        {kant.items.length < 4 && (
+          <button type="button" className="btn btn--sm"
+                  onClick={() => zet({ items: [...kant.items, { icoon: "checkmark", tekst: "" }] })}>
+            Add line
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  if (soort === "faq") {
+    const zetV = (n: number, v: Partial<{ v: string; a: string }>) =>
+      zet({ vragen: kant.vragen.map((q, i) => (i === n ? { ...q, ...v } : q)) });
+    return (
+      <div className="ckregels">
+        <input type="text" value={kant.kop} placeholder="Heading above the questions (optional)"
+               onChange={(e) => zet({ kop: e.currentTarget.value })} />
+        {kant.vragen.map((q, n) => (
+          <div className="ckvraag" key={n}>
+            <div className="ckvraag__kop">
+              <span className="ckvraag__nr">{n + 1}</span>
+              <input type="text" value={q.v}
+                     placeholder={isControl ? "Leave empty" : "When will my order arrive?"}
+                     onChange={(e) => zetV(n, { v: e.currentTarget.value })} />
+              {kant.vragen.length > 1 && (
+                <button type="button" className="btn btn--sm"
+                        onClick={() => zet({ vragen: kant.vragen.filter((_, i) => i !== n) })}>
+                  Remove
+                </button>
+              )}
+            </div>
+            <textarea rows={2} value={q.a} placeholder="The answer, folded underneath"
+                      onChange={(e) => zetV(n, { a: e.currentTarget.value })} />
+          </div>
+        ))}
+        {/* Vijf is de grens, en dat is geen willekeurig getal: een kassa met
+            een lijst vragen erin nodigt uit tot lezen in plaats van tot
+            afrekenen, en dan werkt dit blok tegen zichzelf. */}
+        {kant.vragen.length < 5 && (
+          <button type="button" className="btn btn--sm"
+                  onClick={() => zet({ vragen: [...kant.vragen, { v: "", a: "" }] })}>
+            Add question
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  if (soort === "shipbar") {
+    return (
+      <>
+        <input type="number" min="1" step="0.01" value={kant.drempel}
+               placeholder={isControl ? "Leave empty — no bar for this group" : "50"}
+               onChange={(e) => zet({ drempel: e.currentTarget.value })} />
+        <input type="text" value={kant.onder}
+               placeholder="You are {rest} away from free shipping."
+               onChange={(e) => zet({ onder: e.currentTarget.value })} />
+        <input type="text" value={kant.boven} placeholder="You have free shipping."
+               onChange={(e) => zet({ boven: e.currentTarget.value })} />
+        <span className="duel__sub">
+          <code>{"{rest}"}</code> becomes the amount still missing, in the buyer&apos;s currency.
+        </span>
+      </>
+    );
+  }
+
+  if (soort === "upsell") {
+    return (
+      <>
+        <select value={kant.variantId}
+                onChange={(e) => {
+                  const id = e.currentTarget.value;
+                  const p = producten.find((x) => x.variants.some((v) => v.id === id));
+                  const v = p?.variants.find((x) => x.id === id);
+                  zet({
+                    variantId: id,
+                    // Titel, prijs en foto meteen invullen. Ze blijven te
+                    // wijzigen - een aanbod in de kassa mag anders heten dan
+                    // de productpagina - maar niemand hoort ze over te typen.
+                    titel: kant.titel || (p ? p.title : ""),
+                    prijsTekst: kant.prijsTekst || (v ? geld(parseFloat(v.price) || 0) : ""),
+                    afbeelding: kant.afbeelding || (p?.image ?? ""),
+                  });
+                }}>
+          <option value="">{isControl ? "Nothing — this group sees no offer" : "Pick a product"}</option>
+          {producten.flatMap((p) =>
+            p.variants.map((v) => (
+              <option key={v.id} value={v.id}>
+                {p.title}{v.title && v.title !== "Default Title" ? " — " + v.title : ""}
+              </option>
+            )),
+          )}
+        </select>
+        {kant.variantId && (
+          <>
+            <input type="text" value={kant.kop} placeholder="Section heading (optional)"
+                   onChange={(e) => zet({ kop: e.currentTarget.value })} />
+            <input type="text" value={kant.titel} placeholder="Product name as shown"
+                   onChange={(e) => zet({ titel: e.currentTarget.value })} />
+            <input type="text" value={kant.onderschrift} placeholder="One line underneath (optional)"
+                   onChange={(e) => zet({ onderschrift: e.currentTarget.value })} />
+            <input type="text" value={kant.prijsTekst} placeholder="Price as shown"
+                   onChange={(e) => zet({ prijsTekst: e.currentTarget.value })} />
+            <input type="text" value={kant.knop} placeholder="Add"
+                   onChange={(e) => zet({ knop: e.currentTarget.value })} />
+          </>
+        )}
+      </>
+    );
+  }
+
+  return null;
+}
+
+/* ── verzendtest ─────────────────────────────────────────────────────────────
+
+   Geen twee kanten, want er valt niets naast elkaar te zetten: de controlegroep
+   krijgt de verzendopties zoals ze zijn, en dat is precies het punt.
+
+   De twee grenzen die Shopify stelt staan hier in beeld en niet in een
+   handleiding. Ze zijn allebei stil: hernoemen plakt de vervoerdernaam er
+   ongevraagd voor, en een herordening die de goedkoopste optie van plek één
+   duwt wordt geweigerd - en een geweigerde operatie is van buiten niet te zien.
+   Dan loopt er een test die keurig meldt dat hij draait en niets doet.       */
+
+function CkVerzending({
+  methoden, hernoem, setHernoem, verberg, setVerberg, bovenaan, setBovenaan,
+}: {
+  methoden: VerzendMethode[];
+  hernoem: { van: string; naar: string }[];
+  setHernoem: (v: { van: string; naar: string }[]) => void;
+  verberg: string[];
+  setVerberg: (v: string[]) => void;
+  bovenaan: string[];
+  setBovenaan: (v: string[]) => void;
+}) {
+  const namen = methoden.map((m) => m.naam);
+
+  if (!namen.length) {
+    return (
+      <Banner tone="warn">
+        Experli cannot see any shipping methods on this store. That usually means the app has not
+        been granted the shipping permission yet — reinstall it once and this list fills up.
+      </Banner>
+    );
+  }
+
+  const wissel = (lijst: string[], zet: (v: string[]) => void, naam: string) =>
+    zet(lijst.includes(naam) ? lijst.filter((n) => n !== naam) : [...lijst, naam]);
+
+  return (
+    <div className="ckverzend">
+      <div className="field">
+        <span className="field__label">Rename for the test group</span>
+        {methoden.map((m) => {
+          const r = hernoem.find((x) => x.van === m.naam);
+          return (
+            <div className="ckregel" key={m.naam}>
+              <span className="ckregel__naam">
+                {m.naam}
+                {m.prijs && <span className="muted"> · {m.prijs}</span>}
+              </span>
+              <input type="text" value={r?.naar ?? ""} placeholder="Leave empty to keep this name"
+                     onChange={(e) => {
+                       const naar = e.currentTarget.value;
+                       const rest = hernoem.filter((x) => x.van !== m.naam);
+                       setHernoem(naar ? [...rest, { van: m.naam, naar }] : rest);
+                     }} />
+            </div>
+          );
+        })}
+        <span className="field__hint">
+          Shopify puts the carrier name in front of whatever you write here, and that part cannot
+          be removed. With UPS, &quot;Arrives Tuesday&quot; shows up as &quot;UPS Arrives
+          Tuesday&quot;. Own flat rates usually have no carrier name, so there it reads exactly as
+          you typed it.
+        </span>
+      </div>
+
+      <div className="field">
+        <span className="field__label">Hide for the test group</span>
+        <div className="keuzerij">
+          {namen.map((n) => (
+            <button type="button" key={n}
+                    className={"keuze" + (verberg.includes(n) ? " is-aan" : "")}
+                    onClick={() => wissel(verberg, setVerberg, n)}>{n}</button>
+          ))}
+        </div>
+        <span className="field__hint">
+          Never all of them — a checkout with no shipping option cannot be completed, and that
+          would show up in the results as a catastrophic loss rather than as the fault it is.
+          Experli ignores the last one if you tick everything.
+        </span>
+      </div>
+
+      <div className="field">
+        <span className="field__label">Move to the top for the test group</span>
+        <div className="keuzerij">
+          {namen.map((n) => {
+            const i = bovenaan.indexOf(n);
+            return (
+              <button type="button" key={n}
+                      className={"keuze" + (i >= 0 ? " is-aan" : "")}
+                      onClick={() => wissel(bovenaan, setBovenaan, n)}>
+                {i >= 0 && <span className="keuze__nr">{i + 1}</span>}{n}
+              </button>
+            );
+          })}
+        </div>
+        <span className="field__hint">
+          Shopify will not let the cheapest option be pushed off the first place. Put a dearer one
+          on top and Experli moves it to second instead, keeping the rest of your order — refusing
+          outright would hand the test group the normal list without saying so.
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /* De tonen die de kassa kent. Meer zijn het er niet: een vijfde waarde zou
    stil op de standaardkleur uitkomen en dan staat er iets anders dan je hebt
    ingesteld. */
@@ -633,11 +1151,12 @@ const CK_TONEN = [
 /* ── wizard ──────────────────────────────────────────────────────────────── */
 
 export function Wizard({
-  producten, templates, themas, winkelUrl, shop, onKlaar,
+  producten, templates, themas, verzendmethoden, winkelUrl, shop, onKlaar,
 }: {
   producten: ProductInfo[];
   templates: TemplateInfo[];
   themas: ThemaInfo[];
+  verzendmethoden: VerzendMethode[];
   winkelUrl: string | null;
   /** Voor de deeplink naar de theme editor. */
   shop: string | null;
@@ -658,14 +1177,18 @@ export function Wizard({
      identiek. */
   const [foto, setFoto] = useState(0);
 
-  /* Wat de kassatest in de kassa laat zien. De controlekant mag leeg blijven:
-     dat is de gewone vorm van deze test - verandert het iets als hier iets
-     staat? */
-  const [ckKop, setCkKop] = useState("");
-  const [ckTekst, setCkTekst] = useState("");
-  const [ckToon, setCkToon] = useState("info");
-  const [ckControlKop, setCkControlKop] = useState("");
-  const [ckControlTekst, setCkControlTekst] = useState("");
+  /* Wat de kassatest in de kassa doet. De controlekant mag leeg blijven: dat is
+     de gewone vorm van deze test - verandert het iets als hier iets staat? */
+  const [ckSoort, setCkSoort] = useState("banner");
+  const [ckTest, setCkTest] = useState<CkKant>(ckLeeg());
+  const [ckControl, setCkControl] = useState<CkKant>(ckLeeg());
+
+  /* De verzendtest staat los. Hij heeft geen twee kanten om naast elkaar te
+     zetten: de controlegroep krijgt de verzendopties zoals ze zijn, en dat is
+     precies het punt. */
+  const [vzHernoem, setVzHernoem] = useState<{ van: string; naar: string }[]>([]);
+  const [vzVerberg, setVzVerberg] = useState<string[]>([]);
+  const [vzBovenaan, setVzBovenaan] = useState<string[]>([]);
   const [suffix, setSuffix] = useState("");
   const [controlUrl, setControlUrl] = useState("");
   const [testUrl, setTestUrl] = useState("");
@@ -730,6 +1253,19 @@ export function Wizard({
     : [];
   const zelfdePrijs = vergelijking.length > 0 && vergelijking.every((v) => Math.abs(v.verschil) < 0.005);
 
+  /* De twee kanten zoals ze opgeslagen zouden worden. Op die vorm vergelijken
+     en niet op de losse velden: een verschil dat er bij het opslaan toch
+     uitvalt - een spatie, een regel zonder tekst - is geen verschil, en zou
+     hier anders een test laten starten die per definitie niets meet. */
+  const ckTestCfg = type === "checkout" ? ckNaarConfig(ckSoort, ckTest) : null;
+  const ckControlCfg = type === "checkout" ? ckNaarConfig(ckSoort, ckControl) : null;
+  const ckGelijk = Boolean(ckTestCfg && ckControlCfg &&
+    JSON.stringify(ckTestCfg) === JSON.stringify(ckControlCfg));
+
+  /* Een verzendtest doet pas iets als er ten minste één operatie is. Zonder
+     dat krijgt de testgroep exact dezelfde lijst als de controlegroep. */
+  const vzIets = vzHernoem.some((r) => r.naar.trim()) || vzVerberg.length > 0 || vzBovenaan.length > 0;
+
   const setupKlaar =
     type === "price" ? Boolean(control && test && koppeling?.pairs.length)
     // Een foto kiezen die niet de eerste is: foto 1 vooraan zetten terwijl hij
@@ -739,8 +1275,8 @@ export function Wizard({
     : type === "template" ? Boolean(control && suffix.trim() && suffix.trim() !== control.templateSuffix)
     // Tekst voor de testgroep is genoeg; de controlekant mag leeg. Wel moeten
     // de twee verschillen als er allebei iets staat.
-    : type === "checkout" ? Boolean(ckTekst.trim() &&
-                                    ckControlTekst.trim() !== ckTekst.trim())
+    : type === "checkout"
+        ? (ckSoort === "verzending" ? vzIets : Boolean(ckTestCfg) && !ckGelijk)
     : type === "theme" ? Boolean(thema)
     : Boolean(controlUrl.trim() && testUrl.trim() &&
               normaliseerPad(controlUrl) !== normaliseerPad(testUrl));
@@ -765,11 +1301,12 @@ export function Wizard({
     if (type === "template") { fd.set("control", control!.id); fd.set("templateSuffix", suffix.trim()); }
     if (type === "url") { fd.set("controlUrl", controlUrl); fd.set("testUrl", testUrl); }
     if (type === "checkout") {
-      fd.set("checkoutKop", ckKop);
-      fd.set("checkoutTekst", ckTekst);
-      fd.set("checkoutToon", ckToon);
-      fd.set("checkoutControlKop", ckControlKop);
-      fd.set("checkoutControlTekst", ckControlTekst);
+      fd.set("checkoutSoort", ckSoort);
+      fd.set("checkoutConfig", JSON.stringify(
+        ckSoort === "verzending"
+          ? { hernoem: vzHernoem.filter((r) => r.naar.trim()), verberg: vzVerberg, bovenaan: vzBovenaan }
+          : { test: ckTestCfg, control: ckControlCfg },
+      ));
     }
     if (type === "theme") { fd.set("themeId", thema!.id); fd.set("themeName", thema!.naam); }
     fetcher.submit(fd, { method: "post" });
@@ -883,15 +1420,15 @@ export function Wizard({
               {type === "image" && (
                 <>
                   <div style={{ marginTop: 16 }}>
-                    <Kiezer label="Product" hint="Both groups buy this, at the same price."
-                            products={producten} picked={control}
-                            onPick={(p) => {
-                              setControl(p);
-                              // Een positie hoort bij één product. Blijft hij staan
-                              // bij een wissel, dan wijst "foto 4" ineens naar een
-                              // heel andere foto - of naar niets.
-                              setFoto(0);
-                            }} />
+                    <FotoProductKiezer
+                      products={producten} picked={control}
+                      onPick={(p) => {
+                        setControl(p);
+                        // Een positie hoort bij één product. Blijft hij staan bij
+                        // een wissel, dan wijst "foto 4" ineens naar een heel
+                        // andere foto - of naar niets.
+                        setFoto(0);
+                      }} />
                   </div>
                   {control && (
                     <FotoKiezer
@@ -941,64 +1478,122 @@ export function Wizard({
 
               {type === "checkout" && (
                 <div style={{ marginTop: 16 }}>
-                  <Banner tone="info">
-                    Place the <strong>Experli checkout</strong> block once in your checkout editor,
-                    wherever you want the message to appear. Every checkout test uses that same
-                    spot afterwards.
-                  </Banner>
-
-                  <div className="duel" style={{ marginTop: 16 }}>
-                    <div className="duel__kant">
-                      <span className="duel__kop"><span className="swatch swatch--control" /> Control</span>
-                      <input type="text" value={ckControlKop} placeholder="Heading (optional)"
-                             onChange={(e) => setCkControlKop(e.target.value)} />
-                      <textarea rows={3} value={ckControlTekst}
-                                placeholder="Leave empty — the control group sees nothing"
-                                onChange={(e) => setCkControlTekst(e.target.value)} />
-                      <span className="duel__sub">
-                        {ckControlTekst.trim()
-                          ? "two messages against each other"
-                          : "empty is the usual choice: does adding anything help at all?"}
-                      </span>
-                    </div>
-
-                    <span className="duel__vs">vs</span>
-
-                    <div className="duel__kant">
-                      <span className="duel__kop"><span className="swatch swatch--test" /> Test</span>
-                      <input type="text" value={ckKop} placeholder="Heading (optional)"
-                             onChange={(e) => setCkKop(e.target.value)} />
-                      <textarea rows={3} value={ckTekst}
-                                placeholder="Free shipping on every order over $50."
-                                onChange={(e) => setCkTekst(e.target.value)} />
-                      <span className="duel__sub">what the test group sees in the checkout</span>
-                    </div>
-                  </div>
-
-                  <div className="field" style={{ marginTop: 16 }}>
-                    <span className="field__label">Tone</span>
-                    <div className="keuzerij">
-                      {CK_TONEN.map((t) => (
-                        <button type="button" key={t.key}
-                                className={"keuze" + (ckToon === t.key ? " is-aan" : "")}
-                                onClick={() => setCkToon(t.key)}>
-                          <span className={"keuze__stip keuze__stip--" + t.key} />
-                          {t.naam}
+                  <div className="field">
+                    <span className="field__label">What changes in the checkout</span>
+                    <div className="soortraster">
+                      {CK_SOORTEN.map((s) => (
+                        <button type="button" key={s.key}
+                                className={"soortkaart" + (ckSoort === s.key ? " is-aan" : "")}
+                                onClick={() => setCkSoort(s.key)}>
+                          <span className="soortkaart__naam">{s.naam}</span>
+                          <span className="soortkaart__kort">{s.kort}</span>
                         </button>
                       ))}
                     </div>
                     <span className="field__hint">
-                      The colour of the block in the checkout. Both groups get the same tone — if
-                      that differed too, you would not know which of the two changes moved the
-                      number.
+                      {CK_SOORTEN.find((s) => s.key === ckSoort)?.uitleg}
                     </span>
                   </div>
 
-                  {ckControlTekst.trim() && ckControlTekst.trim() === ckTekst.trim() && (
-                    <Banner tone="warn">
-                      Both groups would see exactly the same message, so there is nothing left to
-                      measure.
-                    </Banner>
+                  {ckSoort === "verzending" ? (
+                    <CkVerzending
+                      methoden={verzendmethoden}
+                      hernoem={vzHernoem} setHernoem={setVzHernoem}
+                      verberg={vzVerberg} setVerberg={setVzVerberg}
+                      bovenaan={vzBovenaan} setBovenaan={setVzBovenaan}
+                    />
+                  ) : (
+                    <>
+                      <Banner tone="info">
+                        Place the <strong>Experli checkout</strong> block once in your checkout
+                        editor, wherever you want this to appear. Every checkout test uses that
+                        same spot afterwards.
+                      </Banner>
+
+                      <div className="duel" style={{ marginTop: 16 }}>
+                        <div className="duel__kant">
+                          <span className="duel__kop">
+                            <span className="swatch swatch--control" /> Control
+                          </span>
+                          <CkVelden soort={ckSoort} kant={ckControl} producten={producten}
+                                    isControl
+                                    zet={(v) => setCkControl({ ...ckControl, ...v })} />
+                          <span className="duel__sub">
+                            {ckNaarConfig(ckSoort, ckControl)
+                              ? "two versions against each other"
+                              : "empty is the usual choice: does adding anything help at all?"}
+                          </span>
+                        </div>
+
+                        <span className="duel__vs">vs</span>
+
+                        <div className="duel__kant">
+                          <span className="duel__kop">
+                            <span className="swatch swatch--test" /> Test
+                          </span>
+                          <CkVelden soort={ckSoort} kant={ckTest} producten={producten}
+                                    isControl={false}
+                                    zet={(v) => setCkTest({ ...ckTest, ...v })} />
+                          <span className="duel__sub">what the test group sees in the checkout</span>
+                        </div>
+                      </div>
+
+                      {ckSoort === "banner" && (
+                        <div className="field" style={{ marginTop: 16 }}>
+                          <span className="field__label">Tone</span>
+                          <div className="keuzerij">
+                            {CK_TONEN.map((t) => (
+                              <button type="button" key={t.key}
+                                      className={"keuze" + (ckTest.toon === t.key ? " is-aan" : "")}
+                                      onClick={() => {
+                                        setCkTest({ ...ckTest, toon: t.key });
+                                        setCkControl({ ...ckControl, toon: t.key });
+                                      }}>
+                                <span className={"keuze__stip keuze__stip--" + t.key} />
+                                {t.naam}
+                              </button>
+                            ))}
+                          </div>
+                          <span className="field__hint">
+                            The colour of the block in the checkout. Both groups get the same tone —
+                            if that differed too, you would not know which of the two changes moved
+                            the number.
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Plaatsing. Alleen zichtbaar als er meer dan één slot in
+                          het spel is, want een winkel met één Experli-blok heeft
+                          hier niets te kiezen en zou alleen een veld zien dat
+                          vraagt om een letter waarvan hij de betekenis niet kent. */}
+                      <details className="ckplaats">
+                        <summary>Test the placement instead of the content</summary>
+                        <p className="small muted">
+                          Put the Experli block in two spots in your checkout editor and give each
+                          one a letter. Fill in the same content on both sides here but a different
+                          letter, and the only thing being tested is where it sits.
+                        </p>
+                        <div className="row">
+                          <div className="field">
+                            <span className="field__label">Control slot</span>
+                            <input type="text" value={ckControl.slot} placeholder="a"
+                                   onChange={(e) => setCkControl({ ...ckControl, slot: e.currentTarget.value })} />
+                          </div>
+                          <div className="field">
+                            <span className="field__label">Test slot</span>
+                            <input type="text" value={ckTest.slot} placeholder="a"
+                                   onChange={(e) => setCkTest({ ...ckTest, slot: e.currentTarget.value })} />
+                          </div>
+                        </div>
+                      </details>
+
+                      {ckGelijk && (
+                        <Banner tone="warn">
+                          Both groups would see exactly the same thing in the same spot, so there is
+                          nothing left to measure.
+                        </Banner>
+                      )}
+                    </>
                   )}
                 </div>
               )}
@@ -1339,7 +1934,7 @@ export function Wizard({
                   <span className="duel__kop"><span className="swatch swatch--control" /> Control</span>
                   <span className="duel__naam">
                     {type === "url" ? normaliseerPad(controlUrl)
-                      : type === "checkout" ? (ckControlTekst.trim() ? "Your other message" : "The checkout as it is")
+                      : type === "checkout" ? (ckControlCfg ? "Your other version" : "The checkout as it is")
                       : type === "theme" ? (themas.find((t) => t.rol === "MAIN")?.naam ?? "live theme")
                       : type === "template" ? "product." + (control?.templateSuffix || "(default)")
                       : control?.title ?? "—"}
@@ -1356,7 +1951,7 @@ export function Wizard({
                   <span className="duel__naam">
                     {type === "price" ? test?.title ?? "—"
                       : type === "image" ? (control?.title ?? "—")
-                      : type === "checkout" ? (ckKop.trim() || "Your message")
+                      : type === "checkout" ? (CK_SOORTEN.find((x) => x.key === ckSoort)?.naam ?? "Checkout")
                       : type === "template" ? "product." + suffix
                       : type === "url" ? normaliseerPad(testUrl)
                       : thema?.naam ?? "—"}
@@ -1365,7 +1960,7 @@ export function Wizard({
                     {split}% of traffic ·{" "}
                     {type === "price" ? "different price"
                       : type === "image" ? "photo " + foto + " shown first"
-                      : type === "checkout" ? "a block in the checkout"
+                      : type === "checkout" ? (ckSoort === "verzending" ? "different shipping options" : "in the checkout")
                       : type === "template" ? "?view=" + suffix
                       : type === "url" ? "sent from the other URL"
                       : "every page"}

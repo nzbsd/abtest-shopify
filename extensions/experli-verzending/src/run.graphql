@@ -1,0 +1,33 @@
+# De invoer van de Function.
+#
+# TWEE DINGEN, EN GEEN VAN BEIDE KAN HIER SAMENGESTELD WORDEN.
+#
+# 1. De instellingen, uit een metafield op de delivery customization. Een
+#    Function kan niets ophalen: geen netwerk, geen database. Alles wat ze moet
+#    weten staat in haar invoer, en dit is de enige plek waar wij iets in kunnen
+#    zetten. Experli schrijft het weg als de test start.
+#
+# 2. Het cohort, uit de winkelwagen. De sleutel is _pt_ck en niet _pt_<testid>,
+#    want dit bestand wordt bij het bouwen vastgelegd en kan geen id invullen.
+#    Het thema schrijft daarom bij elke kassatest een tweede paar kenmerken weg
+#    met een vaste naam. _pt_ck_test draagt het id, zodat de Function kan zien
+#    dat dit cohort van háár test komt en niet van een gestopte voorganger die
+#    nog in een oude wagen hangt.
+query RunInput {
+  deliveryCustomization {
+    metafield(namespace: "experli", key: "config") {
+      jsonValue
+    }
+  }
+  cart {
+    cohort: attribute(key: "_pt_ck") { value }
+    vanTest: attribute(key: "_pt_ck_test") { value }
+    deliveryGroups {
+      deliveryOptions {
+        handle
+        title
+        cost { amount }
+      }
+    }
+  }
+}

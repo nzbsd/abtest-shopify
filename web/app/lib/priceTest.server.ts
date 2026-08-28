@@ -30,13 +30,12 @@ export type PriceTest = {
   template_suffix: string | null;
   /** Alleen bij een afbeeldingstest: welke foto (1-based) de testgroep eerst ziet. */
   image_positie: number | null;
-  /* Wat de kassatest in de kassa laat zien. De controlekant mag leeg zijn:
-     dan is de test "verandert het iets als hier iets staat". */
-  checkout_kop: string | null;
-  checkout_tekst: string | null;
-  checkout_toon: string | null;
-  checkout_control_kop: string | null;
-  checkout_control_tekst: string | null;
+  /* Welke mechaniek de kassatest gebruikt, en hoe hij ingesteld staat. Zie
+     migratie 0022 voor waarom dat een jsonb is en geen rij kolommen. */
+  checkout_variant: string | null;
+  checkout_config: Record<string, any> | null;
+  /* De delivery customization in Shopify, bij een verzendtest. */
+  checkout_customization_id: string | null;
   /** Alleen bij een url-test. */
   control_url: string | null;
   test_url: string | null;

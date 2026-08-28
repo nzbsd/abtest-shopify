@@ -23,9 +23,11 @@ import { benodigd, metricInfo, noemer, noemerNaam } from "~/lib/metrics";
 function watVarieert(t: PriceTest): string {
   switch (t.test_type) {
     case "image":    return "photo " + (t.image_positie ?? "?") + " first in the gallery";
-    case "checkout": return t.checkout_control_tekst
-                            ? "two messages in the checkout"
-                            : "an extra block in the checkout";
+    case "checkout": return t.checkout_variant === "verzending"
+                            ? "different shipping options"
+                            : t.checkout_config?.control
+                              ? "two versions in the checkout"
+                              : "an extra block in the checkout";
     case "template": return "template ?view=" + (t.template_suffix ?? "?");
     case "url":      return (t.control_url ?? "?") + " → " + (t.test_url ?? "?");
     case "theme":    return "theme " + (t.test_theme_name ?? "variant") + ", every page";
