@@ -3066,3 +3066,34 @@ tbody tr:hover { background: var(--wash); }
    het is een terzijde bij de rij, geen kaart erin. */
 .test-row__spark { max-width: 320px; margin-top: 10px; }
 .test-row__spark .sparkpaar { height: 40px; margin: 0; }
+
+/* Twee balken onder een vergelijking. Zonder deze staan er twee bedragen
+   naast elkaar en moet je het verschil zelf schatten: is $44,37 tegenover
+   $49,13 veel of weinig? Twee balken beantwoorden dat zonder rekenen.
+
+   Op dezelfde schaal, dus de langste raakt de rand en de ander verhoudt zich
+   daartoe. Zou elke balk zijn eigen schaal krijgen, dan zouden ze allebei vol
+   staan en zei het niets. */
+.compare__balken { display: grid; gap: 7px; margin-top: 16px; }
+.compare__balk {
+  display: block;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--wash);
+  overflow: hidden;
+}
+.compare__balk > span {
+  display: block; height: 100%; border-radius: inherit;
+  transform-origin: left;
+  animation: groeiBalk .5s var(--ease-out) both;
+}
+
+/* Het vlak onder een lijn in de grote grafiek. Twee haarlijnen op wit zijn
+   technisch een grafiek en visueel niets; een vlak eronder geeft de lijn
+   gewicht en maakt het verschil tussen de armen een oppervlak in plaats van
+   een afstand. */
+.vlak { animation: verschijn .7s .2s var(--ease-out) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .compare__balk > span, .vlak { animation: none; }
+}

@@ -538,6 +538,7 @@ export function AnalyticsView({
             test={procent(t.cr)}
             delta={convTest.lift}
             goedAls="geen"
+            ruw={{ control: c.cr, test: t.cr }}
             noot={convTest.bruikbaar
               ? pTekst(convTest.p) + " · a higher price nearly always lowers this; the question is whether revenue follows"
               : "Too few orders to compare yet."}
@@ -547,6 +548,7 @@ export function AnalyticsView({
             control={geld(c.aov)}
             test={geld(t.aov)}
             delta={c.aov ? ((t.aov - c.aov) / c.aov) * 100 : 0}
+            ruw={{ control: c.aov, test: t.aov }}
             noot={
               (c.aov ? bedragVerschil(t.aov - c.aov) + " per order · " : "") +
               heel(c.orders) + " versus " + heel(t.orders) + " orders"

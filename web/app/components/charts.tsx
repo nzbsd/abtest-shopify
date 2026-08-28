@@ -37,6 +37,24 @@ export function Lijn({
   const pad2 = (k: "control" | "test") =>
     punten.map((p, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(p[k]).toFixed(1)).join(" ");
 
+  /**
+   * Hetzelfde pad, dichtgetrokken naar de onderrand.
+   *
+   * Twee haarlijnen op wit zijn technisch een grafiek en visueel niets - je
+   * ziet de vorm pas als je gaat kijken, terwijl een grafiek juist het ding
+   * hoort te zijn dat je zonder kijken al ziet. Een vlak eronder geeft de lijn
+   * gewicht en maakt het verschil tussen de twee armen een oppervlak in plaats
+   * van een afstand.
+   *
+   * Laag doorzichtig en met een verloop naar niets: waar de vlakken elkaar
+   * overlappen mag je allebei de lijnen blijven zien, want juist daar zit het
+   * antwoord.
+   */
+  const vlak = (k: "control" | "test") =>
+    "M" + pad.left + " " + (pad.top + ih) +
+    " " + pad2(k).slice(1) +
+    " L" + (W - pad.right) + " " + (pad.top + ih) + " Z";
+
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * max);
   const stap = Math.ceil(punten.length / 8);
 
@@ -80,6 +98,20 @@ export function Lijn({
           <line className="grid-line" x1={x(hover)} x2={x(hover)} y1={pad.top} y2={pad.top + ih}
                 stroke="var(--line-loud)" />
         )}
+
+        <defs>
+          <linearGradient id={"vul-c-" + punten.length} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--control)" stopOpacity=".26" />
+            <stop offset="100%" stopColor="var(--control)" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id={"vul-t-" + punten.length} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--test)" stopOpacity=".26" />
+            <stop offset="100%" stopColor="var(--test)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        <path className="vlak" d={vlak("control")} fill={"url(#vul-c-" + punten.length + ")"} />
+        <path className="vlak" d={vlak("test")} fill={"url(#vul-t-" + punten.length + ")"} />
 
         <path className="series" pathLength={1} d={pad2("control")} stroke="var(--control)" />
         <path className="series series--test" pathLength={1} d={pad2("test")} stroke="var(--test)" />

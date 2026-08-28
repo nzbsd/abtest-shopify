@@ -80,6 +80,7 @@ export function ForecastView({
               control={geld(f.control.ltvPerBezoeker)}
               test={geld(f.test.ltvPerBezoeker)}
               delta={f.verschilPct}
+              ruw={{ control: f.control.ltvPerBezoeker, test: f.test.ltvPerBezoeker }}
               noot={"First order alone: " + geld(f.control.eersteOrderPerBezoeker) + " versus " +
                     geld(f.test.eersteOrderPerBezoeker)}
             />
@@ -87,6 +88,7 @@ export function ForecastView({
               label="Value per customer"
               control={geld(f.control.ltvPerKlant)}
               test={geld(f.test.ltvPerKlant)}
+              ruw={{ control: f.control.ltvPerKlant, test: f.test.ltvPerKlant }}
               delta={f.control.ltvPerKlant ? ((f.test.ltvPerKlant - f.control.ltvPerKlant) / f.control.ltvPerKlant) * 100 : 0}
               noot={procent(f.control.subAandeel * 100, 0) + " versus " +
                     procent(f.test.subAandeel * 100, 0) + " on a subscription"}

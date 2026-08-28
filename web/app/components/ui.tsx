@@ -287,7 +287,7 @@ export function Leeg({ children, icoon }: { children: ReactNode; icoon?: ReactNo
  * replacing them.
  */
 export function Vergelijk({
-  label, control, test, delta, noot, goedAls = "up",
+  label, control, test, delta, noot, goedAls = "up", ruw,
 }: {
   label: string;
   control: string;
@@ -295,7 +295,20 @@ export function Vergelijk({
   delta?: number;
   noot?: string;
   goedAls?: "up" | "down" | "geen";
+  /**
+   * De kale getallen achter de opgemaakte tekst, voor de balken.
+   *
+   * Zonder deze staan er twee bedragen naast elkaar en moet je het verschil
+   * zelf schatten: is $44,37 tegenover $49,13 veel of weinig? Twee balken
+   * beantwoorden dat zonder rekenen, en dat is precies wat een
+   * vergelijkingskaart hoort te doen.
+   *
+   * Optioneel omdat niet elke waarde zich laat schalen - een tekst als "1,8
+   * cycli" heeft geen zinnige nullijn.
+   */
+  ruw?: { control: number; test: number };
 }) {
+  const top = ruw ? Math.max(ruw.control, ruw.test, 0.0001) : 0;
   return (
     <article className="card compare">
       <p className="compare__label">{label}</p>
@@ -312,6 +325,21 @@ export function Vergelijk({
           <div className="compare__delta"><Delta waarde={delta} goedAls={goedAls} /></div>
         )}
       </div>
+
+      {/* Twee balken op dezelfde schaal, dus de langste raakt de rand en de
+          ander verhoudt zich daartoe. Geen assen en geen getallen eronder:
+          die staan er al boven, en dit is er om het verschil te tónen. */}
+      {ruw && (
+        <div className="compare__balken" aria-hidden>
+          <span className="compare__balk">
+            <span style={{ width: (ruw.control / top) * 100 + "%", background: "var(--control)" }} />
+          </span>
+          <span className="compare__balk">
+            <span style={{ width: (ruw.test / top) * 100 + "%", background: "var(--test)" }} />
+          </span>
+        </div>
+      )}
+
       {noot && <p className="compare__note">{noot}</p>}
     </article>
   );
