@@ -63,6 +63,33 @@
 <style>#preview-bar-iframe, #PBarNextFrameWrapper { display: none !important; }</style>
 {%- endunless -%}
 
+{%- comment -%}
+  De galerij tijdens een afbeeldingstest.
+
+  Dit is het enige testtype dat de bestaande pagina aanpast in plaats van naar
+  een andere te sturen, en dus het enige dat kan flikkeren. Een bezoeker die
+  eerst foto 1 ziet en een tel later foto 4, heeft geen test gezien maar een
+  storing - en heeft bovendien beide varianten beoordeeld, waarmee de meting
+  precies datgene meet wat ze niet wil meten.
+
+  Onzichtbaar en niet weg: display:none zou de hoogte laten inklappen en de
+  hele pagina laten verspringen. Opacity houdt de ruimte, dus de pagina staat
+  meteen goed en alleen de foto's verschijnen een fractie later.
+
+  De klasse gaat er alleen op als er echt gewisseld wordt, en er altijd weer
+  af - ook als de galerij niet gevonden wordt. Een winkel met permanent
+  onzichtbare productfoto's is een veel erger probleem dan een test die niets
+  meet.
+{%- endcomment -%}
+<style>
+  .pt-foto-bezig .product__media-list,
+  .pt-foto-bezig .product-media-list,
+  .pt-foto-bezig .product__media-wrapper,
+  .pt-foto-bezig [data-product-media-list],
+  .pt-foto-bezig .product-gallery__media-list,
+  .pt-foto-bezig .product-single__media-group { opacity: 0; }
+</style>
+
 <script>
 (function () {
   var APP = {{ app_base | json }};
@@ -411,6 +438,100 @@
     return true;
   }
 
+  /**
+   * Afbeeldingstest: dezelfde pagina, een andere foto vooraan.
+   *
+   * ANDERS DAN ALLE ANDERE TYPES: GEEN DOORVERWIJZING.
+   * De prijs-, url- en templatetests sturen de bezoeker naar een andere URL en
+   * laten Shopify het werk doen. Hier verandert de URL niet, want er is geen
+   * tweede pagina - er is één pagina met de foto's in een andere volgorde.
+   * Dat betekent dat dit het enige type is dat de bestaande pagina aanpast, en
+   * daarom ook het enige dat kan flikkeren als je het verkeerd doet.
+   *
+   * Vandaar dat de galerij verborgen wordt tot de wissel klaar is. Een
+   * bezoeker die eerst foto 1 ziet en dan foto 4 heeft geen test gezien maar
+   * een storing, en zou bovendien beide varianten hebben beoordeeld.
+   *
+   * WAAROM DE VOLGORDE EN NIET EEN ID
+   * Het thema rendert de media in de volgorde die Shopify aanlevert, en dat is
+   * dezelfde volgorde die de app in de kiezer laat zien. Positie drie daar is
+   * positie drie hier. Een media-id zou preciezer zijn, maar dat staat nergens
+   * in de DOM waar we het kunnen terugvinden.
+   */
+  function doeAfbeelding(t) {
+    if (t.controlProductId !== PRODUCT_ID) return false;
+
+    var cohort = bucket(visitor + ":" + t.id) < t.splitPct ? "test" : "control";
+    if (cohort === "control") return meet(t.id, "control");
+
+    wisselFoto(t.imagePositie);
+    return meet(t.id, "test");
+  }
+
+  /**
+   * De gekozen foto naar voren halen.
+   *
+   * Het thema kan zijn galerij op tien manieren opbouwen, dus we zoeken hem op
+   * de kenmerken die vrijwel elk Shopify-thema deelt: een lijst met meerdere
+   * media-items. De eerste kandidaat met genoeg kinderen wint.
+   *
+   * Vindt hij niets, dan gebeurt er niets. De testgroep ziet dan gewoon de
+   * normale pagina - dat is een test die niets meet, maar geen kapotte winkel.
+   * Dat onderscheid is hier belangrijker dan slim zijn.
+   */
+  function wisselFoto(positie) {
+    if (!(positie > 1)) return;
+
+    var kiezers = [
+      ".product__media-list",
+      ".product-media-list",
+      ".product__media-wrapper",
+      "[data-product-media-list]",
+      ".product-gallery__media-list",
+      ".product-single__media-group",
+    ];
+
+    function pak() {
+      for (var i = 0; i < kiezers.length; i++) {
+        var lijst = document.querySelector(kiezers[i]);
+        if (lijst && lijst.children.length >= positie) return lijst;
+      }
+      return null;
+    }
+
+    var gedaan = false;
+    function wissel() {
+      if (gedaan) return true;
+      var lijst = pak();
+      if (!lijst) return false;
+      var doel = lijst.children[positie - 1];
+      if (!doel) return false;
+      lijst.insertBefore(doel, lijst.firstElementChild);
+      gedaan = true;
+      lijst.setAttribute("data-pt-foto", String(positie));
+      return true;
+    }
+
+    /* De galerij kan er nog niet staan: veel thema's bouwen hem na een
+       fetch of in een custom element dat later upgradet. Even blijven kijken,
+       maar niet eindeloos - na twee seconden is het geen laadvertraging meer
+       maar een thema dat we niet herkennen. */
+    document.documentElement.classList.add("pt-foto-bezig");
+    var klaar = function () {
+      document.documentElement.classList.remove("pt-foto-bezig");
+    };
+
+    if (wissel()) { klaar(); return; }
+
+    var tikken = 0;
+    var tik = setInterval(function () {
+      if (wissel() || ++tikken > 40) {
+        clearInterval(tik);
+        klaar();
+      }
+    }, 50);
+  }
+
   function doeTemplate(t) {
     if (t.controlProductId !== PRODUCT_ID) return false;
 
@@ -482,6 +603,7 @@
       if (t.type === "theme") raak = doeTheme(t);
       else if (t.type === "url") raak = doeUrl(t);
       else if (t.type === "template") raak = doeTemplate(t);
+      else if (t.type === "image") raak = doeAfbeelding(t);
       else raak = doePrice(t);
       /* A redirect ends the page view: a second one would fight the first and
          the visitor would end up somewhere neither test intended. */

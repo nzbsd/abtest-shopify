@@ -22,12 +22,14 @@ export type PriceTest = {
   id: number;
   shop: string;
   /** price | template | url | theme - zie testTypes.ts */
-  test_type: "price" | "template" | "url" | "theme";
+  test_type: "price" | "image" | "template" | "url" | "theme";
   /** Vrije naam, want het product zegt niets als er drie tests op draaien. */
   naam: string | null;
   hypothese: string | null;
   /** Alleen bij een template-test: het deel achter ?view= */
   template_suffix: string | null;
+  /** Alleen bij een afbeeldingstest: welke foto (1-based) de testgroep eerst ziet. */
+  image_positie: number | null;
   /** Alleen bij een url-test. */
   control_url: string | null;
   test_url: string | null;
@@ -78,6 +80,14 @@ const PRODUCT_VELDEN = `
   onlineStoreUrl
   onlineStorePreviewUrl
   featuredImage { url }
+  /* De galerij, voor de afbeeldingstest: je moet kunnen zien welke foto je
+     kiest, en hoeveel er zijn. Twintig is ruim - meer foto's op een
+     productpagina komt zelden voor en zou de kiezer onleesbaar maken. */
+  media(first: 20) {
+    nodes {
+      ... on MediaImage { id image { url altText } }
+    }
+  }
   variants(first: 100) { nodes { id title price } }
 `;
 
@@ -91,6 +101,13 @@ function naarProductInfo(p: any): ProductInfo {
     url: p.onlineStoreUrl || p.onlineStorePreviewUrl || null,
     sellingPlanGroups: Number(p.sellingPlanGroupCount) || 0,
     templateSuffix: p.templateSuffix || null,
+    media: (p.media?.nodes || [])
+      .filter((m: any) => m?.image?.url)
+      .map((m: any, i: number) => ({
+        pos: i + 1,
+        url: m.image.url as string,
+        alt: (m.image.altText as string) || null,
+      })),
     variants: (p.variants?.nodes || []).map((v: any) => ({
       id: v.id,
       num: numOf(v.id),

@@ -42,7 +42,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       .from("price_tests")
       .select(
         "id, test_type, control_product_id, test_product_id, test_product_handle, " +
-        "template_suffix, control_url, test_url, test_theme_id, split_pct, variant_map, " +
+        "template_suffix, image_positie, control_url, test_url, test_theme_id, split_pct, variant_map, " +
         "target_devices, target_countries",
       )
       .eq("shop", shop)
@@ -74,6 +74,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
         const controlProductId = gidToNum(row.control_product_id);
         if (!controlProductId) return null;
+
+        if (type === "image") {
+          /* Zonder positie geen test. Hem toch uitserveren zou het thema laten
+             zoeken naar een foto die er niet is: de galerij blijft staan,
+             beide groepen zien hetzelfde, en de uitslag rapporteert straks
+             keurig een verschil van nul alsof dat een bevinding was. */
+          const pos = Number(row.image_positie);
+          if (!Number.isInteger(pos) || pos < 2) return null;
+          return { id: row.id, type, splitPct, doelgroep, controlProductId, imagePositie: pos };
+        }
 
         if (type === "template") {
           if (!row.template_suffix) return null;

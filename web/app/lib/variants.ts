@@ -34,6 +34,13 @@ export type ProductInfo = {
       Leeg betekent het standaardtemplate (product.json). Dit is de
       controlekant van een page design-test: wat bezoekers vandaag zien. */
   templateSuffix?: string | null;
+  /**
+   * De galerij, in de volgorde waarin Shopify hem aanlevert - dezelfde
+   * volgorde die het thema op de productpagina rendert. Die overeenkomst is
+   * het hele fundament van de afbeeldingstest: positie drie hier is positie
+   * drie daar.
+   */
+  media?: { pos: number; url: string; alt: string | null }[];
   variants: VariantInfo[];
 };
 

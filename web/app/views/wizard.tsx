@@ -517,6 +517,109 @@ function ThemaKiezer({
   );
 }
 
+function FotoKiezer({
+  product, waarde, onKies, previewBasis,
+}: {
+  product: ProductInfo;
+  /** 1-based positie in de galerij; 0 betekent nog niets gekozen. */
+  waarde: number;
+  onKies: (n: number) => void;
+  previewBasis: string | null;
+}) {
+  const media = product.media ?? [];
+  const eerste = media[0] ?? null;
+  const gekozen = waarde ? media.find((m) => m.pos === waarde) ?? null : null;
+
+  /* Foto 1 valt af. Die staat al vooraan, dus hem kiezen levert twee groepen
+     op die exact dezelfde pagina zien - een test die per definitie niets kan
+     meten, maar wel dagen loopt voordat iemand dat doorheeft. */
+  const keuzes = media.filter((m) => m.pos > 1);
+
+  if (!media.length) {
+    return (
+      <div className="field" style={{ marginTop: 16 }}>
+        <span className="field__label">Which photo the test group opens on</span>
+        <Banner tone="warn">
+          Experli sees no photos on this product. Add them in Shopify first — there is nothing
+          to reorder yet.
+        </Banner>
+      </div>
+    );
+  }
+
+  if (!keuzes.length) {
+    return (
+      <div className="field" style={{ marginTop: 16 }}>
+        <span className="field__label">Which photo the test group opens on</span>
+        <Banner tone="warn">
+          This product has one photo. A test needs a second one to put in front of it.
+        </Banner>
+      </div>
+    );
+  }
+
+  return (
+    <div className="field" style={{ marginTop: 16 }}>
+      <span className="field__label">Which photo the test group opens on</span>
+
+      <div className="duel">
+        <div className="duel__kant">
+          <span className="duel__kop"><span className="swatch swatch--control" /> Control</span>
+          <div className="fotokiezer__groot">
+            {eerste && <img src={eerste.url} alt={eerste.alt ?? ""} loading="lazy" />}
+          </div>
+          <span className="duel__sub">photo 1, the gallery as it is today</span>
+          {previewBasis && (
+            <a className="btn btn--sm" target="_blank" rel="noreferrer" href={previewBasis}>
+              Preview
+            </a>
+          )}
+        </div>
+
+        <span className="duel__vs">vs</span>
+
+        <div className="duel__kant">
+          <span className="duel__kop"><span className="swatch swatch--test" /> Test</span>
+          {gekozen ? (
+            <>
+              <div className="fotokiezer__groot">
+                <img src={gekozen.url} alt={gekozen.alt ?? ""} loading="lazy" />
+              </div>
+              <span className="duel__sub">
+                photo {gekozen.pos}, moved to the front
+              </span>
+            </>
+          ) : (
+            <>
+              <div className="fotokiezer__groot fotokiezer__groot--leeg" />
+              <span className="duel__leeg">Nothing chosen yet</span>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Alle kandidaten in beeld in plaats van achter een keuzelijst. Dit is
+          het enige testtype waarbij de keuze zélf visueel is: welke foto het
+          beste opent kun je niet aan een positienummer aflezen. */}
+      <div className="fotokiezer__strip" role="radiogroup" aria-label="Photo for the test group">
+        {keuzes.map((m) => (
+          <button type="button" key={m.pos} role="radio" aria-checked={waarde === m.pos}
+                  className={"fotokiezer__mini" + (waarde === m.pos ? " is-gekozen" : "")}
+                  onClick={() => onKies(waarde === m.pos ? 0 : m.pos)}>
+            <img src={m.url} alt={m.alt ?? ""} loading="lazy" />
+            <span className="fotokiezer__nr">{m.pos}</span>
+          </button>
+        ))}
+      </div>
+
+      <span className="field__hint">
+        Nothing else changes: same page, same price, same copy. Whatever moves is down to
+        this one image.
+      </span>
+    </div>
+  );
+}
+
 /* ── wizard ──────────────────────────────────────────────────────────────── */
 
 export function Wizard({
@@ -540,6 +643,10 @@ export function Wizard({
   const [hypothese, setHypothese] = useState("");
   const [control, setControl] = useState<ProductInfo | null>(null);
   const [test, setTest] = useState<ProductInfo | null>(null);
+  /* Welke foto de testgroep vooraan ziet, 1-based. Nul betekent "nog niet
+     gekozen"; de eerste foto kiezen kan niet, want dan zijn de twee groepen
+     identiek. */
+  const [foto, setFoto] = useState(0);
   const [suffix, setSuffix] = useState("");
   const [controlUrl, setControlUrl] = useState("");
   const [testUrl, setTestUrl] = useState("");
@@ -606,6 +713,9 @@ export function Wizard({
 
   const setupKlaar =
     type === "price" ? Boolean(control && test && koppeling?.pairs.length)
+    // Een foto kiezen die niet de eerste is: foto 1 vooraan zetten terwijl hij
+    // daar al staat levert twee identieke groepen op.
+    : type === "image" ? Boolean(control && foto && foto > 1)
     // De variant moet een ánder template zijn dan waar het product al op staat.
     : type === "template" ? Boolean(control && suffix.trim() && suffix.trim() !== control.templateSuffix)
     : type === "theme" ? Boolean(thema)
@@ -628,6 +738,7 @@ export function Wizard({
     fd.set("targetDevices", devices.join(","));
     fd.set("targetCountries", landen);
     if (type === "price") { fd.set("control", control!.id); fd.set("test", test!.id); }
+    if (type === "image") { fd.set("control", control!.id); fd.set("imagePositie", String(foto)); }
     if (type === "template") { fd.set("control", control!.id); fd.set("templateSuffix", suffix.trim()); }
     if (type === "url") { fd.set("controlUrl", controlUrl); fd.set("testUrl", testUrl); }
     if (type === "theme") { fd.set("themeId", thema!.id); fd.set("themeName", thema!.naam); }
@@ -735,6 +846,34 @@ export function Wizard({
                         </table>
                       </div>
                     </div>
+                  )}
+                </>
+              )}
+
+              {type === "image" && (
+                <>
+                  <div style={{ marginTop: 16 }}>
+                    <Kiezer label="Product" hint="Both groups buy this, at the same price."
+                            products={producten} picked={control}
+                            onPick={(p) => {
+                              setControl(p);
+                              // Een positie hoort bij één product. Blijft hij staan
+                              // bij een wissel, dan wijst "foto 4" ineens naar een
+                              // heel andere foto - of naar niets.
+                              setFoto(0);
+                            }} />
+                  </div>
+                  {control && (
+                    <FotoKiezer
+                      product={control}
+                      waarde={foto}
+                      onKies={setFoto}
+                      previewBasis={
+                        winkelUrl
+                          ? winkelUrl.replace(/\/+$/, "") + "/products/" + control.handle
+                          : control.url ?? null
+                      }
+                    />
                   )}
                 </>
               )}
@@ -1121,6 +1260,7 @@ export function Wizard({
                   <span className="duel__kop"><span className="swatch swatch--test" /> Test</span>
                   <span className="duel__naam">
                     {type === "price" ? test?.title ?? "—"
+                      : type === "image" ? (control?.title ?? "—")
                       : type === "template" ? "product." + suffix
                       : type === "url" ? normaliseerPad(testUrl)
                       : thema?.naam ?? "—"}
@@ -1128,6 +1268,7 @@ export function Wizard({
                   <span className="duel__sub">
                     {split}% of traffic ·{" "}
                     {type === "price" ? "different price"
+                      : type === "image" ? "photo " + foto + " shown first"
                       : type === "template" ? "?view=" + suffix
                       : type === "url" ? "sent from the other URL"
                       : "every page"}

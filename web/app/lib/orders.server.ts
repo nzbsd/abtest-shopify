@@ -138,7 +138,15 @@ export async function orderCijfers(
    * thema-test niets, dus het filter werd "product_id:NaN" en leverde nul
    * orders op zonder ook maar iets te melden.
    */
-  const productGebonden = test.test_type === "price" || test.test_type === "template";
+  /* Een afbeeldingstest hangt net als een prijs- en templatetest aan één
+     product: beide armen kopen hetzelfde artikel, alleen de eerste foto
+     verschilt. Zonder hem hier zou het orderfilter wegvallen en zouden alle
+     webshop-orders van de winkel meetellen - inclusief die van producten waar
+     deze test nooit langs is gekomen. */
+  const productGebonden =
+    test.test_type === "price" ||
+    test.test_type === "image" ||
+    test.test_type === "template";
   const controlNum = productGebonden ? numOf(test.control_product_id || "") : "";
   const testNum = productGebonden && test.test_product_id ? numOf(test.test_product_id) : controlNum;
 

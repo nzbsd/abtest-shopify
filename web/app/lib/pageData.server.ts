@@ -266,7 +266,37 @@ export async function testsAction(
         const control = await resolveProduct(admin, String(form.get("control") || ""));
         if (!control) throw new Error("Product not found.");
 
-        if (type === "template") {
+        if (type === "image") {
+          /**
+           * De positie opnieuw valideren op de server.
+           *
+           * Het scherm biedt alleen bestaande foto's aan, maar het formulier
+           * kan van elders komen. Een positie die niet bestaat zou een test
+           * opleveren die niets doet: het thema zoekt een foto die er niet is,
+           * laat de galerij staan, en beide groepen zien hetzelfde - terwijl
+           * de uitslag straks netjes een verschil van nul rapporteert alsof
+           * dat een bevinding was.
+           */
+          const pos = Number(form.get("imagePositie") || 0);
+          if (!Number.isInteger(pos) || pos < 2) {
+            throw new Error("Pick a photo other than the first one.");
+          }
+          const aantal = control.media?.length ?? 0;
+          if (aantal && pos > aantal) {
+            throw new Error(
+              "This product has " + aantal + " photos, so there is no photo " + pos + ".",
+            );
+          }
+          rij = {
+            ...gedeeld,
+            control_product_id: control.id,
+            control_product_handle: control.handle,
+            control_title: control.title,
+            image_positie: pos,
+            test_product_id: null,
+          };
+          bericht = "Test saved: " + control.title + " with photo " + pos + " first for the test group.";
+        } else if (type === "template") {
           const suffix = String(form.get("templateSuffix") || "").trim();
           if (!suffix) throw new Error("Template suffix is required.");
           rij = {

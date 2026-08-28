@@ -11,7 +11,7 @@
  * bespoke theme code it stops being configuration and becomes a deploy.
  */
 
-export type TestType = "price" | "template" | "url" | "theme";
+export type TestType = "price" | "image" | "template" | "url" | "theme";
 
 export type TypeInfo = {
   key: TestType;
@@ -37,6 +37,21 @@ export const TYPES: TypeInfo[] = [
       "Duplicate the product in Shopify, set the new price on it, and attach the same bundle, " +
       "selling plan and reviews. Keep it unlisted.",
     mechaniek: "Test group goes to the duplicate's URL.",
+  },
+  {
+    key: "image",
+    naam: "Product images",
+    kort: "Same page, a different photo first",
+    uitleg:
+      "The test group sees a different photo as the first one in the gallery. Nothing else " +
+      "changes — same page, same price, same copy — so whatever moves is down to that one image. " +
+      "It is the narrowest test in this list, and that is exactly what makes it easy to learn " +
+      "from: when it wins, you know why.",
+    voorbereiding:
+      "Nothing to build. Every photo is already on the product; you only pick which one the test " +
+      "group opens on. Worth checking that the photo works as a first impression on its own — a " +
+      "detail shot that made sense as number four can be confusing as number one.",
+    mechaniek: "Test group gets that photo moved to the front of the gallery.",
   },
   {
     key: "template",
@@ -97,11 +112,16 @@ export function watOntbreekt(t: {
   control_url?: string | null;
   test_url?: string | null;
   test_theme_id?: string | null;
+  image_positie?: number | null;
 }): string | null {
   switch (t.test_type ?? "price") {
     case "price":
       if (!t.control_product_id) return "No original product chosen.";
       if (!t.test_product_id) return "No duplicate chosen.";
+      return null;
+    case "image":
+      if (!t.control_product_id) return "No product chosen.";
+      if (!t.image_positie) return "No photo chosen for the test group.";
       return null;
     case "template":
       if (!t.control_product_id) return "No product chosen.";
