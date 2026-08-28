@@ -1,6 +1,7 @@
 api_version = "2025-10"
 
 [[extensions]]
+uid = "9b3c8781-ee2e-9076-3355-d5d9517a1b59c60f07a5"
 type = "ui_extension"
 name = "Experli checkout"
 handle = "experli-checkout"

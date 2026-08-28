@@ -8,3 +8,4 @@ build/
 *.log
 .shopify/
 extensions/*/dist/
+extensions/*/node_modules
