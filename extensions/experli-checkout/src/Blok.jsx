@@ -27,7 +27,7 @@
  * neer te zetten.
  */
 import "@shopify/ui-extensions/preact";
-import { render } from "preact";
+import { Fragment, render } from "preact";
 import { useEffect, useState } from "preact/hooks";
 
 export default function extension() {
@@ -129,7 +129,7 @@ function Vertrouwen({ v }) {
     <s-stack direction="block" gap="small-300">
       {items.map((i, n) => (
         <s-stack key={n} direction="inline" gap="small-200" blockAlignment="center">
-          <s-icon type={i.icoon || "checkmark"} size="small" />
+          <s-icon type={i.icoon || "check-circle"} tone="neutral" size="small" />
           <s-text>{i.tekst}</s-text>
         </s-stack>
       ))}
@@ -147,24 +147,53 @@ function Vertrouwen({ v }) {
    alleen open voor wie de vraag echt heeft - precies de persoon die anders de
    kassa verlaat om het ergens op te zoeken en niet terugkomt.
 
-   s-details en niet een eigen open-en-dicht met useState: die component brengt
-   het toetsenbordgedrag en de schermlezerlabels mee die je anders zelf moet
-   nabouwen, en in een kassa is dat het laatste waar je een eigen versie van
-   wilt hebben.                                                              */
+   WAAROM ER EEN KADER OMHEEN ZIT.
+   Kale s-details onder elkaar zijn losse regels met een pijltje; die lezen niet
+   als een lijst vragen maar als tekst die toevallig inklapt. Een rand eromheen
+   en een streep ertussen maken er één ding van, en dat is precies wat een FAQ
+   moet zijn: een plek waar je gaat kijken, niet iets wat je tegenkomt.
+
+   Kader en strepen zijn ook alles wat er te sturen valt. Een kassa-extensie mag
+   geen eigen CSS meesturen - dat is een bewuste grens van Shopify, zodat geen
+   enkele app de kassa kan laten breken op een toestel dat jij nooit test.
+   Vandaar de opmaakprops van de componenten zelf, en geen stylesheet.        */
 
 function Faq({ v }) {
   const vragen = Array.isArray(v.vragen) ? v.vragen.filter((q) => q && q.v && q.a) : [];
   if (!vragen.length) return null;
+
   return (
-    <s-stack direction="block" gap="small-300">
-      {v.kop && <s-text type="strong">{v.kop}</s-text>}
+    <s-box border="base" borderRadius="large-100" padding="none">
+      {v.kop && (
+        <>
+          <s-box padding="base">
+            <s-stack direction="inline" gap="small-200" blockAlignment="center">
+              <s-icon type="question-circle" tone="neutral" size="small" />
+              <s-text type="strong">{v.kop}</s-text>
+            </s-stack>
+          </s-box>
+          <s-divider />
+        </>
+      )}
+
       {vragen.map((q, n) => (
-        <s-details key={n}>
-          <s-summary>{q.v}</s-summary>
-          <s-text>{q.a}</s-text>
-        </s-details>
+        <Fragment key={n}>
+          {/* Een streep tussen de vragen, niet eronder en niet erboven. De kop
+              zet zijn eigen streep, dus de eerste vraag heeft er geen nodig -
+              en een laatste streep vlak boven de rand van het kader leest als
+              een lege rij die er niet is. */}
+          {n > 0 && <s-divider />}
+          <s-box padding="base">
+            <s-details>
+              <s-summary>{q.v}</s-summary>
+              <s-stack direction="block" gap="small-300">
+                <s-text color="subdued">{q.a}</s-text>
+              </s-stack>
+            </s-details>
+          </s-box>
+        </Fragment>
       ))}
-    </s-stack>
+    </s-box>
   );
 }
 
@@ -246,7 +275,12 @@ function Upsell({ v }) {
   };
 
   return (
-    <s-section heading={v.kop || undefined}>
+    <s-box border="base" borderRadius="large-100" padding="base">
+      {v.kop && (
+        <s-stack direction="block" gap="small-200">
+          <s-text type="strong">{v.kop}</s-text>
+        </s-stack>
+      )}
       <s-stack direction="inline" gap="base" blockAlignment="center">
         {v.afbeelding && <s-image src={v.afbeelding} alt={v.titel || ""} inlineSize="60px" />}
         <s-stack direction="block" gap="small-500">
@@ -258,7 +292,7 @@ function Upsell({ v }) {
           {v.knop || "Add"}
         </s-button>
       </s-stack>
-    </s-section>
+    </s-box>
   );
 }
 

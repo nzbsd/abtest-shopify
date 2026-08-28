@@ -786,16 +786,24 @@ const CK_SOORTEN = [
   },
 ];
 
-/** Iconen die de kassa kent, met een naam die zegt waar je ze voor gebruikt. */
+/**
+ * Iconen die de kassa écht kent.
+ *
+ * Deze lijst stond eerst vol met namen die logisch klonken - checkmark, gift,
+ * star, discount - en geen van vieren bestaat. Een onbekende naam geeft geen
+ * foutmelding: er verschijnt dan gewoon niets naast de tekst, en dat zie je
+ * pas als je zelf een keer door de kassa loopt. Alles hieronder is uit de
+ * catalogus van Shopify overgenomen.
+ */
 const CK_ICONEN = [
-  { key: "checkmark", naam: "Check" },
-  { key: "delivery", naam: "Delivery" },
-  { key: "return", naam: "Returns" },
-  { key: "lock", naam: "Secure" },
-  { key: "discount", naam: "Discount" },
-  { key: "gift", naam: "Gift" },
-  { key: "info", naam: "Info" },
-  { key: "star", naam: "Star" },
+  { key: "check-circle", naam: "Check" },
+  { key: "delivery",     naam: "Delivery" },
+  { key: "return",       naam: "Returns" },
+  { key: "lock",         naam: "Secure" },
+  { key: "package",      naam: "Packaging" },
+  { key: "money",        naam: "Price" },
+  { key: "star-filled",  naam: "Rated" },
+  { key: "info",         naam: "Info" },
 ];
 
 /** Eén kant van een blok-kassatest: waar hij staat en wat erin staat. */
@@ -819,7 +827,7 @@ type CkKant = {
 
 const ckLeeg = (): CkKant => ({
   slot: "a", kop: "", tekst: "", toon: "info",
-  items: [{ icoon: "checkmark", tekst: "" }],
+  items: [{ icoon: "check-circle", tekst: "" }],
   vragen: [{ v: "", a: "" }],
   drempel: "", onder: "You are {rest} away from free shipping.",
   boven: "You have free shipping.",
@@ -921,7 +929,7 @@ function CkVelden({
             wat dit blok moet doen. */}
         {kant.items.length < 4 && (
           <button type="button" className="btn btn--sm"
-                  onClick={() => zet({ items: [...kant.items, { icoon: "checkmark", tekst: "" }] })}>
+                  onClick={() => zet({ items: [...kant.items, { icoon: "check-circle", tekst: "" }] })}>
             Add line
           </button>
         )}
