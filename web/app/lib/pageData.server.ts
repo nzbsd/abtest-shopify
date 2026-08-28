@@ -140,11 +140,11 @@ export async function testsData(
   shop: string | null,
 ): Promise<{
   shop: string | null; fout: string | null; tests: PriceTest[]; producten: ProductInfo[];
-  winkelUrl: string | null; themas: ThemaInfo[]; templates: TemplateInfo[];
+  winkelUrl: string | null; themas: ThemaInfo[]; templates: TemplateInfo[]; daily: DagRij[];
 }> {
   const leegAntwoord = {
     tests: [] as PriceTest[], producten: [] as ProductInfo[], winkelUrl: null,
-    themas: [] as ThemaInfo[], templates: [] as TemplateInfo[],
+    themas: [] as ThemaInfo[], templates: [] as TemplateInfo[], daily: [] as DagRij[],
   };
 
   const { fout } = await shopOfFout(shop);
@@ -158,11 +158,30 @@ export async function testsData(
     // Voor thema's geldt hetzelfde, en daar is het waarschijnlijker: read_themes
     // is later toegevoegd, dus een winkel die de scope nog niet goedgekeurd
     // heeft krijgt een lege lijst in plaats van een kapot scherm.
-    const [tests, producten, winkelUrl, themas] = await Promise.all([
+    const [tests, producten, winkelUrl, themas, daily] = await Promise.all([
       loadTests(shop),
       lijstProducten(admin).catch(() => [] as ProductInfo[]),
       winkelDomein(admin).catch(() => null),
       themaLijstMetSnippet(admin).catch(() => [] as ThemaInfo[]),
+      /**
+       * Bezoekers en orders per dag, voor het lijntje op elke lopende rij.
+       *
+       * Uit onze eigen tabel en niet via orderCijfers: dat laatste doet per
+       * test ook nog een telling bij Shopify, en dit scherm gaat over wat er
+       * ingesteld staat - niet over de uitslag. Een lijstpagina hoort niet te
+       * wachten op een externe dienst voor een grafiekje van veertig pixel.
+       *
+       * Mag falen zonder het scherm mee te nemen: dan zie je de lijst zonder
+       * lijntjes, en dat is precies wat je nodig hebt om een test te stoppen.
+       */
+      (async (): Promise<DagRij[]> => {
+        try {
+          const r = await supabase.from("price_test_daily").select("*").eq("shop", shop).order("dag");
+          return (r.data ?? []) as DagRij[];
+        } catch {
+          return [];
+        }
+      })(),
     ]);
 
     // Templates komen uit het live thema: dat is het thema waarop de
@@ -173,7 +192,7 @@ export async function testsData(
       ? await productTemplates(admin, live.id).catch(() => [] as TemplateInfo[])
       : [];
 
-    return { shop, fout: null, tests, producten, winkelUrl, themas, templates };
+    return { shop, fout: null, tests, producten, winkelUrl, themas, templates, daily };
   } catch (e: any) {
     return { shop, fout: e?.message ?? "Database error", ...leegAntwoord };
   }

@@ -3061,3 +3061,8 @@ tbody tr:hover { background: var(--wash); }
   animation: groeiBalk .45s var(--ease-out) both;
 }
 @media (prefers-reduced-motion: reduce) { .aandeel__balk > span { animation: none; } }
+
+/* Het lijntje in een testrij. Smal en links uitgelijnd met de tekst erboven:
+   het is een terzijde bij de rij, geen kaart erin. */
+.test-row__spark { max-width: 320px; margin-top: 10px; }
+.test-row__spark .sparkpaar { height: 40px; margin: 0; }

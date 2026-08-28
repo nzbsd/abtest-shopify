@@ -2,7 +2,8 @@ import { Link, useFetcher } from "@remix-run/react";
 import { useMemo, useState } from "react";
 import { PageHead } from "~/components/shell";
 import { Badge, Banner, Card, CardHead, Delta, Leeg } from "~/components/ui";
-import { geld, heel, looptDagen } from "~/lib/analytics";
+import { SparkPaar } from "~/components/charts";
+import { geld, heel, looptDagen, type DagRij } from "~/lib/analytics";
 import { matchVariants, prijsVergelijking, type ProductInfo } from "~/lib/variants";
 import type { PriceTest } from "~/lib/priceTest.server";
 import { typeInfo, watOntbreekt } from "~/lib/testTypes";
@@ -192,10 +193,31 @@ function LtvInstelling({
 
 /* ── screen ─────────────────────────────────────────────────────────────── */
 
+/**
+ * De dagreeks van een test, per arm, voor het lijntje in de lijst.
+ *
+ * Bezoekers en niet omzet: deze pagina gaat over de opzet, en de vraag die
+ * een lijntje hier beantwoordt is "meet deze test uberhaupt nog" - niet "wie
+ * wint". Daarvoor is bezoekersverkeer het directe signaal; omzet loopt achter
+ * en kan een dag nul zijn zonder dat er iets mis is.
+ */
+function reeksVoor(daily: DagRij[], testId: number): { control: number[]; test: number[] } {
+  const eigen = daily.filter((r) => Number(r.test_id) === testId);
+  const dagen = [...new Set(eigen.map((r) => String(r.dag)))].sort().slice(-14);
+  const pak = (cohort: string) =>
+    dagen.map((d) => {
+      const rij = eigen.find((r) => String(r.dag) === d && r.cohort === cohort);
+      return Number(rij?.visitors ?? 0);
+    });
+  return { control: pak("control"), test: pak("test") };
+}
+
 export function TestsView({
-  tests, producten, templates, themas, fout, winkelUrl, shop, basis,
+  tests, producten, templates, themas, fout, winkelUrl, shop, basis, daily = [],
 }: {
   tests: PriceTest[];
+  /** Bezoekers en orders per dag, voor het lijntje op elke lopende rij. */
+  daily?: DagRij[];
   producten: ProductInfo[];
   templates: TemplateInfo[];
   themas: ThemaInfo[];
@@ -372,6 +394,28 @@ export function TestsView({
                       {t.split_pct}% in the test group · {heel((t.variant_map || []).length)} variant(s) matched
                       {days !== null && t.status === "running" ? " · running for " + days + " days" : ""}
                     </p>
+
+                    {/* Alleen bij een lopende test, en alleen als er echt een
+                        verloop is. Deze pagina gaat over wat er ingesteld staat,
+                        niet over de uitslag - maar of een test überhaupt aan het
+                        meten is, wil je hier wel zien zonder door te klikken.
+                        Twee vlakke lijnen zijn dan het duidelijkste signaal dat
+                        er iets stilstaat. */}
+                    {t.status === "running" && (() => {
+                      const reeks = reeksVoor(daily, t.id);
+                      if (reeks.control.length < 4) return null;
+                      return (
+                        <div className="test-row__spark">
+                          <SparkPaar
+                            control={reeks.control}
+                            test={reeks.test}
+                            hoogte={40}
+                            label={"Daily visitors for " + (t.naam || "this test") +
+                                   ", control against test"}
+                          />
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
