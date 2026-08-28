@@ -587,6 +587,34 @@ export function AnalyticsView({
           />
         </div>
 
+        {/* De trechter hoort ook hier, en niet alleen op het orderblad.
+            Conversie en orderwaarde hierboven zeggen wát er anders is; deze
+            zegt wáár het gebeurt - bij het zien van de pagina, bij het in de
+            cart leggen, of bij het afrekenen. Dat is precies de vervolgvraag
+            die je stelt zodra je de uitslag hebt gelezen, en daarvoor een
+            tabblad verder moeten is een omweg.
+
+            Wijs een stap aan en de andere treden terug; dan lees je hem als
+            een verhaal in plaats van als een tabel. */}
+        <Card>
+          <CardHead
+            title="Where the difference happens"
+            sub="Visitors who saw the page, then added to cart, then bought. Hover a step to isolate it; on the right the share that made it from the step above, control / test."
+          />
+          <div className="card__body">
+            <div style={{ marginBottom: 16 }}><Legend /></div>
+            <Trechter
+              stappen={[
+                { label: "Visitors", control: c.visitors, test: t.visitors },
+                ...(c.atc + t.atc > 0
+                  ? [{ label: "Added to cart", control: c.atc, test: t.atc }]
+                  : []),
+                { label: "Orders", control: c.orders, test: t.orders },
+              ]}
+            />
+          </div>
+        </Card>
+
         </>)}
 
         {tab === "orders" && (<>

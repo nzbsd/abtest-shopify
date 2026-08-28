@@ -3097,3 +3097,30 @@ tbody tr:hover { background: var(--wash); }
 @media (prefers-reduced-motion: reduce) {
   .compare__balk > span, .vlak { animation: none; }
 }
+
+/* ── trechter met meer gewicht ────────────────────────────────────────
+   Balken van achttien pixel met een radius van vijf lezen als voortgangs-
+   streepjes. In een trechter is de balk het onderwerp, niet een indicator
+   naast een getal: hij hoort de rij te dragen.
+
+   Zesentwintig hoog, en de kaartradius in plaats van de kleinste - zo sluit
+   hij aan bij de kaarten eromheen in plaats van bij de pillen. */
+.funnel { gap: 14px; }
+.funnel__row { grid-template-columns: 120px 1fr auto; gap: 16px; }
+.funnel__label { font-size: 13.5px; }
+.funnel__bar { height: 26px; border-radius: var(--r-sm); }
+.funnel__bar span { right: 11px; font-size: 12.5px; }
+.funnel__bars { gap: 7px; }
+
+/* Een verloop over de balk in plaats van een vlakke kleur. Het is dezelfde
+   tint - de codering blijft dus staan - maar hij krijgt diepte, en dat is
+   het verschil tussen een gekleurd blokje en een grafiek. */
+.funnel__bar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(0,0,0,.06));
+  pointer-events: none;
+}
+.funnel__bar span { position: relative; z-index: 1; }
