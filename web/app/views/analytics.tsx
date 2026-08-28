@@ -454,33 +454,81 @@ export function AnalyticsView({
           </div>
         </Card>
 
-        {/* ── headline numbers ─────────────────────────────────────────── */}
-        <div className="grid grid--4">
-          <Kpi
-            icon={<IconCoins />} tone="control" label="Revenue / visitor — control"
-            value={geld(c.rpv)}
-            note={heel(c.visitors) + " visitors · " + heel(c.orders) + " orders"}
-            spark={
-              <Sparkline
-                punten={rpvPunten.map((p) => p.control)}
-                kleur="var(--control)"
-                label={"Revenue per visitor for control over the last " + rpvPunten.length + " days"}
-              />
-            }
-          />
-          <Kpi
-            icon={<IconCoins />} tone="test" label="Revenue / visitor — test"
-            value={geld(t.rpv)}
-            note={heel(t.visitors) + " visitors · " + heel(t.orders) + " orders"}
-            delta={<Delta waarde={revenueTest.lift} />}
-            spark={
-              <Sparkline
-                punten={rpvPunten.map((p) => p.test)}
-                kleur="var(--test)"
-                label={"Revenue per visitor for test over the last " + rpvPunten.length + " days"}
-              />
-            }
-          />
+        {/* ── de grafiek naast de cijfers die hij verklaart ─────────────
+            Waarom deze twee bij elkaar en niet in aparte rijen: de trend en de
+            omzet per bezoeker zijn hetzelfde verhaal op twee tijdschalen. Ze
+            stonden gescheiden door twee andere kaarten, waardoor je moest
+            scrollen om te zien of het cijfer erboven een piek of een plateau
+            was.
+
+            De twee kengetallen blijven boven elkaar in dezelfde kolom. Dat is
+            geen gebrek aan ruimte maar een keuze: control recht boven test
+            vergelijkt makkelijker dan naast elkaar, want je oog hoeft maar één
+            kant op. Ongelijke breedtes geven aan een paar zou bovendien
+            suggereren dat de ene arm belangrijker is, en dat is precies wat een
+            A/B-test niet moet zeggen. */}
+        <div className="bento">
+          <Card className="bento__hoofd">
+            <CardHead
+              title="Daily trend"
+              action={
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <Segmented
+                    value={metric}
+                    onChange={setMetric}
+                    options={[
+                      { key: "rpv" as Metric, label: "Rev / visitor" },
+                      { key: "cr" as Metric, label: "Conversion" },
+                      { key: "orders" as Metric, label: "Orders" },
+                      { key: "visitors" as Metric, label: "Visitors" },
+                    ]}
+                  />
+                  <Segmented
+                    value={range}
+                    onChange={setRange}
+                    options={[
+                      { key: "7" as Range, label: "7d" },
+                      { key: "14" as Range, label: "14d" },
+                      { key: "30" as Range, label: "30d" },
+                      { key: "0" as Range, label: "All" },
+                    ]}
+                  />
+                </div>
+              }
+            />
+            <div className="card__body">
+              <div style={{ marginBottom: 16 }}><Legend /></div>
+              <Lijn punten={points} formatteer={format[metric]} />
+            </div>
+          </Card>
+
+          <div className="bento__zij">
+            <Kpi
+              icon={<IconCoins />} tone="control" label="Revenue / visitor — control"
+              value={geld(c.rpv)}
+              note={heel(c.visitors) + " visitors · " + heel(c.orders) + " orders"}
+              spark={
+                <Sparkline
+                  punten={rpvPunten.map((p) => p.control)}
+                  kleur="var(--control)"
+                  label={"Revenue per visitor for control over the last " + rpvPunten.length + " days"}
+                />
+              }
+            />
+            <Kpi
+              icon={<IconCoins />} tone="test" label="Revenue / visitor — test"
+              value={geld(t.rpv)}
+              note={heel(t.visitors) + " visitors · " + heel(t.orders) + " orders"}
+              delta={<Delta waarde={revenueTest.lift} />}
+              spark={
+                <Sparkline
+                  punten={rpvPunten.map((p) => p.test)}
+                  kleur="var(--test)"
+                  label={"Revenue per visitor for test over the last " + rpvPunten.length + " days"}
+                />
+              }
+            />
+          </div>
         </div>
 
         <div className="grid grid--2">
@@ -505,41 +553,6 @@ export function AnalyticsView({
             }
           />
         </div>
-
-        {/* ── trend ────────────────────────────────────────────────────── */}
-        <Card>
-          <CardHead
-            title="Daily trend"
-            action={
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                <Segmented
-                  value={metric}
-                  onChange={setMetric}
-                  options={[
-                    { key: "rpv" as Metric, label: "Rev / visitor" },
-                    { key: "cr" as Metric, label: "Conversion" },
-                    { key: "orders" as Metric, label: "Orders" },
-                    { key: "visitors" as Metric, label: "Visitors" },
-                  ]}
-                />
-                <Segmented
-                  value={range}
-                  onChange={setRange}
-                  options={[
-                    { key: "7" as Range, label: "7d" },
-                    { key: "14" as Range, label: "14d" },
-                    { key: "30" as Range, label: "30d" },
-                    { key: "0" as Range, label: "All" },
-                  ]}
-                />
-              </div>
-            }
-          />
-          <div className="card__body">
-            <div style={{ marginBottom: 16 }}><Legend /></div>
-            <Lijn punten={points} formatteer={format[metric]} />
-          </div>
-        </Card>
 
         </>)}
 

@@ -2495,3 +2495,40 @@ tbody tr:hover { background: var(--wash); }
   .kpi--spark { padding-bottom: 40px; }
   .kpi__spark { height: 32px; }
 }
+
+/* ── bento ────────────────────────────────────────────────────────────
+   Twaalf kolommen, want dan heb je halven, derden en kwarten zonder te
+   rekenen. Kaarten van gelijke maat naast elkaar lezen als een tabel; door
+   de belangrijkste meer ruimte te geven krijgt het scherm een middelpunt.
+
+   Bewust niet overal toegepast. Dit scherm staat vol paren - control
+   tegenover test, conversie tegenover orderwaarde - en een paar ongelijke
+   breedtes geven suggereert dat de ene kant zwaarder weegt. Bij een A/B-test
+   is dat precies de verkeerde boodschap. Bento hoort waar dingen echt
+   verschillen in gewicht, niet waar ze elkaars tegenhanger zijn. */
+.bento {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+.bento > * { grid-column: span 12; }
+
+.bento__zij { display: grid; gap: 18px; align-content: start; }
+
+@media (min-width: 1040px) {
+  .bento__hoofd { grid-column: span 8; }
+  .bento__zij   { grid-column: span 4; }
+}
+
+/* Onder de 1040 valt alles op één kolom - een bento op een smal scherm is
+   gewoon een stapel, en dat is prima. De twee kengetallen gaan daar wel naast
+   elkaar staan, want twee kaarten onder elkaar op een breedte waar ze naast
+   elkaar passen is verspilde ruimte. */
+@media (min-width: 620px) and (max-width: 1039px) {
+  .bento__zij { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 700px) {
+  .bento, .bento__zij { gap: 14px; }
+}
