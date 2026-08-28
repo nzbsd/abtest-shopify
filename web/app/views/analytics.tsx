@@ -315,7 +315,13 @@ export function AnalyticsView({
         sub={(test.control_title || test.control_product_id) +
           (days !== null ? " · running for " + days + " days" : "")}
         actie={
-          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          /* De periodekiezer hoort hier en niet in de grafiekkaart.
+             Hij filtert ownDaily, en dus alles op deze pagina - de trend, de
+             sparklines, de dagreeksen. Hem in de kop van één kaart zetten
+             suggereert dat hij alleen die kaart aangaat, en dat is precies
+             het soort misverstand waardoor mensen conclusies trekken uit een
+             venster dat ze niet doorhebben. */
+          <div className="paginabalk">
             <Badge status={test.status} />
             {tests.length > 1 && (
               <select value={String(test.id)} onChange={(e) => setTestId(Number(e.target.value))}
@@ -325,6 +331,16 @@ export function AnalyticsView({
                 ))}
               </select>
             )}
+            <Segmented
+              value={range}
+              onChange={setRange}
+              options={[
+                { key: "7" as Range, label: "7d" },
+                { key: "14" as Range, label: "14d" },
+                { key: "30" as Range, label: "30d" },
+                { key: "0" as Range, label: "All" },
+              ]}
+            />
           </div>
         }
       />
@@ -510,16 +526,6 @@ export function AnalyticsView({
                       { key: "cr" as Metric, label: "Conversion" },
                       { key: "orders" as Metric, label: "Orders" },
                       { key: "visitors" as Metric, label: "Visitors" },
-                    ]}
-                  />
-                  <Segmented
-                    value={range}
-                    onChange={setRange}
-                    options={[
-                      { key: "7" as Range, label: "7d" },
-                      { key: "14" as Range, label: "14d" },
-                      { key: "30" as Range, label: "30d" },
-                      { key: "0" as Range, label: "All" },
                     ]}
                   />
                 </div>

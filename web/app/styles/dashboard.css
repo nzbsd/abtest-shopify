@@ -3231,3 +3231,29 @@ tbody tr:hover { background: var(--wash); }
   );
   pointer-events: none;
 }
+
+/* ── de balk in de paginakop ──────────────────────────────────────────
+   Status, welke test, en over welke periode - naast de titel in plaats van
+   verspreid over de kaarten eronder. Dat is waar je het zoekt: bovenaan,
+   waar staat wát je bekijkt en van wanneer.
+
+   De periodekiezer stond in de kop van de trendgrafiek, en dat is een
+   misverstand met gevolgen: hij filtert alles op deze pagina, ook de
+   sparklines en de dagreeksen. In een kaartkop suggereert hij dat hij alleen
+   die kaart aangaat, en dan trek je conclusies uit een venster dat je niet
+   doorhebt. */
+.paginabalk {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* De kop zelf iets ruimer, want er staat nu meer naast de titel. */
+.page__head { margin-bottom: 24px; align-items: center; }
+
+@media (max-width: 700px) {
+  .paginabalk { justify-content: flex-start; }
+  .page__head { align-items: flex-start; }
+}
