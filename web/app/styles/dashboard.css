@@ -3299,3 +3299,71 @@ tbody tr:hover { background: var(--wash); }
 thead th, tbody td, tfoot td { padding-left: 14px; padding-right: 14px; }
 thead th:first-child, tbody td:first-child, tfoot td:first-child { padding-left: 24px; }
 thead th:last-child, tbody td:last-child, tfoot td:last-child { padding-right: 24px; }
+
+/* ── knoppen met rangorde ─────────────────────────────────────────────
+   Vier even luide knoppen naast elkaar dwingen je te lezen welke je nodig
+   hebt. Op de testenlijst is er altijd precies één hoofdactie - starten of
+   stoppen - en de rest is context.
+
+   Pilvorm in plaats van twaalf pixel radius: de rest van deze app is pillen
+   (badges, chips, deltas, tabs), en knoppen met een eigen radius vielen
+   daar zichtbaar buiten. */
+.btn { border-radius: 999px; }
+
+/* Stil: wel een knop, maar zonder omlijning die om aandacht vraagt. */
+.btn--stil {
+  border-color: transparent;
+  background: var(--wash);
+}
+.btn--stil:hover { background: var(--veil); }
+
+/* Tekstknop: voor een instelling die je zelden aanraakt. Geen vlak, geen
+   rand - hij hoort pas op te vallen als je hem zoekt. */
+.btn--tekst {
+  border-color: transparent;
+  background: none;
+  padding: 0 8px;
+  color: var(--ink-3);
+  text-decoration: underline;
+  text-decoration-color: var(--line-loud);
+  text-underline-offset: 3px;
+}
+.btn--tekst:hover { color: var(--ink-2); background: none; text-decoration-color: var(--ink-4); }
+
+/* Verwijderen is stil tot je erover gaat. Een permanent rode knop naast
+   Start leest als een waarschuwing die er niet is - het gevaar zit in de
+   klik, niet in het bestaan van de knop. */
+.btn--weg:hover { background: var(--down-bg); color: var(--down); }
+
+.test-row__acties {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* ── elke test een eigen kaart ────────────────────────────────────────
+   Ze stonden als rijen met een scheidingslijn in één grote kaart, en dan
+   lezen vijf tests als één lijst waarin je moet zoeken. Elke test is een
+   ding op zich: een eigen vlak, een eigen rand, eigen ruimte eromheen. */
+.testlijst { display: grid; gap: 14px; padding: 0 24px 24px; }
+.testlijst .test-row {
+  border: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  padding: 20px 22px;
+}
+.testlijst .test-row--loopt { padding-left: 26px; }
+.testlijst .test-row--loopt::before { left: 0; top: 14px; bottom: 14px; }
+
+/* De omhullende kaart draagt dan alleen nog de kop. */
+.kaart--lijst { background: none; box-shadow: none; }
+.kaart--lijst .card__head { padding-left: 24px; padding-right: 24px; }
+
+@media (max-width: 700px) {
+  .testlijst { padding: 0 16px 16px; gap: 12px; }
+  .testlijst .test-row { padding: 16px; }
+  .test-row__acties { justify-content: flex-start; }
+}

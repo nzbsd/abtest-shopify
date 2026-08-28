@@ -155,8 +155,10 @@ function LtvInstelling({
 
   if (!open) {
     return (
-      <button className="btn btn--sm" onClick={() => setOpen(true)}>
-        {t.is_subscription ? "Lifetime: " + Number(t.avg_cycles ?? 0).toFixed(1) + " cycles" : "Set lifetime"}
+      /* Een tekstknop en geen omlijnde: dit is een instelling die je zelden
+         aanraakt, en hij stond even luid als Start en Stop. */
+      <button className="btn btn--tekst" onClick={() => setOpen(true)}>
+        {t.is_subscription ? "Lifetime · " + Number(t.avg_cycles ?? 0).toFixed(1) + " cycles" : "Set lifetime"}
       </button>
     );
   }
@@ -325,9 +327,9 @@ export function TestsView({
           />
         )}
 
-        <Card>
+        <Card className="kaart--lijst">
           <CardHead title="All tests" sub="Newest first. A draft changes nothing until you start it." />
-          <div className="card__body card__body--flush">
+          <div className="testlijst">
             {!tests.length && <Leeg>No tests yet.</Leeg>}
             {tests.map((t) => {
               const days = looptDagen(t.started_at);
@@ -418,9 +420,13 @@ export function TestsView({
                     })()}
                   </div>
 
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  /* Een rij van vier even luide knoppen dwingt je te lezen welke je
+                     nodig hebt. Nu een rangorde: de hoofdactie - starten of
+                     stoppen - is de enige met kleur, de rest is stil en de
+                     instelling is een tekstknop. */
+                  <div className="test-row__acties">
                     <LtvInstelling t={t} onSave={bewaarLtv} busy={busy} />
-                    <Link className="btn" to={basis + "/analytics?test=" + t.id}>Results</Link>
+                    <Link className="btn btn--stil" to={basis + "/analytics?test=" + t.id}>Results</Link>
                     {t.status === "running" ? (
                       <button className="btn btn--danger" disabled={busy} onClick={() => setStopt(t)}>
                         Stop
@@ -432,7 +438,7 @@ export function TestsView({
                     )}
                     {t.status !== "running" && (
                       <button
-                        className="btn"
+                        className="btn btn--stil btn--weg"
                         disabled={busy}
                         onClick={() => {
                           if (confirm("Delete this test and everything measured for it?")) act(t.id, "delete");
