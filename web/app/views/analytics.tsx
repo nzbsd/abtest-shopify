@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSearchParams } from "@remix-run/react";
 import { PageHead } from "~/components/shell";
-import { Lijn, Sparkline, Trechter } from "~/components/charts";
+import { Lijn, Matrix, Sparkline, Trechter } from "~/components/charts";
 import {
   Aandeel, Badge, Banner, Card, CardHead, Delta, IconCart, IconCheck, IconCoins,
   Kpi, Leeg, Legend, Segmented, Tabs, Track, Verdeling, Vergelijk,
@@ -264,6 +264,35 @@ export function AnalyticsView({
   const points = maakPunten(metric);
   const rpvPunten = maakPunten("rpv");
 
+  /**
+   * Wat er onderaan een omzetkaart komt te staan.
+   *
+   * Een sparkline heeft vier punten nodig - met twee is het per definitie een
+   * rechte lijn van hoek tot hoek. Maar dat betekende dat die kaarten de
+   * eerste dagen van elke test leeg bleven: een icoon en een getal, meer niet.
+   * En juist die eerste dagen kijk je er het vaakst naar.
+   *
+   * Een stippenmatrix heeft dat probleem niet. Twee kolommen stippen is een
+   * eerlijke weergave van twee dagen, en hij groeit mee. Dus: matrix zolang
+   * de reeks kort is, sparkline zodra er genoeg punten zijn om een vorm te
+   * hebben.
+   */
+  const omzetBeeld = (kant: "control" | "test") => {
+    const reeks = rpvPunten.map((p) => p[kant]);
+    if (reeks.length >= 4) return null;
+    if (reeks.length < 1) return null;
+    return (
+      <div className="kpi__matrix">
+        <Matrix
+          waarden={reeks}
+          kleur={"var(--" + kant + ")"}
+          label={"Revenue per visitor for " + kant + " over the last " + reeks.length + " days"}
+        />
+        <span className="piek">{reeks.length} day{reeks.length === 1 ? "" : "s"}</span>
+      </div>
+    );
+  };
+
   const format: Record<Metric, (v: number) => string> = {
     rpv: geld,
     cr: (v) => procent(v, 1),
@@ -507,6 +536,7 @@ export function AnalyticsView({
               icon={<IconCoins />} tone="control" label="Revenue / visitor — control"
               value={geld(c.rpv)}
               note={heel(c.visitors) + " visitors · " + heel(c.orders) + " orders"}
+              voet={omzetBeeld("control")}
               spark={
                 <Sparkline
                   punten={rpvPunten.map((p) => p.control)}
@@ -520,6 +550,7 @@ export function AnalyticsView({
               value={geld(t.rpv)}
               note={heel(t.visitors) + " visitors · " + heel(t.orders) + " orders"}
               delta={<Delta waarde={revenueTest.lift} />}
+              voet={omzetBeeld("test")}
               spark={
                 <Sparkline
                   punten={rpvPunten.map((p) => p.test)}
