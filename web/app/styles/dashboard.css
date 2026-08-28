@@ -1641,11 +1641,15 @@ tbody tr:hover { background: var(--wash); }
    ────────────────────────────────────────────────────────────────────────── */
 
 /* De uitslag van een scherm: één per pagina, en hij hoort te winnen. */
+/* Het hoofdcijfer van een kaart, gelijkgetrokken met de kengetalkaarten.
+   Dertig naast kaarten die er veertig voeren leest als een tussenmaat die
+   nergens bij hoort. De varianten hieronder overschrijven dit, dus alleen een
+   losse .cijfer verandert mee - en dat is er precies één: de prognose. */
 .cijfer {
-  font-size: 30px;
+  font-size: 40px;
   font-weight: 700;
-  letter-spacing: -.035em;
-  line-height: 1.15;
+  letter-spacing: -.04em;
+  line-height: 1.05;
   font-variant-numeric: tabular-nums;
 }
 /* Een kengetal binnen een kaart. */
@@ -2724,4 +2728,37 @@ tbody tr:hover { background: var(--wash); }
   .funnel__row--dof .funnel__label,
   .funnel__row--dof .funnel__buiten,
   .funnel__row--dof .small { opacity: 1; }
+}
+
+/* ── tint per lijstkaart ──────────────────────────────────────────────
+   Vier kaarten die alle vier dezelfde violette balk gebruiken lezen als één
+   lange lijst die toevallig in stukken is geknipt. Een eigen kleur maakt van
+   elke lijst een eigen ding.
+
+   Geen betekenis in de kleur zelf: er valt tussen deze kaarten niets te
+   vergelijken. Het is onderscheid, geen codering - en daarom ook geen groen
+   of rood, want die lezen als een oordeel. */
+.tint--iris  { --vulling: var(--iris-pale);      --vulling-aan: var(--iris); }
+.tint--blauw { --vulling: var(--wid-blauw-pale); --vulling-aan: var(--wid-blauw); }
+.tint--teal  { --vulling: var(--wid-teal-pale);  --vulling-aan: var(--wid-teal); }
+.tint--roze  { --vulling: var(--wid-roze-pale);  --vulling-aan: var(--wid-roze); }
+
+.balkrij__vulling { background: var(--vulling, var(--iris-pale)); }
+.balkrij[aria-pressed="true"] .balkrij__vulling {
+  background: var(--vulling-aan, var(--iris-lit));
+  opacity: .22;
+}
+/* Een aangeklikte rij krijgt de naam in dezelfde tint, zodat je ziet welk
+   filter uit welke lijst komt zodra er meerdere aan staan. */
+.balkrij[aria-pressed="true"] .balkrij__naam { color: var(--vulling-aan, var(--iris)); }
+
+/* De kengetallen in de kop van de bezoekerspagina.
+   Zes gelijkwaardige maten, dus een rij van zes is hier het eerlijke antwoord
+   en bento zou tegenwerken. Wel een maat groter: drieentwintig pixel in een
+   kop die vierhonderddertig hoog is leest als een bijschrift bij de bol. */
+.kengetal__waarde { font-size: 28px; }
+.kengetal__label { font-size: 11px; }
+
+@media (max-width: 700px) {
+  .kengetal__waarde { font-size: 24px; }
 }

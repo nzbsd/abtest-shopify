@@ -149,7 +149,7 @@ function Lijst({
 
 /** Kaart met tabbladen: meerdere dimensies die dezelfde vraag beantwoorden. */
 function TabKaart({
-  titel, sub, tabs, maat, actief, opFilter,
+  titel, sub, tabs, maat, actief, opFilter, tint = "iris",
 }: {
   titel: string;
   sub: string;
@@ -157,11 +157,23 @@ function TabKaart({
   maat: Maat;
   actief: Filter[];
   opFilter: (f: Filter) => void;
+  /**
+   * De tint van de balken in deze lijst.
+   *
+   * Vier kaarten die alle vier dezelfde violette balk gebruiken lezen als één
+   * lange lijst die toevallig in stukken is geknipt. Een eigen kleur per kaart
+   * maakt van elke lijst een eigen ding, en dat is precies wat ze zijn: waar
+   * ze vandaan komen, waarmee ze kijken, wat ze bekijken, wie ze zijn.
+   *
+   * Geen betekenis in de kleur zelf - er valt hier niets te vergelijken tussen
+   * de kaarten. Het is onderscheid, geen codering.
+   */
+  tint?: "iris" | "blauw" | "teal" | "roze";
 }) {
   const [tab, setTab] = useState(0);
   const t = tabs[tab];
   return (
-    <Card>
+    <Card className={"tint--" + tint}>
       {/* De tabbladen staan onder de kop en niet ernaast. Vier ervan waren
           289px breed in een kaart van 322, en knepen de titel tot nul. Ze
           horen ook inhoudelijk bij de lijst, niet bij de titel. */}
@@ -572,6 +584,7 @@ export function SiteView({
             <div className="grid grid--lijsten">
               <TabKaart
                 titel="Where they come from"
+                tint="blauw"
                 sub="Channel first; the UTM tabs show what your campaigns actually carried."
                 maat={maat} actief={filters} opFilter={opFilter}
                 tabs={[
@@ -584,6 +597,7 @@ export function SiteView({
 
               <TabKaart
                 titel="Devices"
+                tint="teal"
                 sub="Device from the screen width; browser and system reported by the browser itself."
                 maat={maat} actief={filters} opFilter={opFilter}
                 tabs={[
@@ -595,6 +609,7 @@ export function SiteView({
 
               <TabKaart
                 titel="Pages"
+                tint="roze"
                 sub="Entry pages are where sessions started; exit pages where they ended."
                 maat={maat} actief={filters} opFilter={opFilter}
                 tabs={[
@@ -605,6 +620,7 @@ export function SiteView({
 
               <TabKaart
                 titel="Who they are"
+                tint="iris"
                 sub="Country from Shopify's localisation. New means no earlier visit was seen."
                 maat={maat} actief={filters} opFilter={opFilter}
                 tabs={[
