@@ -182,8 +182,36 @@ export function Trechter({
    */
   const [focus, setFocus] = useState<number | null>(null);
 
+  /* De stappen ook als kop bovenaan: label, het totaal van beide armen, en een
+     streepje dat laat zien hoe groot die stap is ten opzichte van de eerste.
+
+     Dat is wat een trechter in één blik hoort te zeggen - van hoeveel naar
+     hoeveel - terwijl de rijen eronder het per arm uitsplitsen. Zonder die kop
+     moet je twee balken optellen om te weten waar je bent. */
+  const eerste = (stappen[0]?.control ?? 0) + (stappen[0]?.test ?? 0) || 1;
+
   return (
-    <div className="funnel" onMouseLeave={() => setFocus(null)}>
+    <div className="funnel-blok" onMouseLeave={() => setFocus(null)}>
+      <div className="funnel__kop">
+        {stappen.map((s, i) => {
+          const totaal = s.control + s.test;
+          return (
+            <div
+              key={s.label}
+              className={"funnel__stap" + (focus !== null && focus !== i ? " funnel__stap--dof" : "")}
+              onMouseEnter={() => setFocus(i)}
+            >
+              <span className="funnel__stap-label">{s.label}</span>
+              <span className="funnel__stap-getal num">{heel(totaal)}</span>
+              <span className="funnel__stap-streep">
+                <span style={{ width: (totaal / eerste) * 100 + "%" }} />
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="funnel">
       {stappen.map((s, i) => {
         const vorige = i > 0 ? stappen[i - 1] : null;
         const behoudC = vorige && vorige.control ? (s.control / vorige.control) * 100 : null;
@@ -222,6 +250,7 @@ export function Trechter({
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

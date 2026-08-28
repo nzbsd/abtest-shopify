@@ -82,7 +82,7 @@
   --r-xs: 5px;
   --r-sm: 8px;
   --r-md: 12px;
-  --r-lg: 16px;
+  --r-lg: 20px;
   --r-xl: 20px;
 
   --font: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -331,7 +331,7 @@ button { cursor: pointer; font: inherit; }
 /* De laatste sport van de ladder. Met een paginatitel van 34 en cijfers van 40
    was een kaarttitel van 14,5 niet meer te onderscheiden van het bijschrift
    eronder - en dan heeft een kaart geen kop meer. */
-.card__title { font-size: 16.5px; font-weight: 700; letter-spacing: -.025em; }
+.card__title { font-size: 21px; font-weight: 700; letter-spacing: -.03em; line-height: 1.2; }
 .card__sub { margin-top: 4px; font-size: 12.5px; color: var(--ink-3); }
 .card__body { padding: 0 24px 22px; }
 .card__body--flush { padding: 0; }
@@ -3124,3 +3124,110 @@ tbody tr:hover { background: var(--wash); }
   pointer-events: none;
 }
 .funnel__bar span { position: relative; z-index: 1; }
+
+/* ── gestippelde rasterlijnen ─────────────────────────────────────────
+   Doorgetrokken grijze lijnen achter een grafiek zijn zelf een element:
+   je ziet ze net zo goed als de data. Gestippeld verdwijnen ze naar de
+   achtergrond en blijven ze doen waar ze voor zijn - een hoogte aflezen -
+   zonder mee te dingen met de lijnen ervoor. */
+.grid-line {
+  stroke-dasharray: 2 5;
+  stroke: var(--line);
+}
+/* De verticale hoverlijn blijft wel doorgetrokken: die is een aanwijzer en
+   geen achtergrond, en moet juist opvallen. */
+.chart line[stroke="var(--line-loud)"] { stroke-dasharray: none; }
+
+/* ── de koppen boven de trechter ──────────────────────────────────────
+   Label, het totaal van beide armen, en een streepje dat toont hoe groot
+   die stap is ten opzichte van de eerste.
+
+   Dat is wat een trechter in één blik hoort te zeggen - van hoeveel naar
+   hoeveel - terwijl de rijen eronder het per arm uitsplitsen. Zonder deze
+   kop moet je twee balken optellen om te weten waar je bent. */
+.funnel-blok { display: grid; gap: 22px; }
+
+.funnel__kop {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px 24px;
+  padding-bottom: 4px;
+}
+
+.funnel__stap {
+  display: grid;
+  gap: 7px;
+  align-content: start;
+  cursor: default;
+  transition: opacity .18s var(--ease-out);
+}
+/* Dezelfde focus als de rijen eronder: wijs een stap aan en de rest treedt
+   terug, boven en onder tegelijk. Twee losse focusgebieden op hetzelfde
+   onderwerp zouden juist verwarren. */
+.funnel__stap--dof { opacity: .42; }
+
+.funnel__stap-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+.funnel__stap-getal {
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: -.035em;
+  line-height: 1;
+}
+/* Het streepje eronder: hoe groot deze stap is ten opzichte van de eerste.
+   Kort en dik, want het is een maat en geen voortgangsbalk - er valt niets
+   te vullen, alleen te vergelijken. */
+.funnel__stap-streep {
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+.funnel__stap-streep > span {
+  display: block; height: 100%; border-radius: inherit;
+  background: var(--ink-2);
+  transform-origin: left;
+  animation: groeiBalk .5s var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .funnel__stap-streep > span { animation: none; }
+  .funnel__stap { transition: none; }
+}
+
+@media (max-width: 700px) {
+  .funnel__kop { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px 14px; }
+  .funnel__stap-getal { font-size: 22px; }
+}
+
+/* ── arcering in de verdelingsbalken ──────────────────────────────────
+   Een vlakke gekleurde balk is een blok; een gearceerde is een textuur, en
+   die leest als "hier zit materie" in plaats van "hier is iets ingekleurd".
+   Het is precies het verschil dat een grafiek er duur uit laat zien zonder
+   dat er een kleur of een element bij komt.
+
+   De arcering ligt als laag erover, want de kleur komt uit een inline stijl
+   en is hier niet bekend. */
+.verdeling__balk > span,
+.compare__balk > span,
+.aandeel__balk > span {
+  position: relative;
+}
+.verdeling__balk > span::after,
+.compare__balk > span::after,
+.aandeel__balk > span::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: repeating-linear-gradient(
+    115deg,
+    rgba(255, 255, 255, .30) 0 2px,
+    transparent 2px 5px
+  );
+  pointer-events: none;
+}
