@@ -485,9 +485,9 @@ export function TestsView({
                       stoppen - is de enige met kleur, de rest is stil en de
                       instelling is een tekstknop.
 
-                      Mét accolades. Zonder is dit geen comment maar een tekstnode:
-                      JSX kent /* */ niet, dus stond deze hele alinea gewoon naast
-                      elke testrij op het scherm. */}
+                      Mét accolades. Zonder is een blokcomment hier geen comment
+                      maar een tekstnode, en stond deze hele alinea letterlijk
+                      naast elke testrij op het scherm. */}
                   <div className="test-row__acties">
                     <LtvInstelling t={t} onSave={bewaarLtv} busy={busy} />
                     <Link className="btn btn--stil" to={basis + "/analytics?test=" + t.id}>Results</Link>
