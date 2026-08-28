@@ -211,6 +211,39 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         cohort = gemeld === "control" || gemeld === "test" ? gemeld : null;
       }
 
+      /**
+       * Staat het kenmerk er niet, dan de bezoeker opzoeken.
+       *
+       * Het thema schrijft het cohort op de winkelwagen, maar dat kan misgaan -
+       * en dat is ook gebeurd: een ontbrekende backslash in de cookie-regex van
+       * cartToken zorgde ervoor dat tagCart een sessie lang maar één keer
+       * schreef, en dat was de aanroep die het cohort nog niet kende. Van de
+       * eerste vijfendertig orders van de paginatest droeg er één het kenmerk.
+       *
+       * De bezoeker liet wel een view-gebeurtenis achter, en daar staat zijn
+       * cohort in. Dat is geen gok maar dezelfde toewijzing, en het scheelt het
+       * verschil tussen een order die meetelt en een die verdwijnt.
+       *
+       * Dit stond al in het resultatenscherm. Het hoort ook hier, want sinds
+       * dat scherm zijn cijfers uit deze tabel leest is een order die de
+       * webhook overslaat een order die nergens meer opduikt.
+       */
+      if (!cohort) {
+        const bezoeker = attrs["_pt_visitor"];
+        if (bezoeker) {
+          const { data: gezien } = await supabase
+            .from("price_test_events")
+            .select("cohort")
+            .eq("shop", shop)
+            .eq("test_id", t.id)
+            .eq("event_type", "view")
+            .eq("visitor_id", bezoeker)
+            .limit(1);
+          const c = gezien?.[0]?.cohort;
+          if (c === "control" || c === "test") cohort = c;
+        }
+      }
+
       if (!cohort) continue;
 
       await supabase.from("price_test_events").upsert(
