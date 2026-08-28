@@ -11,7 +11,7 @@
  * bespoke theme code it stops being configuration and becomes a deploy.
  */
 
-export type TestType = "price" | "image" | "template" | "url" | "theme";
+export type TestType = "price" | "image" | "template" | "url" | "checkout" | "theme";
 
 export type TypeInfo = {
   key: TestType;
@@ -67,6 +67,21 @@ export const TYPES: TypeInfo[] = [
     mechaniek: "Test group gets ?view=<suffix> on the same URL.",
   },
   {
+    key: "checkout",
+    naam: "Checkout",
+    kort: "A message in the checkout, for one group",
+    uitleg:
+      "The test group sees an extra block in the checkout — reassurance about shipping, a " +
+      "returns promise, a note about the guarantee. Everything before the checkout is identical, " +
+      "so this measures the one place most tests never reach: the gap between reaching the " +
+      "checkout and finishing it.",
+    voorbereiding:
+      "The Experli block has to be placed once in the checkout editor, wherever you want the " +
+      "message to appear. After that every checkout test uses that same spot — you do not touch " +
+      "the editor again.",
+    mechaniek: "Test group sees the block; the control group sees nothing there.",
+  },
+  {
     key: "url",
     naam: "Page versus page",
     kort: "Two URLs against each other",
@@ -113,6 +128,7 @@ export function watOntbreekt(t: {
   test_url?: string | null;
   test_theme_id?: string | null;
   image_positie?: number | null;
+  checkout_tekst?: string | null;
 }): string | null {
   switch (t.test_type ?? "price") {
     case "price":
@@ -126,6 +142,9 @@ export function watOntbreekt(t: {
     case "template":
       if (!t.control_product_id) return "No product chosen.";
       if (!t.template_suffix) return "No template suffix entered.";
+      return null;
+    case "checkout":
+      if (!t.checkout_tekst) return "No message written for the test group.";
       return null;
     case "url":
       if (!t.control_url) return "No original URL entered.";

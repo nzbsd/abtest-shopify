@@ -620,6 +620,16 @@ function FotoKiezer({
   );
 }
 
+/* De tonen die de kassa kent. Meer zijn het er niet: een vijfde waarde zou
+   stil op de standaardkleur uitkomen en dan staat er iets anders dan je hebt
+   ingesteld. */
+const CK_TONEN = [
+  { key: "info",     naam: "Neutral" },
+  { key: "success",  naam: "Positive" },
+  { key: "warning",  naam: "Attention" },
+  { key: "critical", naam: "Urgent" },
+];
+
 /* ── wizard ──────────────────────────────────────────────────────────────── */
 
 export function Wizard({
@@ -647,6 +657,15 @@ export function Wizard({
      gekozen"; de eerste foto kiezen kan niet, want dan zijn de twee groepen
      identiek. */
   const [foto, setFoto] = useState(0);
+
+  /* Wat de kassatest in de kassa laat zien. De controlekant mag leeg blijven:
+     dat is de gewone vorm van deze test - verandert het iets als hier iets
+     staat? */
+  const [ckKop, setCkKop] = useState("");
+  const [ckTekst, setCkTekst] = useState("");
+  const [ckToon, setCkToon] = useState("info");
+  const [ckControlKop, setCkControlKop] = useState("");
+  const [ckControlTekst, setCkControlTekst] = useState("");
   const [suffix, setSuffix] = useState("");
   const [controlUrl, setControlUrl] = useState("");
   const [testUrl, setTestUrl] = useState("");
@@ -718,6 +737,10 @@ export function Wizard({
     : type === "image" ? Boolean(control && foto && foto > 1)
     // De variant moet een ánder template zijn dan waar het product al op staat.
     : type === "template" ? Boolean(control && suffix.trim() && suffix.trim() !== control.templateSuffix)
+    // Tekst voor de testgroep is genoeg; de controlekant mag leeg. Wel moeten
+    // de twee verschillen als er allebei iets staat.
+    : type === "checkout" ? Boolean(ckTekst.trim() &&
+                                    ckControlTekst.trim() !== ckTekst.trim())
     : type === "theme" ? Boolean(thema)
     : Boolean(controlUrl.trim() && testUrl.trim() &&
               normaliseerPad(controlUrl) !== normaliseerPad(testUrl));
@@ -741,6 +764,13 @@ export function Wizard({
     if (type === "image") { fd.set("control", control!.id); fd.set("imagePositie", String(foto)); }
     if (type === "template") { fd.set("control", control!.id); fd.set("templateSuffix", suffix.trim()); }
     if (type === "url") { fd.set("controlUrl", controlUrl); fd.set("testUrl", testUrl); }
+    if (type === "checkout") {
+      fd.set("checkoutKop", ckKop);
+      fd.set("checkoutTekst", ckTekst);
+      fd.set("checkoutToon", ckToon);
+      fd.set("checkoutControlKop", ckControlKop);
+      fd.set("checkoutControlTekst", ckControlTekst);
+    }
     if (type === "theme") { fd.set("themeId", thema!.id); fd.set("themeName", thema!.naam); }
     fetcher.submit(fd, { method: "post" });
     onKlaar();
@@ -907,6 +937,70 @@ export function Wizard({
                     />
                   )}
                 </>
+              )}
+
+              {type === "checkout" && (
+                <div style={{ marginTop: 16 }}>
+                  <Banner tone="info">
+                    Place the <strong>Experli checkout</strong> block once in your checkout editor,
+                    wherever you want the message to appear. Every checkout test uses that same
+                    spot afterwards.
+                  </Banner>
+
+                  <div className="duel" style={{ marginTop: 16 }}>
+                    <div className="duel__kant">
+                      <span className="duel__kop"><span className="swatch swatch--control" /> Control</span>
+                      <input type="text" value={ckControlKop} placeholder="Heading (optional)"
+                             onChange={(e) => setCkControlKop(e.target.value)} />
+                      <textarea rows={3} value={ckControlTekst}
+                                placeholder="Leave empty — the control group sees nothing"
+                                onChange={(e) => setCkControlTekst(e.target.value)} />
+                      <span className="duel__sub">
+                        {ckControlTekst.trim()
+                          ? "two messages against each other"
+                          : "empty is the usual choice: does adding anything help at all?"}
+                      </span>
+                    </div>
+
+                    <span className="duel__vs">vs</span>
+
+                    <div className="duel__kant">
+                      <span className="duel__kop"><span className="swatch swatch--test" /> Test</span>
+                      <input type="text" value={ckKop} placeholder="Heading (optional)"
+                             onChange={(e) => setCkKop(e.target.value)} />
+                      <textarea rows={3} value={ckTekst}
+                                placeholder="Free shipping on every order over $50."
+                                onChange={(e) => setCkTekst(e.target.value)} />
+                      <span className="duel__sub">what the test group sees in the checkout</span>
+                    </div>
+                  </div>
+
+                  <div className="field" style={{ marginTop: 16 }}>
+                    <span className="field__label">Tone</span>
+                    <div className="keuzerij">
+                      {CK_TONEN.map((t) => (
+                        <button type="button" key={t.key}
+                                className={"keuze" + (ckToon === t.key ? " is-aan" : "")}
+                                onClick={() => setCkToon(t.key)}>
+                          <span className={"keuze__stip keuze__stip--" + t.key} />
+                          {t.naam}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="field__hint">
+                      The colour of the block in the checkout. Both groups get the same tone — if
+                      that differed too, you would not know which of the two changes moved the
+                      number.
+                    </span>
+                  </div>
+
+                  {ckControlTekst.trim() && ckControlTekst.trim() === ckTekst.trim() && (
+                    <Banner tone="warn">
+                      Both groups would see exactly the same message, so there is nothing left to
+                      measure.
+                    </Banner>
+                  )}
+                </div>
               )}
 
               {type === "theme" && (
@@ -1245,6 +1339,7 @@ export function Wizard({
                   <span className="duel__kop"><span className="swatch swatch--control" /> Control</span>
                   <span className="duel__naam">
                     {type === "url" ? normaliseerPad(controlUrl)
+                      : type === "checkout" ? (ckControlTekst.trim() ? "Your other message" : "The checkout as it is")
                       : type === "theme" ? (themas.find((t) => t.rol === "MAIN")?.naam ?? "live theme")
                       : type === "template" ? "product." + (control?.templateSuffix || "(default)")
                       : control?.title ?? "—"}
@@ -1261,6 +1356,7 @@ export function Wizard({
                   <span className="duel__naam">
                     {type === "price" ? test?.title ?? "—"
                       : type === "image" ? (control?.title ?? "—")
+                      : type === "checkout" ? (ckKop.trim() || "Your message")
                       : type === "template" ? "product." + suffix
                       : type === "url" ? normaliseerPad(testUrl)
                       : thema?.naam ?? "—"}
@@ -1269,6 +1365,7 @@ export function Wizard({
                     {split}% of traffic ·{" "}
                     {type === "price" ? "different price"
                       : type === "image" ? "photo " + foto + " shown first"
+                      : type === "checkout" ? "a block in the checkout"
                       : type === "template" ? "?view=" + suffix
                       : type === "url" ? "sent from the other URL"
                       : "every page"}

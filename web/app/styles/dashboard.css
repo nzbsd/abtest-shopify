@@ -62,6 +62,12 @@
   --wid-teal-pale:  #e2f3f4;
   --wid-roze:       #c2358a;
   --wid-roze-pale:  #fbe6f1;
+  /* Amber en grafiet kwamen erbij toen er zes testtypes waren en vier tinten.
+     Contrast op hun eigen vlak: 4,16 en 8,51. */
+  --wid-amber:      #a8620a;
+  --wid-amber-pale: #fbeedd;
+  --wid-grafiet:      #3f4257;
+  --wid-grafiet-pale: #eceef4;
 
   /* Status — gereserveerd, nooit een seriekleur.
 
@@ -1532,6 +1538,8 @@ tbody tr:hover { background: var(--wash); }
 .typepil--price    { background: var(--wid-blauw-pale); color: var(--wid-blauw); }
 .typepil--template { background: var(--wid-roze-pale);  color: var(--wid-roze); }
 .typepil--url      { background: var(--wid-teal-pale);  color: var(--wid-teal); }
+.typepil--image    { background: var(--wid-amber-pale);   color: var(--wid-amber); }
+.typepil--checkout { background: var(--wid-grafiet-pale); color: var(--wid-grafiet); }
 .typepil--theme    { background: var(--iris-pale);      color: var(--iris); }
 
 /* ── de overige wizardstappen, in dezelfde taal ─────────────────────────────
@@ -3472,4 +3480,74 @@ thead th:last-child, tbody td:last-child, tfoot td:last-child { padding-right: 2
 @media (prefers-reduced-motion: reduce) {
   .fotokiezer__mini { transition: none; }
   .fotokiezer__mini:hover { transform: none; }
+}
+
+/* ── keuzerij ─────────────────────────────────────────────────────────────
+
+   Vier tonen naast elkaar in plaats van in een keuzelijst. Het gaat om een
+   kleur, en een kleur kiezen uit woorden ("Attention") vraagt een gok die een
+   stip meteen beantwoordt.
+
+   De stippen zijn niet de seriekleuren. Iris en oranje betekenen op elk ander
+   scherm van deze app controlegroep en testgroep; ze hier gebruiken voor de
+   toon van een blok zou twee dingen dezelfde taal laten spreken.            */
+
+.keuzerij {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.keuze {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 13px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color .16s ease, color .16s ease, background .16s ease;
+}
+
+.keuze:hover { border-color: var(--line-loud); color: var(--ink); }
+
+.keuze.is-aan {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: #fff;
+}
+
+.keuze:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--iris-pale);
+}
+
+.keuze__stip {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.keuze__stip--info     { background: #2f6fd8; }
+.keuze__stip--success  { background: #1f8a5b; }
+.keuze__stip--warning  { background: #c88a12; }
+.keuze__stip--critical { background: #c0392f; }
+
+/* Twee tekstvelden naast elkaar in de duel-kolommen. Zonder dit lopen ze uit
+   hun kolom, want een textarea groeit standaard niet mee met zijn ouder. */
+.duel__kant input[type="text"],
+.duel__kant textarea {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.duel__kant textarea { resize: vertical; min-height: 68px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .keuze { transition: none; }
 }

@@ -592,6 +592,32 @@
     }, 50);
   }
 
+  /**
+   * Kassatest: alleen indelen en de wagen taggen.
+   *
+   * ANDERS DAN ALLE ANDERE TYPES: HIER GEBEURT OP DE WINKEL NIETS ZICHTBAARS.
+   * Wat de testgroep te zien krijgt, tekent de kassa-extensie, en die draait
+   * in Shopify's eigen kassa waar dit snippet niet komt. Het enige dat hier
+   * hoort te gebeuren is de indeling vastleggen en meegeven, zodat de extensie
+   * straks weet in welke groep deze wagen zit.
+   *
+   * EN NADRUKKELIJK GEEN VIEW MELDEN.
+   * Een kassatest hangt niet aan één pagina, dus dit draait op élke pagina van
+   * de winkel. Hier een view melden zou de noemer vullen met iedereen die ooit
+   * iets bekeken heeft, terwijl de test alleen iets kan veranderen voor wie de
+   * kassa haalt. De conversie zou dan niet "van kassa naar order" meten maar
+   * "van willekeurige pagina naar order", en dat is een heel ander en veel
+   * kleiner getal - waarin het effect van een blok in de kassa wegvalt.
+   *
+   * De extensie meldt de view op het moment dat ze werkelijk tekent. Dat is de
+   * juiste noemer: mensen die de kassa bereikt hebben.
+   */
+  function doeCheckout(t) {
+    var cohort = bucket(visitor + ":" + t.id) < t.splitPct ? "test" : "control";
+    noteerCohort(t.id, cohort);
+    return false;
+  }
+
   function doeTemplate(t) {
     if (t.controlProductId !== PRODUCT_ID) return false;
 
@@ -660,7 +686,8 @@
       var t = tests[i];
       var raak = false;
       if (!inDoelgroep(t)) continue;
-      if (t.type === "theme") raak = doeTheme(t);
+      if (t.type === "checkout") raak = doeCheckout(t);
+      else if (t.type === "theme") raak = doeTheme(t);
       else if (t.type === "url") raak = doeUrl(t);
       else if (t.type === "template") raak = doeTemplate(t);
       else if (t.type === "image") raak = doeAfbeelding(t);

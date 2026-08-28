@@ -231,6 +231,14 @@ export function TestsView({
   /** Where the results link points. */
   basis: string;
 }) {
+  /* Een kassaboodschap kan een hele alinea zijn, en die past niet op een regel
+     naast een pijl. Afkappen op zestig tekens houdt de rij één regel hoog; de
+     volledige tekst staat op het testscherm zelf. */
+  const kort = (t: string | null | undefined) => {
+    const s = String(t ?? "").trim();
+    return s.length > 60 ? s.slice(0, 59) + "…" : s;
+  };
+
   const productUrl = (handle: string | null | undefined) =>
     winkelUrl && handle ? winkelUrl.replace(/\/+$/, "") + "/products/" + handle : null;
   const fetcher = useFetcher<{ ok: boolean; bericht: string }>();
@@ -347,6 +355,37 @@ export function TestsView({
                           <span className="legend__item"><span className="swatch swatch--control" /><code>{t.control_url}</code></span>
                           <span className="pair__arrow">→</span>
                           <span className="legend__item"><span className="swatch swatch--test" /><code>{t.test_url}</code></span>
+                        </>
+                      ) : t.test_type === "image" ? (
+                        <>
+                          <span className="legend__item">
+                            <span className="swatch swatch--control" />
+                            {productUrl(t.control_product_handle) ? (
+                              <a href={productUrl(t.control_product_handle)!} target="_blank" rel="noreferrer">
+                                <code>{t.control_product_handle}</code>
+                              </a>
+                            ) : <code>original</code>}
+                            <span className="muted">, photo 1</span>
+                          </span>
+                          <span className="pair__arrow">&#8594;</span>
+                          <span className="legend__item">
+                            <span className="swatch swatch--test" />same page, photo{" "}
+                            <code>{t.image_positie}</code> first
+                          </span>
+                        </>
+                      ) : t.test_type === "checkout" ? (
+                        <>
+                          <span className="legend__item">
+                            <span className="swatch swatch--control" />
+                            {t.checkout_control_tekst
+                              ? <code>{kort(t.checkout_control_tekst)}</code>
+                              : "checkout unchanged"}
+                          </span>
+                          <span className="pair__arrow">&#8594;</span>
+                          <span className="legend__item">
+                            <span className="swatch swatch--test" />
+                            <code>{kort(t.checkout_tekst)}</code>
+                          </span>
                         </>
                       ) : t.test_type === "template" ? (
                         <>

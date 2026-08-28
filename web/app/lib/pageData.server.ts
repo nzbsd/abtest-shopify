@@ -255,6 +255,41 @@ export async function testsAction(
           test_product_id: null,
         };
         bericht = "Test saved: live theme against " + (themeName || "the chosen theme") + ".";
+      } else if (type === "checkout") {
+        /* Een kassatest hangt aan de hele winkel: iedereen die de kassa haalt
+           doet mee, ongeacht wat er in de wagen zit. Vandaar geen product en
+           geen pad - net als bij een themetest. */
+        const tekst = String(form.get("checkoutTekst") || "").trim();
+        if (!tekst) throw new Error("Write the message the test group should see.");
+
+        const toon = String(form.get("checkoutToon") || "info");
+        if (!["info", "success", "warning", "critical"].includes(toon)) {
+          throw new Error("Unknown tone for the checkout block.");
+        }
+
+        const controleTekst = String(form.get("checkoutControlTekst") || "").trim();
+        if (controleTekst && controleTekst === tekst) {
+          /* Twee keer dezelfde tekst is geen test. Het scherm laat het niet toe,
+             maar het formulier kan van elders komen - en dit is de soort fout
+             die pas na een week aan een verschil van nul te zien is. */
+          throw new Error("Both groups would see the same message.");
+        }
+
+        rij = {
+          ...gedeeld,
+          checkout_kop: String(form.get("checkoutKop") || "").trim() || null,
+          checkout_tekst: tekst,
+          checkout_toon: toon,
+          checkout_control_kop: controleTekst
+            ? String(form.get("checkoutControlKop") || "").trim() || null
+            : null,
+          checkout_control_tekst: controleTekst || null,
+          control_product_id: null,
+          test_product_id: null,
+        };
+        bericht = controleTekst
+          ? "Test saved: two messages against each other in the checkout."
+          : "Test saved: the test group sees an extra block in the checkout.";
       } else if (type === "url") {
         const a = normaliseerPad(String(form.get("controlUrl") || ""));
         const b = normaliseerPad(String(form.get("testUrl") || ""));
