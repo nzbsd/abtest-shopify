@@ -2370,3 +2370,91 @@ tbody tr:hover { background: var(--wash); }
   .card__body { padding: 0 18px 18px; }
   .grid, .stack { gap: 14px; }
 }
+
+/* ── het expressieve vlak ─────────────────────────────────────────────
+   Eén per scherm, en dit is hem: de uitslag van de test.
+
+   Waarom er precies één mag zijn: hij werkt doordat de rest rustig is. Een
+   tweede verloopkaart halveert het effect van de eerste, een derde maakt er
+   een marketingpagina van. En waarom juist deze: dit is het cijfer waar
+   iemand het scherm voor opent. Een verloop om een willekeurig kengetal
+   voelt als opsmuk, en dat ziet iedereen.
+
+   De kleur zegt bewust niets over de uitkomst. De verleiding is groen bij
+   winst en rood bij verlies, maar dan gaat een mooi vlak "goed nieuws"
+   betekenen en dat is precies de verkeerde lezing bij een test die nog niet
+   hard is. De status hangt onder dit vlak in de banner, waar groen en oranje
+   hun gewone betekenis houden. */
+.card--verdict { overflow: hidden; }
+
+.verdict__hero {
+  position: relative;
+  /* Buiten de padding van de kaartbody treden, zodat het vlak de randen
+     raakt. De kaart klipt hem op zijn eigen radius. */
+  margin: 0 -24px 18px;
+  padding: 30px 24px 26px;
+  background: #241c3d;
+  color: #fff;
+  isolation: isolate;
+}
+
+/* Zachte vlekken in plaats van een lineair verloop: dat laatste leest als een
+   knop, dit als een oppervlak. De vlekken lopen ruim buiten de kaart door,
+   zodat je nergens een rand of een midden ziet. */
+.verdict__hero::before {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  z-index: -1;
+  background:
+    radial-gradient(38% 55% at 14% 22%, #7857f5 0%, transparent 62%),
+    radial-gradient(42% 60% at 78% 12%, #d2531f 0%, transparent 64%),
+    radial-gradient(46% 62% at 62% 92%, #3f6bff 0%, transparent 66%);
+  filter: blur(14px);
+}
+
+/* Een donkere sluier over het verloop, en dit is geen smaakkwestie.
+   Nagerekend op de lichtste vlek: zonder sluier haalt de regel onder het
+   cijfer 3,14 en de statusregel 2,74, waar 4,5 nodig is voor lopende tekst.
+   Het cijfer zelf mocht wel - dat is 56px vet en valt onder de norm van 3,0.
+
+   Bij 35% komen alle drie erboven (8,07 / 5,58 / 4,64). 38% voor wat marge,
+   want de vlekken zijn geblurd en de exacte lichtste plek is niet op de
+   pixel te voorspellen. Het verloop blijft kleurrijk; het wordt alleen
+   dieper. */
+.verdict__hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: rgba(16, 12, 28, .38);
+}
+
+.verdict__hero .verdict__cijfer {
+  display: block;
+  font-size: 56px;
+  font-weight: 700;
+  letter-spacing: -.05em;
+  line-height: 1;
+}
+.verdict__hero .verdict__naast {
+  display: block;
+  margin-top: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  /* Wit op 78%: leesbaar op de lichtste plek van het verloop, en toch een
+     stap onder het cijfer. Nagerekend op de lichtste vlek, niet op het
+     gemiddelde - daar zit de krapste verhouding. */
+  color: rgba(255, 255, 255, .78);
+}
+.verdict__staat {
+  display: block;
+  margin-top: 14px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, .68);
+}
+
+@media (max-width: 700px) {
+  .verdict__hero { margin: 0 -18px 14px; padding: 24px 18px 22px; }
+  .verdict__hero .verdict__cijfer { font-size: 42px; }
+}

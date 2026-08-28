@@ -82,25 +82,37 @@ onderaan zodat de volgorde de basiswaarden niet overrulet.
 De opbouw van `Kpi` klopte al: pictogram en delta bovenin, label, cijfer,
 notitie. Dat is dezelfde volgorde als de referentiedashboards gebruiken.
 
+**Het expressieve vlak staat er.** `.verdict__hero` in de analytics-weergave:
+de uitslag van de test op een verloop, met het cijfer op 56px. Twee dingen om
+te weten voordat je er iets aan verandert:
+
+- De kleur zegt bewust **niets** over de uitkomst. De verleiding is groen bij
+  winst en rood bij verlies, maar dan gaat een mooi vlak "goed nieuws"
+  betekenen, en dat is precies de verkeerde lezing bij een test die nog niet
+  hard is. De status hangt eronder in de banner, op wit, waar groen en oranje
+  hun gewone betekenis houden.
+- Er zit een donkere sluier van 38% over het verloop, en die is berekend, niet
+  gekozen. Zonder sluier haalt de regel onder het cijfer 3,14 en de statusregel
+  2,74 op de lichtste vlek, waar 4,5 nodig is. Bij 35% komen ze er allebei
+  boven. Verlaag hem niet zonder opnieuw te rekenen.
+
+Dit is het enige zulke vlak, en dat moet zo blijven — zie regel 3 van de skill.
+
 ## Wat nog open staat
 
 Op volgorde van wat het meest oplevert:
 
-1. **Eén expressief vlak.** Er is nog geen verloopkaart. De uitslag van een test
-   ("+34,6%, nog niet hard genoeg") is de natuurlijke inhoud — dat is waar
-   iemand voor komt. Recept in `components.md` §6.
-
-2. **Micrografieken.** Er is een volledige lijngrafiek met assen, gridlijnen en
+1. **Micrografieken.** Er is een volledige lijngrafiek met assen, gridlijnen en
    tooltip (`Lijn`), en dat is goed op een detailscherm. Op de kpi-kaarten
    ontbreekt de kleine variant: een stippenmatrix of sparkline zonder assen.
    Recepten in `components.md` §3 en §4.
 
-3. **Bento in plaats van een uniform raster.** Nu staan `grid--2`, `grid--3` en
+2. **Bento in plaats van een uniform raster.** Nu staan `grid--2`, `grid--3` en
    `grid--4` naast elkaar met gelijke kaarten. Een twaalfkolomsraster waarin de
    belangrijkste kaart breder is, geeft het scherm een middelpunt.
    Recept in `components.md` §8.
 
-4. **Kleur per widget.** De series zijn nu overal iris en oranje, omdat ze
+3. **Kleur per widget.** De series zijn nu overal iris en oranje, omdat ze
    control en test onderscheiden — dat klopt en moet zo blijven. Maar kaarten
    die géén vergelijking tonen (bezoekers, omzet, apparaten) kunnen elk een
    eigen tint krijgen, zoals regel 2 van de skill beschrijft. Doe dit alleen

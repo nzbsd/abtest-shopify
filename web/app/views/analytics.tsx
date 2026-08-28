@@ -341,24 +341,28 @@ export function AnalyticsView({
         )}
 
         {/* ── the verdict ──────────────────────────────────────────────── */}
-        <Card>
+        <Card className="card--verdict">
           <CardHead
             title={doel.naam}
             sub={"Chosen up front as what decides this test · " + doel.toetsnaam +
                  " at " + betrouwbaarheid + "% confidence"}
           />
           <div className="card__body">
-            <div className="rij" style={{ marginBottom: 16 }}>
-              <span className="cijfer">
+            {/* Het enige expressieve vlak op dit scherm. Hier komt iemand voor:
+                de uitslag. De banner eronder blijft op wit staan, want die
+                draagt de status - groen, oranje, rood - en die kleuren gaan
+                verloren op een verloop. */}
+            <div className="verdict__hero">
+              <span className="verdict__cijfer num">
                 {ondertekend(doelToets.lift)}
               </span>
-              <span className="cijfer cijfer--sm">
+              <span className="verdict__naast num">
                 {doel.vorm === "geld"
                   ? geld(doel.waarde(cIn)) + " → " + geld(doel.waarde(tIn))
                   : doel.waarde(cIn).toFixed(2) + "% → " + doel.waarde(tIn).toFixed(2) + "%"}
               </span>
               {doelToets.bruikbaar && (
-                <span className="small muted num">
+                <span className="verdict__staat num">
                   {doelToets.significant ? "statistically solid" : "not solid yet"} · {pTekst(doelToets.p)}
                   {doelToets.significant &&
                     " · real difference between " + ondertekend(doelToets.onder) + " and " + ondertekend(doelToets.boven)}
