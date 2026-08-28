@@ -792,7 +792,7 @@ export function AnalyticsView({
                     beschrijven. Bij een test die al liep voordat device
                     gemeten werd, beslaat hij daar een fractie van. */}
                 {dim === "device" && buitenBeeld > 0 && (
-                  <div style={{ padding: "0 18px 12px" }}>
+                  <div style={{ padding: "0 24px 14px" }}>
                     <Banner tone="info">
                       Covers {heel(inBeeld)} of {heel(inBeeld + buitenBeeld)} visitors.{" "}
                       {heel(buitenBeeld)} were measured before device tracking was in place, so
@@ -802,7 +802,7 @@ export function AnalyticsView({
                   </div>
                 )}
                 {segmenten.some((s) => s.tegendraads) && (
-                  <div style={{ padding: "0 18px 12px" }}>
+                  <div style={{ padding: "0 24px 14px" }}>
                     <Banner tone="warn">
                       <strong>
                         {segmenten.filter((s) => s.tegendraads).map((s) => s.naam).join(" and ")}{" "}

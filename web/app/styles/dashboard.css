@@ -63,7 +63,17 @@
   --wid-roze:       #c2358a;
   --wid-roze-pale:  #fbe6f1;
 
-  /* Status — gereserveerd, nooit een seriekleur */
+  /* Status — gereserveerd, nooit een seriekleur.
+
+     --warn heeft dezelfde waarde als --test, en dat is geen slordigheid maar
+     precies het punt: ze zagen er al hetzelfde uit, maar stonden onder de
+     naam van de testgroep. Waarschuwingsbalken, tegendraadse segmenten en een
+     doorval onder de helft haalden hun kleur uit de seriekleur van de
+     testarm - waardoor het wijzigen van die ene kleur stilletjes elke
+     waarschuwing in de app zou verkleuren. Nu staan ze los. */
+  --warn:      #d2531f;
+  --warn-pale: #fdeade;
+
   --up:      #12805a;
   --up-bg:   #e6f5ee;
   --down:    #c33d33;
@@ -487,7 +497,7 @@ input[type="text"]:hover, input[type="number"]:hover, input[type="search"]:hover
 input:focus, select:focus {
   background: var(--surface);
   border-color: var(--iris-lit);
-  box-shadow: 0 0 0 3px var(--control-pale);
+  box-shadow: 0 0 0 3px var(--iris-pale);
 }
 
 .btn {
@@ -551,7 +561,10 @@ table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nu
 
 thead th {
   text-align: right;
-  padding: 9px 16px;
+  /* Vierentwintig en niet zestien: de kaartkop erboven begint op 24, en een
+     tabel die op 16 begint staat zichtbaar uit het lood met zijn eigen titel.
+     Dat viel niet op toen de kaartpadding nog 16 was. */
+  padding: 11px 24px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: .04em;
@@ -566,7 +579,7 @@ thead th:first-child { text-align: left; }
    gegevensrij, dus een lijn erboven en een rustige achtergrond. */
 tfoot td {
   text-align: right;
-  padding: 10px 16px;
+  padding: 13px 24px;
   border-top: 1px solid var(--line-loud);
   background: var(--wash);
   font-size: 12.5px;
@@ -581,7 +594,7 @@ tfoot .delta { justify-content: flex-end; }
 
 tbody td {
   text-align: right;
-  padding: 10px 16px;
+  padding: 13px 24px;
   border-top: 1px solid var(--line);
   white-space: nowrap;
   font-size: 13px;
@@ -684,7 +697,7 @@ tbody td:first-child { text-align: left; font-weight: 600; }
 .banner__accent { width: 3px; border-radius: 999px; flex: none; background: var(--ink-4); }
 .banner--ok    .banner__accent { background: var(--up); }
 .banner--error .banner__accent { background: var(--down); }
-.banner--warn  .banner__accent { background: var(--test); }
+.banner--warn  .banner__accent { background: var(--warn); }
 .banner--info  .banner__accent { background: var(--iris-lit); }
 
 code {
@@ -1619,8 +1632,8 @@ tbody tr:hover { background: var(--wash); }
 
 /* Een segment dat de andere kant op wijst dan het geheel. Geen rood: het is
    geen fout, het is een reden om beter te kijken voordat je uitrolt. */
-.rij--tegendraads { background: var(--test-pale); }
-.rij--tegendraads:hover { background: var(--test-pale); }
+.rij--tegendraads { background: var(--warn-pale); }
+.rij--tegendraads:hover { background: var(--warn-pale); }
 .stip {
   display: inline-block;
   width: 6px; height: 6px;
@@ -1748,7 +1761,7 @@ tbody tr:hover { background: var(--wash); }
 .stapregel__naam { font-weight: 600; }
 .stapregel__cijfers { display: flex; align-items: baseline; gap: 10px; }
 /* Onder de helft doorvallen is geen detail meer; dat mag opvallen. */
-.stapregel__val { color: var(--test); font-weight: 650; }
+.stapregel__val { color: var(--warn); font-weight: 650; }
 
 /* ── lijsten waarvan elke rij een filter is ─────────────────────────────────
    De balk zit áchter de tekst en binnen de rij. Ernaast duwt hij de namen in
@@ -1769,7 +1782,10 @@ tbody tr:hover { background: var(--wash); }
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 7px 16px;
+  /* Mee met de kaartkop op 24. Op 16 begon elke rij zichtbaar links van de
+     titel erboven. De vulling erachter houdt zijn eigen inspringing, zodat de
+     balk niet tegen de kaartrand plakt. */
+  padding: 9px 24px;
   font-size: 12.5px;
   text-align: left;
   background: none;
@@ -1799,8 +1815,8 @@ tbody tr:hover { background: var(--wash); }
   position: absolute;
   top: 2px;
   bottom: 2px;
-  left: 12px;
-  max-width: calc(100% - 24px);
+  left: 18px;
+  max-width: calc(100% - 36px);
   border-radius: var(--r-xs);
   background: var(--iris-pale);
   z-index: 0;
@@ -1830,7 +1846,7 @@ tbody tr:hover { background: var(--wash); }
 .meer {
   display: block;
   width: 100%;
-  padding: 9px 16px;
+  padding: 11px 24px;
   border: 0;
   border-top: 1px solid var(--line);
   background: none;
@@ -1860,7 +1876,7 @@ tbody tr:hover { background: var(--wash); }
    zegt het wel, en het is de enige kleur die deze app voor "dit is gekozen"
    gebruikt. */
 .minitabs button[aria-pressed="true"] {
-  background: var(--control-pale);
+  background: var(--iris-pale);
   color: var(--iris);
   font-weight: 700;
 }
@@ -1971,7 +1987,9 @@ tbody tr:hover { background: var(--wash); }
    krimpend: liever een strook waar je doorheen veegt dan vier onleesbaar
    samengeperste labels. */
 .tabstrook {
-  padding: 0 18px 10px;
+  /* Mee met de kaartkop: die staat op 24, en een tabstrook eronder op 18 laat
+     de eerste tab links uitsteken. */
+  padding: 0 24px 12px;
   overflow-x: auto;
   scrollbar-width: none;
 }
