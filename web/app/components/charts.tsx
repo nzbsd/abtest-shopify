@@ -383,3 +383,51 @@ export function SparkPaar({
     </svg>
   );
 }
+
+/**
+ * Twee waarden op één as: waar je aanname staat ten opzichte van een omslagpunt.
+ *
+ * Voor de prognose. Twee getallen naast elkaar - "omslag bij 1,4 cycli, jij
+ * neemt 1,8 aan" - dwingen je het verschil zelf uit te rekenen én te bedenken
+ * welke kant goed is. Op een as zie je het: staat jouw ruit rechts van de
+ * streep, dan houdt de variant het uit; staat hij links, dan niet.
+ *
+ * De kleur volgt die uitkomst en niet de waarde. Dit is een van de weinige
+ * plekken waar groen en rood echt op hun plaats zijn, want er is een
+ * ondubbelzinnig goede kant.
+ */
+export function Drempel({
+  omslag, aanname, eenheid, label,
+}: {
+  omslag: number;
+  aanname: number;
+  eenheid: string;
+  label: string;
+}) {
+  /* De as loopt tot ruim voorbij de hoogste van de twee, zodat de markers
+     nooit tegen de rand plakken en je ziet dat er nog schaal ís. */
+  const top = Math.max(omslag, aanname, 0.1) * 1.35;
+  const pos = (v: number) => Math.min(98, Math.max(2, (v / top) * 100));
+  const haalt = aanname >= omslag;
+
+  return (
+    <div className={"drempel" + (haalt ? " drempel--haalt" : " drempel--haalt-niet")}
+         role="img" aria-label={label}>
+      <div className="drempel__as">
+        {/* Het gebied tot het omslagpunt: daar verdient de variant zichzelf
+            niet terug. Als vlak en niet als lijn, want het is een bereik. */}
+        <span className="drempel__onder" style={{ width: pos(omslag) + "%" }} />
+        <span className="drempel__streep" style={{ left: pos(omslag) + "%" }} />
+        <span className="drempel__ruit" style={{ left: pos(aanname) + "%" }} />
+      </div>
+      <div className="drempel__labels">
+        <span style={{ left: pos(omslag) + "%" }} className="drempel__label">
+          break-even {omslag.toFixed(1)}
+        </span>
+        <span style={{ left: pos(aanname) + "%" }} className="drempel__label drempel__label--jij">
+          you assume {aanname.toFixed(1)} {eenheid}
+        </span>
+      </div>
+    </div>
+  );
+}

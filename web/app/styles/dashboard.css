@@ -2947,3 +2947,74 @@ tbody tr:hover { background: var(--wash); }
   .doelrij { padding: 12px 18px; }
   .modaal__titel { font-size: 17px; }
 }
+
+/* ── drempel: aanname tegenover omslagpunt ────────────────────────────
+   Twee getallen naast elkaar dwingen je het verschil zelf uit te rekenen en
+   ook nog te bedenken welke kant goed is. Op een as zie je het.
+
+   Groen en rood zijn hier wél op hun plaats, en dat is uitzonderlijk in deze
+   app: er is een ondubbelzinnig goede kant. Staat je ruit rechts van de
+   streep, dan verdient de variant zichzelf terug. */
+.drempel { margin: 6px 0 30px; }
+
+.drempel__as {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--wash);
+  overflow: visible;
+}
+
+/* Het bereik tot het omslagpunt: daar komt de variant tekort. */
+.drempel__onder {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  border-radius: 999px 0 0 999px;
+  background: var(--down-bg);
+  transform-origin: left;
+  animation: groeiBalk .5s var(--ease-out) both;
+}
+
+.drempel__streep {
+  position: absolute;
+  top: -5px; bottom: -5px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 999px;
+  background: var(--ink-3);
+}
+
+/* De aanname als ruit, zodat hij ook zonder kleur van de streep te
+   onderscheiden is - vorm draagt hier mee, niet alleen kleur. */
+.drempel__ruit {
+  position: absolute;
+  top: 50%;
+  width: 14px; height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 3px;
+  transform: rotate(45deg);
+  box-shadow: 0 0 0 3px var(--surface);
+  animation: verschijn .4s .25s var(--ease-out) both;
+}
+.drempel--haalt .drempel__ruit      { background: var(--up); }
+.drempel--haalt-niet .drempel__ruit { background: var(--down); }
+
+.drempel__labels { position: relative; height: 18px; margin-top: 10px; }
+.drempel__label {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.drempel__label--jij { top: 0; font-weight: 650; color: var(--ink-2); }
+/* De twee labels kunnen elkaar overlappen als de waarden dicht bij elkaar
+   liggen; die van jou staat dan een regel lager en blijft leesbaar. */
+.drempel__labels .drempel__label:not(.drempel__label--jij) { top: 0; }
+.drempel--haalt .drempel__label--jij,
+.drempel--haalt-niet .drempel__label--jij { top: 18px; }
+.drempel__labels { height: 38px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .drempel__onder, .drempel__ruit { animation: none; }
+}

@@ -1,4 +1,5 @@
-import { Banner, Card, CardHead, Delta, Leeg, Track, Vergelijk } from "~/components/ui";
+import { Banner, Card, CardHead, Delta, Leeg, Vergelijk } from "~/components/ui";
+import { Drempel } from "~/components/charts";
 import { bedragVerschil, geld, heel, ondertekend, procent } from "~/lib/analytics";
 import { forecast, forecastTekst } from "~/lib/forecast";
 import type { OrderCijfers } from "~/lib/orders.server";
@@ -130,9 +131,26 @@ export function ForecastView({
                 )}
               </div>
 
-              {f.margeOpRetentie !== null && f.margeOpRetentie > 0 && (
-                <Track value={Math.min(f.margeOpRetentie / 100, 1)} color="var(--up)" />
-              )}
+              {/* De twee getallen hierboven zeggen alles, maar dwingen je het
+                  verschil zelf uit te rekenen en ook nog te bedenken welke
+                  kant goed is. Op een as zie je het in één blik: staat de
+                  ruit rechts van de streep, dan verdient de variant zichzelf
+                  terug over de aangenomen levensduur.
+
+                  De balk die hier stond toonde de marge als percentage van
+                  honderd, en die honderd betekende niets - een marge van 40%
+                  vulde de balk voor twee vijfde zonder dat er iets was waar
+                  dat tegen afgezet werd. */}
+              <Drempel
+                omslag={f.omslagCycles}
+                aanname={cycles}
+                eenheid="cycles"
+                label={"Break-even at " + f.omslagCycles.toFixed(1) + " cycles; you assume " +
+                       cycles.toFixed(1) + ". " +
+                       (cycles >= f.omslagCycles
+                         ? "The variant pays for itself over the assumed lifetime."
+                         : "The variant does not pay for itself over the assumed lifetime.")}
+              />
 
               <p style={{ marginTop: 16, fontSize: 13, color: "var(--ink-2)" }}>
                 {forecastTekst(f, cycles)}
