@@ -3119,11 +3119,18 @@ tbody tr:hover { background: var(--wash); }
   content: "";
   position: absolute;
   inset: 0;
+  /* Achter het getal, niet ervoor. Dit stond zonder z-index, en om het getal
+     er weer bovenop te krijgen zette ik er position: relative op - waarmee ik
+     de position: absolute overschreef die het netjes rechts in de balk hield.
+     Het getal viel terug in de flow tegen de linkerrand en werd afgesneden:
+     "341" waar 2.341 hoorde te staan. Een grafiek die getallen verminkt is
+     erger dan een grafiek zonder verloop. */
+  z-index: 0;
   border-radius: inherit;
   background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(0,0,0,.06));
   pointer-events: none;
 }
-.funnel__bar span { position: relative; z-index: 1; }
+.funnel__bar span { z-index: 1; }
 
 /* ── gestippelde rasterlijnen ─────────────────────────────────────────
    Doorgetrokken grijze lijnen achter een grafiek zijn zelf een element:

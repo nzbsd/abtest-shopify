@@ -279,8 +279,13 @@ export function AnalyticsView({
    */
   const omzetBeeld = (kant: "control" | "test") => {
     const reeks = rpvPunten.map((p) => p[kant]);
-    if (reeks.length >= 4) return null;
-    if (reeks.length < 1) return null;
+    /* Vanaf vijf dagen, en daaronder niets.
+       Ik heb hier eerst een matrix vanaf twee dagen gezet om te voorkomen dat
+       deze kaarten leeg bleven. Dat was slechter dan het probleem: twee smalle
+       kolommetjes stippen in een brede kaart lezen als een renderfout, niet
+       als een grafiek. Een kaart die eerlijk zegt dat er nog niets te tonen
+       valt is beter dan een kaart die iets toont wat niets betekent. */
+    if (reeks.length < 5) return null;
     return (
       <div className="kpi__matrix">
         <Matrix
@@ -288,7 +293,7 @@ export function AnalyticsView({
           kleur={"var(--" + kant + ")"}
           label={"Revenue per visitor for " + kant + " over the last " + reeks.length + " days"}
         />
-        <span className="piek">{reeks.length} day{reeks.length === 1 ? "" : "s"}</span>
+        <span className="piek">{reeks.length} days</span>
       </div>
     );
   };
@@ -533,7 +538,13 @@ export function AnalyticsView({
             />
             <div className="card__body">
               <div style={{ marginBottom: 16 }}><Legend /></div>
-              <Lijn punten={points} formatteer={format[metric]} />
+              {/* Hoger dan de standaard 190: in de bento staat hiernaast een
+                  kolom met twee kengetalkaarten, en die is samen ruim vijfhonderd
+                  hoog. Een grafiek van 190 laat daar een gat van tweehonderdvijftig
+                  pixel onder zich vallen, en dat is precies wat een raster
+                  rommelig maakt - niet de kaarten zelf maar wat eronder leeg
+                  blijft. */}
+              <Lijn punten={points} formatteer={format[metric]} hoogte={280} />
             </div>
           </Card>
 
