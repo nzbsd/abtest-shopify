@@ -1500,9 +1500,20 @@ tbody tr:hover { background: var(--wash); }
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
+  /* Kleur per testtype. Een type is een categorie - prijs, paginaontwerp,
+     url, thema - en dat is precies waar kleur voor bedoeld is. In een lijst
+     van twintig tests kun je zo per soort scannen zonder te lezen.
+
+     Nadrukkelijk niet de seriekleuren: die betekenen control en test, en een
+     lijst waarin het TYPE oranje is naast een rij met een oranje test-swatch
+     leest als een aanwijzing die er niet is. */
   background: var(--veil);
   color: var(--iris);
 }
+.typepil--price    { background: var(--wid-blauw-pale); color: var(--wid-blauw); }
+.typepil--template { background: var(--wid-roze-pale);  color: var(--wid-roze); }
+.typepil--url      { background: var(--wid-teal-pale);  color: var(--wid-teal); }
+.typepil--theme    { background: var(--iris-pale);      color: var(--iris); }
 
 /* ── de overige wizardstappen, in dezelfde taal ─────────────────────────────
    Uitlezing waar iets uitkomt, kaart waar iets bij elkaar hoort, en de
@@ -2844,3 +2855,95 @@ tbody tr:hover { background: var(--wash); }
   .sparkpaar polyline, .sparkpaar polygon { animation: none; stroke-dasharray: none; }
 }
 @media (max-width: 700px) { .sparkpaar { height: 52px; } }
+
+/* ── testenlijst: een streep die het type verraadt ────────────────────
+   Een lijst is geen dashboard en krijgt hier geen grafieken. Maar twintig
+   rijen die alleen in tekst verschillen dwingen je te lezen voordat je kunt
+   kiezen, en dat is precies wat een lijst niet zou moeten doen.
+
+   Een streep van drie pixel in de kleur van het testtype laat je scannen:
+   alle paginaontwerp-tests zijn roze, alle prijstests blauw. Alleen bij een
+   lopende test - een concept of een gestopte test hoeft niet op te vallen,
+   en een lijst waarin alles een gekleurde streep heeft is weer even
+   onleesbaar als een lijst zonder. */
+.test-row { position: relative; }
+
+.test-row--loopt::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--rij-tint, var(--iris));
+}
+.test-row--price    { --rij-tint: var(--wid-blauw); }
+.test-row--template { --rij-tint: var(--wid-roze); }
+.test-row--url      { --rij-tint: var(--wid-teal); }
+.test-row--theme    { --rij-tint: var(--iris); }
+
+/* De streep staat op de kaartrand, dus de inhoud een tik naar rechts zodat
+   hij niet tegen de tekst plakt. */
+.test-row--loopt { padding-left: 28px; }
+
+@media (max-width: 700px) {
+  .test-row--loopt { padding-left: 22px; }
+}
+
+/* ── wizard ───────────────────────────────────────────────────────────
+   Een formulierflow is geen dashboard: geen grafieken, geen gekleurde
+   widgets, geen cijfers van veertig. Maar de vraag die je op dat moment
+   beantwoordt is wél de kop van dat scherm, en die stond op zestien - even
+   groot als een kaarttitel elders, terwijl hier verder niets anders staat.
+
+   Een wizard hoort ook ruimer te zitten dan een dashboard. Op een dashboard
+   kijk je; hier vul je iets in, en dan is dichtheid geen deugd. */
+.wizard__paneel { padding: 28px 28px 24px; min-height: 320px; }
+.wizard__kop { font-size: 22px; font-weight: 700; letter-spacing: -.03em; line-height: 1.2; }
+.wizard__sub { margin-top: 8px; margin-bottom: 2px; font-size: 13.5px; line-height: 1.55; }
+.wizard__voet { padding: 18px 28px; }
+
+/* De stappenbalk mee met de rest: hij staat boven het paneel en moet er dus
+   op uitlijnen. */
+.wizard__steps { padding-left: 28px; padding-right: 28px; }
+
+/* Typekaarten zijn de eerste keuze die iemand maakt en waren daarmee de
+   kleinste elementen op het scherm. */
+.typekaarten { gap: 14px; margin-top: 22px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+
+@media (max-width: 700px) {
+  .wizard__paneel { padding: 20px 18px 18px; }
+  .wizard__voet { padding: 14px 18px; }
+  .wizard__steps { padding-left: 18px; padding-right: 18px; }
+  .wizard__kop { font-size: 19px; }
+}
+
+/* De typekaart is de eerste beslissing van de flow: welk soort test bouw je?
+   Dertien pixel padding maakte daar een keuzevakje van. */
+.typekaart { padding: 18px 18px 16px; gap: 5px; }
+
+/* ── modaal ───────────────────────────────────────────────────────────
+   Het beslismodal en de typekiezer delen deze vorm. Een modaal onderbreekt
+   waar je mee bezig was, dus hij mag niet aanvoelen als een kaartje dat
+   toevallig bovenop ligt - hij hoort de aandacht te dragen die hij opeist.
+
+   Titel van 15 naar 19: dat is de vraag die gesteld wordt, en die stond hier
+   kleiner dan de kop van een gewone kaart elders in de app. */
+.modaal__kop { padding: 22px 24px 16px; }
+.modaal__titel { font-size: 19px; letter-spacing: -.025em; line-height: 1.25; }
+.modaal__sub { margin-top: 6px; font-size: 13px; line-height: 1.5; }
+.modaal__body { padding: 20px 24px; }
+.modaal__voet { padding: 16px 24px; }
+
+/* De keuzerijen erin. Negen pixel hoog is een regel in een lijst; dit is een
+   keuze die je maakt en daarna niet meer terugdraait. */
+.doelrij { padding: 14px 24px; gap: 13px; }
+
+@media (max-width: 700px) {
+  .modaal__kop { padding: 18px 18px 14px; }
+  .modaal__body { padding: 16px 18px; }
+  .modaal__voet { padding: 14px 18px; }
+  .doelrij { padding: 12px 18px; }
+  .modaal__titel { font-size: 17px; }
+}

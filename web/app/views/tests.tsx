@@ -310,11 +310,11 @@ export function TestsView({
             {tests.map((t) => {
               const days = looptDagen(t.started_at);
               return (
-                <div className="test-row" key={t.id}>
+                <div className={"test-row test-row--" + t.test_type + (t.status === "running" ? " test-row--loopt" : "")} key={t.id}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                       <strong>{t.naam || t.control_title || t.control_product_id}</strong>
-                      <span className="typepil">{typeInfo(t.test_type).naam}</span>
+                      <span className={"typepil typepil--" + t.test_type}>{typeInfo(t.test_type).naam}</span>
                       <Badge status={t.status} />
                     </div>
                     <div className="pair">
