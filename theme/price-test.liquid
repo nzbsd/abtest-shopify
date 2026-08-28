@@ -458,12 +458,72 @@
    * positie drie hier. Een media-id zou preciezer zijn, maar dat staat nergens
    * in de DOM waar we het kunnen terugvinden.
    */
+  /**
+   * De galerij alvast verbergen, vóórdat de config binnen is.
+   *
+   * WAAROM DIT NODIG IS
+   * Alle andere testtypes verwijzen door: de bezoeker ziet de controleversie
+   * nooit, want de pagina wisselt van URL. Dit type past de pagina zelf aan,
+   * en dat kan pas als de config er is. Zit die in de sessiecache, dan gebeurt
+   * dat synchroon en is er niets aan de hand. Maar op de eerste pagina van een
+   * sessie is het een fetch, en die kan terugkomen nádat de galerij al staat.
+   *
+   * Dan ziet iemand een halve tel foto 1 en daarna foto 4. Dat is niet alleen
+   * lelijk - die bezoeker heeft beide varianten gezien, en zit toch in één
+   * groep. Precies de vervuiling die dit testtype zou moeten uitsluiten.
+   *
+   * WAAROM EEN HINT EN NIET GEWOON ALTIJD VERBERGEN
+   * Altijd verbergen zou elke bezoeker van elke productpagina de fetch laten
+   * afwachten, ook op een winkel waar helemaal geen afbeeldingstest loopt.
+   * Dat is een echte kostenpost voor een functie die misschien niet eens
+   * aanstaat.
+   *
+   * Dus onthouden we per product dát er een afbeeldingstest op zat, zodra we
+   * er één uitgevoerd hebben. Alleen op die producten wordt vooruitgelopen.
+   * De allereerste keer dat een browser zo'n pagina ziet kan hij nog flitsen;
+   * daarna niet meer. En een hint die blijft hangen nadat de test gestopt is
+   * kost hoogstens een paar honderd milliseconde op één pagina, want handle()
+   * haalt de klasse er hoe dan ook weer af.
+   */
+  var FOTO_HINT = "_pt_foto";
+
+  function hintOpslaan(productId) {
+    try {
+      var lijst = JSON.parse(localStorage.getItem(FOTO_HINT) || "[]");
+      if (lijst.indexOf(productId) === -1) {
+        lijst.push(productId);
+        /* Niet ongelimiteerd laten groeien: wie veel producten bekijkt hoeft
+           geen jarenlange lijst mee te dragen. */
+        localStorage.setItem(FOTO_HINT, JSON.stringify(lijst.slice(-40)));
+      }
+    } catch (e) {}
+  }
+
+  function hintGezet(productId) {
+    try {
+      return JSON.parse(localStorage.getItem(FOTO_HINT) || "[]").indexOf(productId) !== -1;
+    } catch (e) { return false; }
+  }
+
+  /* Verbergen mag alleen als het ook weer ongedaan gemaakt wordt. handle()
+     doet dat via wisselFoto, maar als de fetch mislukt komt handle() met een
+     lege lijst - en dan blijft er niemand over om de klasse weg te halen.
+     Vandaar de harde eindtijd: na een seconde is de galerij hoe dan ook weer
+     zichtbaar, met of zonder test. */
+  function verbergAlvast() {
+    document.documentElement.classList.add("pt-foto-bezig");
+    setTimeout(function () {
+      document.documentElement.classList.remove("pt-foto-bezig");
+    }, 1000);
+  }
+
   function doeAfbeelding(t) {
     if (t.controlProductId !== PRODUCT_ID) return false;
 
     var cohort = bucket(visitor + ":" + t.id) < t.splitPct ? "test" : "control";
     if (cohort === "control") return meet(t.id, "control");
 
+    hintOpslaan(PRODUCT_ID);
     wisselFoto(t.imagePositie);
     return meet(t.id, "test");
   }
@@ -1014,6 +1074,11 @@
       if (c && c.at && Date.now() - c.at < CACHE_MS) { handle(c.data); meldView(); return; }
     }
   } catch (e) { /* private mode, no storage - just fetch */ }
+
+  /* Cachemisser. Weten we van dit product dat er een afbeeldingstest op
+     zat, dan gaat de galerij nu al op nul dekking - anders komt de config
+     terug nadat hij geverfd is en flitst de controlefoto alsnog voorbij. */
+  if (PRODUCT_ID && hintGezet(PRODUCT_ID)) verbergAlvast();
 
   fetch(APP + "/api/price-test?shop=" + encodeURIComponent(SHOP))
     .then(function (r) { return r.ok ? r.json() : { tests: [] }; })
