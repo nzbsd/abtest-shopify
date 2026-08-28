@@ -2509,15 +2509,25 @@ tbody tr:hover { background: var(--wash); }
    breedtes geven suggereert dat de ene kant zwaarder weegt. Bij een A/B-test
    is dat precies de verkeerde boodschap. Bento hoort waar dingen echt
    verschillen in gewicht, niet waar ze elkaars tegenhanger zijn. */
+/* align-items: stretch en niet start.
+
+   Met start bepaalt elke kolom zijn eigen hoogte, en dan is uitlijnen een
+   kwestie van hopen dat een grafiek van 280 toevallig even hoog uitkomt als
+   twee kengetalkaarten plus een gat ertussen. Dat lukt nooit: verander een
+   lettergrootte en het klopt weer niet.
+
+   Met stretch trekken beide kolommen naar dezelfde hoogte en verdelen de twee
+   kaarten rechts die ruimte gelijk. De onderranden liggen dan altijd op een
+   lijn, ongeacht wat erin staat. */
 .bento {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 18px;
-  align-items: start;
+  align-items: stretch;
 }
 .bento > * { grid-column: span 12; }
 
-.bento__zij { display: grid; gap: 18px; align-content: start; }
+.bento__zij { display: grid; gap: 18px; grid-auto-rows: 1fr; }
 
 @media (min-width: 1040px) {
   .bento__hoofd { grid-column: span 8; }
@@ -3264,3 +3274,28 @@ tbody tr:hover { background: var(--wash); }
   .paginabalk { justify-content: flex-start; }
   .page__head { align-items: flex-start; }
 }
+
+/* ── kaarten naast elkaar rekken niet mee ─────────────────────────────
+   In een raster rekt een kaart standaard tot de hoogte van de langste in
+   zijn rij. Bij een korte tabel naast een hoge trechter levert dat een
+   kaart op met een leeg vlak van honderdvijftig pixel onderin - en dat
+   leest als "hier hoort nog iets te komen".
+
+   Een klein hoogteverschil tussen twee kaarten is rustiger dan leegte
+   binnen een kaart. De bento is de uitzondering: daar hoort de kolom met
+   twee kaarten wél de hoogte van de grafiek ernaast te volgen, want die
+   twee vormen samen één blok. */
+.grid > *, .stack > * { align-self: start; }
+.bento > * { align-self: stretch; }
+
+/* ── tabellen die niet meer passen ────────────────────────────────────
+   De cellen gingen naar 24 om uit te lijnen met de kaartkop, en met zes
+   kolommen paste de tabel daardoor niet meer: er verscheen een scrollbalk
+   midden in de kaart.
+
+   Alleen de buitenste cellen houden die 24 - die bepalen de uitlijning met
+   de titel erboven. De cellen ertussen mogen krapper, want daar valt niets
+   op uit te lijnen. */
+thead th, tbody td, tfoot td { padding-left: 14px; padding-right: 14px; }
+thead th:first-child, tbody td:first-child, tfoot td:first-child { padding-left: 24px; }
+thead th:last-child, tbody td:last-child, tfoot td:last-child { padding-right: 24px; }
