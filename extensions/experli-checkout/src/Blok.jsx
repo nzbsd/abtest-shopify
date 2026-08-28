@@ -153,6 +153,18 @@ function Vertrouwen({ v }) {
    en een streep ertussen maken er één ding van, en dat is precies wat een FAQ
    moet zijn: een plek waar je gaat kijken, niet iets wat je tegenkomt.
 
+   DE VRAAG IS DE KOP, NIET HET KAARTLABEL.
+   Andersom zou logischer lijken - "Common questions" bovenaan in het vet, de
+   vragen eronder als tekst - maar dan is het grootste wat je leest precies het
+   woord dat je niets vertelt. Je scant een FAQ op de vragen; die horen dus de
+   koppen te zijn. Het label erboven mag klein en grijs: het zegt alleen wat
+   voor blok dit is, en dat zie je toch al.
+
+   s-heading en niet s-text met een maat erop: s-text kent geen maat, alleen
+   semantiek, en de maat volgt daaruit. Dat is geen beperking maar het systeem -
+   een kop die groter is omdat het een kop is blijft ook kloppen als de winkel
+   zijn kassa-typografie verandert.
+
    Kader en strepen zijn ook alles wat er te sturen valt. Een kassa-extensie mag
    geen eigen CSS meesturen - dat is een bewuste grens van Shopify, zodat geen
    enkele app de kassa kan laten breken op een toestel dat jij nooit test.
@@ -169,7 +181,7 @@ function Faq({ v }) {
           <s-box padding="base">
             <s-stack direction="inline" gap="small-200" blockAlignment="center">
               <s-icon type="question-circle" tone="neutral" size="small" />
-              <s-text type="strong">{v.kop}</s-text>
+              <s-text type="small" color="subdued">{v.kop}</s-text>
             </s-stack>
           </s-box>
           <s-divider />
@@ -185,7 +197,9 @@ function Faq({ v }) {
           {n > 0 && <s-divider />}
           <s-box padding="base">
             <s-details>
-              <s-summary>{q.v}</s-summary>
+              <s-summary>
+                <s-heading>{q.v}</s-heading>
+              </s-summary>
               <s-stack direction="block" gap="small-300">
                 <s-text color="subdued">{q.a}</s-text>
               </s-stack>
