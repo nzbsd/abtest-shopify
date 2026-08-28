@@ -318,8 +318,11 @@ button { cursor: pointer; font: inherit; }
 .segmented, .minitabs { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
 .segmented::-webkit-scrollbar, .minitabs::-webkit-scrollbar { display: none; }
 .segmented button, .minitabs button { flex: none; white-space: nowrap; }
-.card__title { font-size: 14.5px; font-weight: 700; letter-spacing: -.02em; }
-.card__sub { margin-top: 2px; font-size: 12px; color: var(--ink-3); }
+/* De laatste sport van de ladder. Met een paginatitel van 34 en cijfers van 40
+   was een kaarttitel van 14,5 niet meer te onderscheiden van het bijschrift
+   eronder - en dan heeft een kaart geen kop meer. */
+.card__title { font-size: 16.5px; font-weight: 700; letter-spacing: -.025em; }
+.card__sub { margin-top: 4px; font-size: 12.5px; color: var(--ink-3); }
 .card__body { padding: 0 24px 22px; }
 .card__body--flush { padding: 0; }
 
@@ -772,23 +775,35 @@ code {
 }
 .pill--active   { background: var(--up-bg);    color: var(--up); }
 .pill--unlisted { background: var(--veil);     color: var(--iris); }
-.pill--draft    { background: var(--test-pale); color: var(--test); }
+/* Stond op de seriekleur van de testgroep. Op een pagina waar naast deze pil
+   ook control- en test-swatches staan, leest een oranje pil als "dit is de
+   testvariant" terwijl hij "nog niet gestart" betekent. Seriekleuren horen
+   alleen daar waar ze een arm aanduiden. */
+.pill--draft    { background: var(--wash);     color: var(--ink-2); }
 
 /* Inlogscherm */
 .login { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
 .login__card { width: 100%; max-width: 360px; padding: 28px; }
 
 /* Vergelijkingskaart: twee groepen even zwaar in beeld. */
-.compare { padding: 14px 16px; }
-.compare__label { font-size: 12.5px; font-weight: 600; color: var(--ink-2); margin-bottom: 10px; }
-.compare__row { display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap; }
-.compare__side { min-width: 92px; }
+/* Gelijkgetrokken met de kengetalkaarten. Deze twee staan op het uitslagblad
+   direct onder elkaar, en met padding 14/16 tegenover 22/24 en een cijfer van
+   21 tegenover 40 lazen ze als een tweede rangs rij - terwijl conversie en
+   orderwaarde juist verklaren waaróm de omzet per bezoeker beweegt.
+
+   Dertig en niet veertig: er staan er twee naast elkaar in dezelfde kaart, en
+   dan mag geen van beide de rol van hoofdcijfer opeisen. Groter dan een
+   secundair getal, kleiner dan een kaart met er maar één. */
+.compare { padding: 22px 24px; }
+.compare__label { font-size: 12px; font-weight: 600; color: var(--ink-3); margin-bottom: 14px; }
+.compare__row { display: flex; align-items: flex-end; gap: 22px; flex-wrap: wrap; }
+.compare__side { min-width: 104px; }
 .compare__value {
-  margin-top: 4px;
-  font-size: 21px;
+  margin-top: 6px;
+  font-size: 30px;
   font-weight: 700;
-  letter-spacing: -.025em;
-  line-height: 1.1;
+  letter-spacing: -.035em;
+  line-height: 1.05;
 }
 .compare__delta { margin-left: auto; padding-bottom: 4px; }
 .compare__note { margin-top: 9px; font-size: 11.5px; color: var(--ink-3); }

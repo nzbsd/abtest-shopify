@@ -104,20 +104,30 @@ Neem deze over tenzij je een reden hebt om af te wijken. De getallen zijn niet
 willekeurig — ze komen uit wat op deze codebase getest is.
 
 ```
-uitslag / hero-cijfer      46px  gewicht 700  spatiëring -.045em
-kpi-cijfer                 40px  gewicht 700  spatiëring -.04em
-secundair cijfer           22px  gewicht 700  spatiëring -.03em
-paginatitel                21px  gewicht 700  spatiëring -.03em
-kaarttitel                 15px  gewicht 650
-label boven een cijfer     12px  gewicht 600  gedempt
-bijschrift / notitie     11.5px  gewicht 400  gedempt
+uitslag op een eigen tegel  60px  gewicht 700  spatiëring -.05em
+paginatitel                 34px  gewicht 700  spatiëring -.035em
+kpi-cijfer                  40px  gewicht 700  spatiëring -.04em
+twee cijfers in één kaart   30px  gewicht 700  spatiëring -.035em
+secundair cijfer            22px  gewicht 700  spatiëring -.03em
+kaarttitel                16.5px  gewicht 700
+label boven een cijfer      12px  gewicht 600  gedempt
+bijschrift / notitie      11.5px  gewicht 400  gedempt
 
-kaartpadding            22px 24px
-kaartkop            20px 24px 12px
-ruimte tussen kaarten       18px
-kaartradius                 16px
-pilradius                  999px
+kaartpadding             22px 24px
+kaartkop             20px 24px 12px
+ruimte tussen kaarten        18px
+kaartradius                  16px
+pilradius                   999px
 ```
+
+De ladder telt, niet de losse waarden. Een kaarttitel van 14,5 naast een
+paginatitel van 34 en cijfers van 40 is niet meer te onderscheiden van het
+bijschrift eronder, en dan heeft een kaart geen kop meer. Zet je één waarde
+om, loop dan de hele reeks na.
+
+Let vooral op **vergelijkingskaarten**: die houden bij zo'n omzetting makkelijk
+de oude maat, en juist die staan meestal naast de kaarten die je wél hebt
+aangepast.
 
 Op smalle schermen gaat alles een trap terug. Deze app draait ingebed in de
 Shopify-admin en die kolom kan smal zijn — een cijfer van 40px in 230px breedte
