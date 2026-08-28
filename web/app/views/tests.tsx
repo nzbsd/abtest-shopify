@@ -480,10 +480,14 @@ export function TestsView({
                     })()}
                   </div>
 
-                  /* Een rij van vier even luide knoppen dwingt je te lezen welke je
-                     nodig hebt. Nu een rangorde: de hoofdactie - starten of
-                     stoppen - is de enige met kleur, de rest is stil en de
-                     instelling is een tekstknop. */
+                  {/* Een rij van vier even luide knoppen dwingt je te lezen welke je
+                      nodig hebt. Nu een rangorde: de hoofdactie - starten of
+                      stoppen - is de enige met kleur, de rest is stil en de
+                      instelling is een tekstknop.
+
+                      Mét accolades. Zonder is dit geen comment maar een tekstnode:
+                      JSX kent /* */ niet, dus stond deze hele alinea gewoon naast
+                      elke testrij op het scherm. */}
                   <div className="test-row__acties">
                     <LtvInstelling t={t} onSave={bewaarLtv} busy={busy} />
                     <Link className="btn btn--stil" to={basis + "/analytics?test=" + t.id}>Results</Link>
