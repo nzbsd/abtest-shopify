@@ -195,10 +195,13 @@ export function Sparkline({
   hoogte?: number;
   label: string;
 }) {
-  /* Onder de twee punten valt er geen verloop te tekenen. Een enkele stip of
-     een vlakke streep suggereert stabiliteit die je niet gemeten hebt, dus dan
-     liever niets. */
-  if (punten.length < 2) return null;
+  /* Vier punten als ondergrens, niet twee.
+     Met twee punten is een sparkline per definitie een rechte lijn van hoek
+     tot hoek, en omdat hij vanaf de laagste waarde schaalt raakt hij ook nog
+     beide hoeken - het gevulde vlak wordt dan een driehoek van een halve
+     kaart. Dat leest als een grafische fout, en het zegt niets: twee metingen
+     hebben geen vorm. Vanaf vier begint er een verloop te ontstaan. */
+  if (punten.length < 4) return null;
 
   const max = Math.max(...punten);
   const min = Math.min(...punten);
@@ -224,7 +227,12 @@ export function Sparkline({
       role="img"
       aria-label={label}
     >
-      <polygon points={"0," + hoogte + " " + pad + " 100," + hoogte} fill={kleur} opacity=".12" />
+      {/* fillOpacity en niet opacity: de opacity-eigenschap uit CSS overschrijft
+          het gelijknamige attribuut, en de verschijn-animatie eindigt op 1.
+          Daardoor werd dit vlak volledig dekkend - een massieve driehoek onder
+          elk kengetal in plaats van een zweem. Met fill-opacity staan ze los
+          en vermenigvuldigen ze: .12 blijft .12. */}
+      <polygon points={"0," + hoogte + " " + pad + " 100," + hoogte} fill={kleur} fillOpacity=".12" />
       {/* non-scaling-stroke: de viewBox rekt niet-uniform op naar de kaart, en
           zonder dit wordt de lijn in een brede kaart een wigvormige streep die
           links dun en rechts dik is. */}

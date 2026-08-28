@@ -2371,94 +2371,6 @@ tbody tr:hover { background: var(--wash); }
   .grid, .stack { gap: 14px; }
 }
 
-/* ── het expressieve vlak ─────────────────────────────────────────────
-   Eén per scherm, en dit is hem: de uitslag van de test.
-
-   Waarom er precies één mag zijn: hij werkt doordat de rest rustig is. Een
-   tweede verloopkaart halveert het effect van de eerste, een derde maakt er
-   een marketingpagina van. En waarom juist deze: dit is het cijfer waar
-   iemand het scherm voor opent. Een verloop om een willekeurig kengetal
-   voelt als opsmuk, en dat ziet iedereen.
-
-   De kleur zegt bewust niets over de uitkomst. De verleiding is groen bij
-   winst en rood bij verlies, maar dan gaat een mooi vlak "goed nieuws"
-   betekenen en dat is precies de verkeerde lezing bij een test die nog niet
-   hard is. De status hangt onder dit vlak in de banner, waar groen en oranje
-   hun gewone betekenis houden. */
-.card--verdict { overflow: hidden; }
-
-.verdict__hero {
-  position: relative;
-  /* Buiten de padding van de kaartbody treden, zodat het vlak de randen
-     raakt. De kaart klipt hem op zijn eigen radius. */
-  margin: 0 -24px 18px;
-  padding: 30px 24px 26px;
-  background: #241c3d;
-  color: #fff;
-  isolation: isolate;
-}
-
-/* Zachte vlekken in plaats van een lineair verloop: dat laatste leest als een
-   knop, dit als een oppervlak. De vlekken lopen ruim buiten de kaart door,
-   zodat je nergens een rand of een midden ziet. */
-.verdict__hero::before {
-  content: "";
-  position: absolute;
-  inset: -40%;
-  z-index: -1;
-  background:
-    radial-gradient(38% 55% at 14% 22%, #7857f5 0%, transparent 62%),
-    radial-gradient(42% 60% at 78% 12%, #d2531f 0%, transparent 64%),
-    radial-gradient(46% 62% at 62% 92%, #3f6bff 0%, transparent 66%);
-  filter: blur(14px);
-}
-
-/* Een donkere sluier over het verloop, en dit is geen smaakkwestie.
-   Nagerekend op de lichtste vlek: zonder sluier haalt de regel onder het
-   cijfer 3,14 en de statusregel 2,74, waar 4,5 nodig is voor lopende tekst.
-   Het cijfer zelf mocht wel - dat is 56px vet en valt onder de norm van 3,0.
-
-   Bij 35% komen alle drie erboven (8,07 / 5,58 / 4,64). 38% voor wat marge,
-   want de vlekken zijn geblurd en de exacte lichtste plek is niet op de
-   pixel te voorspellen. Het verloop blijft kleurrijk; het wordt alleen
-   dieper. */
-.verdict__hero::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: rgba(16, 12, 28, .38);
-}
-
-.verdict__hero .verdict__cijfer {
-  display: block;
-  font-size: 56px;
-  font-weight: 700;
-  letter-spacing: -.05em;
-  line-height: 1;
-}
-.verdict__hero .verdict__naast {
-  display: block;
-  margin-top: 10px;
-  font-size: 16px;
-  font-weight: 600;
-  /* Wit op 78%: leesbaar op de lichtste plek van het verloop, en toch een
-     stap onder het cijfer. Nagerekend op de lichtste vlek, niet op het
-     gemiddelde - daar zit de krapste verhouding. */
-  color: rgba(255, 255, 255, .78);
-}
-.verdict__staat {
-  display: block;
-  margin-top: 14px;
-  font-size: 12.5px;
-  color: rgba(255, 255, 255, .68);
-}
-
-@media (max-width: 700px) {
-  .verdict__hero { margin: 0 -18px 14px; padding: 24px 18px 22px; }
-  .verdict__hero .verdict__cijfer { font-size: 42px; }
-}
-
 /* ── sparkline op een kengetalkaart ───────────────────────────────────
    Onderaan, over de volle breedte, en met de kaartpadding weggewerkt zodat
    de lijn de randen raakt. Een sparkline met marge eromheen leest als een
@@ -2531,4 +2443,119 @@ tbody tr:hover { background: var(--wash); }
 
 @media (max-width: 700px) {
   .bento, .bento__zij { gap: 14px; }
+}
+
+/* ── de uitslag als tegel ─────────────────────────────────────────────
+   Eén expressief vlak per scherm, en dit is hem.
+
+   De vorige poging was een verloopstreep binnen een kaart, tussen de kop en
+   de banner in. Dat werkte niet, en het waarom is leerzaam: de vlekken
+   stonden op inset -40% zodat je nergens een naad ziet, maar daardoor
+   wasten ze ook over de kaartkop en de tekst eronder heen. Het las als een
+   renderfout in plaats van als ontwerp.
+
+   Een tegel lost dat op. Eigen hoeken, eigen randen, en het verloop kan
+   ruim buiten beeld doorlopen zonder iets anders te raken - want er staat
+   niets anders in.
+
+   De kleur zegt bewust niets over de uitkomst. De verleiding is groen bij
+   winst en rood bij verlies, maar dan gaat een mooi vlak "goed nieuws"
+   betekenen, en dat is de verkeerde lezing bij een test op p = 0,19. De
+   status hangt eronder in de banner, op wit, waar groen en oranje hun
+   gewone betekenis houden. */
+.uitslag {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: var(--r-lg);
+  padding: 34px 32px 30px;
+  color: #fff;
+  /* Middentoon in plaats van bijna-zwart. De vorige versie had een donkere
+     basis met bleke vlekken erover en daarna nog een sluier van 38% - alles
+     bij elkaar werd dat modder. Nu draagt de basis zelf kleur en hoeven de
+     vlekken hem alleen te laten leven. */
+  background: #3d2a7a;
+}
+
+.uitslag::before {
+  content: "";
+  position: absolute;
+  inset: -25%;
+  z-index: -1;
+  /* Verzadigd, en zonder blur. De blur van veertien pixel maakte de vlekken
+     bleek en vlekkerig tegelijk; radiale verlopen zijn uit zichzelf al zacht. */
+  background:
+    radial-gradient(42% 58% at 12% 18%, #7857f5 0%, transparent 60%),
+    radial-gradient(46% 62% at 88% 8%,  #e0561f 0%, transparent 62%),
+    radial-gradient(52% 66% at 70% 96%, #2f5bd8 0%, transparent 64%);
+}
+
+/* Alleen achter de tekst een verloop naar donker, in plaats van een sluier
+   over het hele vlak. Zo blijft de rechterkant van de tegel kleurrijk en
+   heeft de tekst links toch een rustige ondergrond. */
+.uitslag::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(100deg,
+    rgba(14, 10, 30, .72) 0%,
+    rgba(14, 10, 30, .55) 34%,
+    rgba(14, 10, 30, .10) 68%,
+    transparent 100%);
+}
+
+.uitslag__pil {
+  display: inline-block;
+  margin: 0 0 18px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .14);
+  /* Een haarlijn van binnen, zodat de pil ook op de lichtste plek van het
+     verloop een rand houdt. */
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18);
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.uitslag__cijfer {
+  margin: 0;
+  font-size: 60px;
+  font-weight: 700 !important;
+  letter-spacing: -.05em;
+  line-height: 1;
+  animation: tel .4s var(--ease-out) both;
+}
+
+.uitslag__van {
+  margin: 12px 0 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, .82);
+}
+
+.uitslag__staat {
+  margin: 16px 0 0;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, .72);
+}
+
+@media (max-width: 700px) {
+  .uitslag { padding: 26px 20px 24px; }
+  .uitslag__cijfer { font-size: 44px; }
+  .uitslag__van { font-size: 15px; }
+  /* Op smal staat de tekst over de volle breedte, dus daar moet de donkere
+     kant wél doorlopen. */
+  .uitslag::after {
+    background: linear-gradient(160deg,
+      rgba(14, 10, 30, .70) 0%,
+      rgba(14, 10, 30, .58) 60%,
+      rgba(14, 10, 30, .30) 100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .uitslag__cijfer { animation: none; }
 }

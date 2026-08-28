@@ -348,34 +348,34 @@ export function AnalyticsView({
         )}
 
         {/* ── the verdict ──────────────────────────────────────────────── */}
-        <Card className="card--verdict">
+        {/* De uitslag als eigen tegel, niet als streep binnen een kaart.
+            Dat was de fout in de vorige poging: een verloop tussen een
+            kaartkop en een banner leest als een renderfout. Een tegel met
+            eigen hoeken die naast andere kaarten staat, leest als ontwerp. */}
+        <article className="uitslag">
+          <p className="uitslag__pil">{doel.naam}</p>
+          <p className="uitslag__cijfer num">{ondertekend(doelToets.lift)}</p>
+          <p className="uitslag__van num">
+            {doel.vorm === "geld"
+              ? geld(doel.waarde(cIn)) + " → " + geld(doel.waarde(tIn))
+              : doel.waarde(cIn).toFixed(2) + "% → " + doel.waarde(tIn).toFixed(2) + "%"}
+          </p>
+          {doelToets.bruikbaar && (
+            <p className="uitslag__staat num">
+              {doelToets.significant ? "statistically solid" : "not solid yet"} · {pTekst(doelToets.p)}
+              {doelToets.significant &&
+                " · real difference between " + ondertekend(doelToets.onder) + " and " + ondertekend(doelToets.boven)}
+            </p>
+          )}
+        </article>
+
+        <Card>
           <CardHead
             title={doel.naam}
             sub={"Chosen up front as what decides this test · " + doel.toetsnaam +
                  " at " + betrouwbaarheid + "% confidence"}
           />
           <div className="card__body">
-            {/* Het enige expressieve vlak op dit scherm. Hier komt iemand voor:
-                de uitslag. De banner eronder blijft op wit staan, want die
-                draagt de status - groen, oranje, rood - en die kleuren gaan
-                verloren op een verloop. */}
-            <div className="verdict__hero">
-              <span className="verdict__cijfer num">
-                {ondertekend(doelToets.lift)}
-              </span>
-              <span className="verdict__naast num">
-                {doel.vorm === "geld"
-                  ? geld(doel.waarde(cIn)) + " → " + geld(doel.waarde(tIn))
-                  : doel.waarde(cIn).toFixed(2) + "% → " + doel.waarde(tIn).toFixed(2) + "%"}
-              </span>
-              {doelToets.bruikbaar && (
-                <span className="verdict__staat num">
-                  {doelToets.significant ? "statistically solid" : "not solid yet"} · {pTekst(doelToets.p)}
-                  {doelToets.significant &&
-                    " · real difference between " + ondertekend(doelToets.onder) + " and " + ondertekend(doelToets.boven)}
-                </span>
-              )}
-            </div>
 
             <Banner tone={
               srm.scheef ? "error"
