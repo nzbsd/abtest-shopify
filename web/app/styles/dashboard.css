@@ -2811,3 +2811,18 @@ tbody tr:hover { background: var(--wash); }
   .cijfer--sm  { font-size: 15.5px; }
   .test-row { padding: 16px 18px; }
 }
+
+/* Het dubbele lijntje op een testkaart. Vult de breedte van de kaart en zit
+   tussen de cijfers en de voortgangsbalk: eerst waar de test staat, dan hoe
+   hij daar kwam, dan hoe ver hij is. */
+.sparkpaar { display: block; width: 100%; height: 64px; margin: 4px 0 18px; }
+.sparkpaar polyline {
+  stroke-dasharray: 240;
+  animation: tekenSpark .7s var(--ease-out) both;
+}
+.sparkpaar polygon { animation: verschijn .6s .15s var(--ease-out) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sparkpaar polyline, .sparkpaar polygon { animation: none; stroke-dasharray: none; }
+}
+@media (max-width: 700px) { .sparkpaar { height: 52px; } }

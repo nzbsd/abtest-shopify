@@ -325,3 +325,61 @@ export function Matrix({
 export function Piek({ label }: { label: string }) {
   return <span className="piek">{label}</span>;
 }
+
+/**
+ * Twee reeksen naast elkaar, zonder assen.
+ *
+ * Voor een kaart die één test samenvat. Een enkel verschilcijfer zegt waar de
+ * test nú staat; deze twee lijnen laten zien of dat verschil groeit, krimpt of
+ * heen en weer springt - en dat is precies wat bepaalt of je hem al mag
+ * geloven.
+ *
+ * Geen assen en geen labels: wie waarden wil, klikt door naar de uitslag. Wat
+ * hier telt is of de lijnen uit elkaar lopen.
+ */
+export function SparkPaar({
+  control, test, hoogte = 64, label,
+}: {
+  control: number[];
+  test: number[];
+  hoogte?: number;
+  label: string;
+}) {
+  const n = Math.min(control.length, test.length);
+  if (n < 2) return null;
+
+  /* Beide reeksen op dezelfde schaal, en die begint bij nul.
+     Anders dan bij een losse sparkline: daar gaat het om de vorm van één
+     reeks, hier om de afstand tussen twee. Vanaf de laagste waarde schalen
+     zou die afstand vergroten of verkleinen afhankelijk van waar het dal
+     toevallig ligt, en dan liegt het beeld over precies het ding waar je
+     naar kijkt. */
+  const max = Math.max(...control.slice(0, n), ...test.slice(0, n), 0.0001) * 1.12;
+  const marge = 3;
+  const bruikbaar = hoogte - marge * 2;
+  const pad = (reeks: number[]) =>
+    reeks.slice(0, n)
+      .map((v, i) => ((i / (n - 1)) * 100).toFixed(2) + "," +
+        (marge + (1 - v / max) * bruikbaar).toFixed(2))
+      .join(" ");
+
+  const c = pad(control);
+  const t = pad(test);
+
+  return (
+    <svg
+      className="sparkpaar"
+      viewBox={"0 0 100 " + hoogte}
+      preserveAspectRatio="none"
+      role="img"
+      aria-label={label}
+    >
+      <polygon points={"0," + hoogte + " " + c + " 100," + hoogte} fill="var(--control)" fillOpacity=".10" />
+      <polygon points={"0," + hoogte + " " + t + " 100," + hoogte} fill="var(--test)" fillOpacity=".10" />
+      <polyline points={c} fill="none" stroke="var(--control)" strokeWidth="2"
+                strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+      <polyline points={t} fill="none" stroke="var(--test)" strokeWidth="2"
+                strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}

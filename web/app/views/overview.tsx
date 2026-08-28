@@ -1,6 +1,6 @@
 import { Link } from "@remix-run/react";
 import { PageHead } from "~/components/shell";
-import { Matrix, Piek } from "~/components/charts";
+import { Matrix, Piek, SparkPaar } from "~/components/charts";
 import {
   Badge, Banner, Card, CardHead, Delta, IconCart, IconCoins, IconFlask, IconUsers, Kpi, Leeg, Track,
 } from "~/components/ui";
@@ -39,6 +39,22 @@ function watVarieert(t: PriceTest): string {
 const GEEN: OrderCijfers = {
   orders: 0, units: 0, revenueCents: 0, revenueSqCents: 0, subOrders: 0, subRevenueCents: 0,
 };
+
+/**
+ * De dagreeks van één arm, als kale getallen voor het lijntje op de testkaart.
+ *
+ * Omzet en niet omzet per bezoeker: de bezoekersaantallen per dag zitten in een
+ * andere bron die dit scherm niet binnenkrijgt. Voor de vraag die het lijntje
+ * beantwoordt - lopen de twee uit elkaar - maakt dat weinig uit, want beide
+ * armen krijgen ongeveer evenveel verkeer. Zodra de verdeling scheef staat
+ * zegt de waarschuwing daarover meer dan dit lijntje.
+ */
+function reeksVan(o: OrderResultaat | undefined, kant: "control" | "test"): number[] {
+  if (!o?.perDag) return [];
+  return Object.keys(o.perDag).sort()
+    .slice(-14)
+    .map((dag) => o.perDag[dag][kant].revenueCents / 100);
+}
 
 export function OverviewView({
   tests, stats, basis, orders = {},
@@ -239,6 +255,18 @@ export function OverviewView({
                     <Delta waarde={toets.lift} />
                   </div>
                 </div>
+
+                {/* Waar de test staat, dan hoe hij daar kwam, dan hoe ver hij
+                    is. Het verschilcijfer erboven zegt alleen het eerste, en
+                    juist het tweede bepaalt of je het al mag geloven: twee
+                    lijnen die uit elkaar lopen zijn iets anders dan twee die
+                    om elkaar heen springen en toevallig vandaag uiteen staan. */}
+                <SparkPaar
+                  control={reeksVan(o, "control")}
+                  test={reeksVan(o, "test")}
+                  label={"Daily revenue per visitor for " + (t.naam || "this test") +
+                         ", control against test"}
+                />
 
                 <Track value={voortgang} color={toets.significant ? "var(--up)" : "var(--iris-lit)"} />
                 <p className="small muted" style={{ marginTop: 8 }}>
