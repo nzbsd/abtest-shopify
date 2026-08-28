@@ -74,9 +74,14 @@ async function ordersPerTest(
   if (!admin) return {};
   const uit: Record<number, OrderResultaat> = {};
   await Promise.all(
-    tests.map(async (t) => {
-      try { uit[t.id] = await orderCijfers(admin, t); } catch { /* laat deze test leeg */ }
-    }),
+    tests
+      // Een concept heeft nooit gedraaid, dus er zijn geen orders om op te
+      // halen. Toch deed dit scherm dat wel: een volledige ordergeschiedenis
+      // ophalen bij Shopify om er nul te vinden, elke keer opnieuw.
+      .filter((t) => t.status !== "draft")
+      .map(async (t) => {
+        try { uit[t.id] = await orderCijfers(admin, t); } catch { /* laat deze test leeg */ }
+      }),
   );
   return uit;
 }

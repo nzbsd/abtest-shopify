@@ -41,7 +41,14 @@ import supabase from "~/db.server";
 
 const PAGINA = 100;
 const MAX_PAGINAS = 25;          // 2500 orders; beyond that we say so rather than silently truncate
-const CACHE_MS = 60_000;
+/**
+ * Een minuut was krap. Deze cijfers komen uit een reeks Shopify-verzoeken die
+ * pagina voor pagina lopen; bij elk bezoek opnieuw beginnen is de reden dat het
+ * scherm traag opent. Vijf minuten oud is voor een test die dagen loopt geen
+ * bezwaar, en wie verser wil kan verversen - orderCijfers kent daar een
+ * parameter voor.
+ */
+const CACHE_MS = 300_000;
 
 export type OrderCijfers = {
   orders: number;
@@ -138,12 +145,32 @@ export async function orderCijfers(
   // Only from the moment the test started. Orders before that belong to no
   // group and would only add noise on the control side.
   const sinds = test.started_at || test.created_at || new Date(Date.now() - 30 * 864e5).toISOString();
+
+  /**
+   * En niet verder dan het moment van stoppen.
+   *
+   * Deze grens ontbrak. Een gestopte test bleef daardoor elke bestelling
+   * daarna opeisen: test 2 stopte op 26 augustus en telde de dag erna nog
+   * gewoon mee, terwijl die bezoekers zijn pagina nooit gezien hadden.
+   *
+   * Het scheelt ook wachttijd. Zonder bovengrens haalt elke schermbeurt de
+   * volledige ordergeschiedenis sinds de start op, pagina voor pagina, ook
+   * voor tests die allang klaar zijn.
+   *
+   * Een dag speling, want de webhook en de bestelling lopen niet gelijk en een
+   * order die net voor het stoppen geplaatst is hoort er nog bij.
+   */
+  const speling = 864e5;
+  const tot = test.stopped_at ? new Date(Date.parse(test.stopped_at) + speling).toISOString() : null;
+
   const producten = !productGebonden
     ? ""
     : controlNum === testNum
       ? " AND product_id:" + controlNum
       : " AND (product_id:" + controlNum + " OR product_id:" + testNum + ")";
-  const q = "created_at:>=" + new Date(sinds).toISOString() + producten;
+  const q = "created_at:>=" + new Date(sinds).toISOString()
+    + (tot ? " AND created_at:<=" + tot : "")
+    + producten;
 
   let cursor: string | null = null;
 
