@@ -39,7 +39,7 @@ api_version = "2026-07"
 # aanmaken - jou vragen om met de hand JSON in een metafield te plakken zou
 # stil fout te doen zijn: een typefout geeft geen melding maar een Function
 # die niets doet, en dan loopt er een test die nul verschil rapporteert.
-scopes = "read_products,read_orders,read_themes,write_pixels,read_customer_events,write_delivery_customizations,write_discounts"
+scopes = "read_products,read_orders,read_themes,write_pixels,read_customer_events,read_shipping,write_delivery_customizations,write_discounts"
 optional_scopes = [ ]
 use_legacy_install_flow = false
 
