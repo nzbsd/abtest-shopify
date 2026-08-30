@@ -776,6 +776,16 @@ const CK_SOORTEN = [
       "missed upsell.",
   },
   {
+    key: "gratisverzending",
+    naam: "Free shipping",
+    kort: "The test group pays nothing to ship",
+    uitleg:
+      "The control group sees shipping exactly as it is today; the test group gets it for free. " +
+      "One of the few checkout changes that reliably moves the number — and one of the few where " +
+      "you also need the result, because it costs you the shipping revenue on half your traffic. " +
+      "Experli sets up and removes the Shopify discount for you.",
+  },
+  {
     key: "verzending",
     naam: "Shipping options",
     kort: "Rename, reorder or hide delivery methods",
@@ -1228,6 +1238,9 @@ export function Wizard({
   const [vzHernoem, setVzHernoem] = useState<{ van: string; naar: string }[]>([]);
   const [vzVerberg, setVzVerberg] = useState<string[]>([]);
   const [vzBovenaan, setVzBovenaan] = useState<string[]>([]);
+
+  /* Het enige dat een gratis-verzendtest te configureren heeft. */
+  const [gratisTekst, setGratisTekst] = useState("");
   const [suffix, setSuffix] = useState("");
   const [controlUrl, setControlUrl] = useState("");
   const [testUrl, setTestUrl] = useState("");
@@ -1315,7 +1328,9 @@ export function Wizard({
     // Tekst voor de testgroep is genoeg; de controlekant mag leeg. Wel moeten
     // de twee verschillen als er allebei iets staat.
     : type === "checkout"
-        ? (ckSoort === "verzending" ? vzIets : Boolean(ckTestCfg) && !ckGelijk)
+        ? (ckSoort === "gratisverzending" ? true
+           : ckSoort === "verzending" ? vzIets
+           : Boolean(ckTestCfg) && !ckGelijk)
     : type === "theme" ? Boolean(thema)
     : Boolean(controlUrl.trim() && testUrl.trim() &&
               normaliseerPad(controlUrl) !== normaliseerPad(testUrl));
@@ -1342,7 +1357,9 @@ export function Wizard({
     if (type === "checkout") {
       fd.set("checkoutSoort", ckSoort);
       fd.set("checkoutConfig", JSON.stringify(
-        ckSoort === "verzending"
+        ckSoort === "gratisverzending"
+          ? { bericht: gratisTekst.trim() || "Free shipping" }
+          : ckSoort === "verzending"
           ? { hernoem: vzHernoem.filter((r) => r.naar.trim()), verberg: vzVerberg, bovenaan: vzBovenaan }
           : { test: ckTestCfg, control: ckControlCfg },
       ));
@@ -1535,7 +1552,24 @@ export function Wizard({
                     </span>
                   </div>
 
-                  {ckSoort === "verzending" ? (
+                  {ckSoort === "gratisverzending" ? (
+                    <div style={{ marginTop: 16 }}>
+                      <Banner tone="info">
+                        Nothing to configure. The control group sees shipping as it is today; the
+                        test group gets it free. Experli creates the discount in Shopify when you
+                        start the test and removes it when you stop.
+                      </Banner>
+                      <div className="field" style={{ marginTop: 16 }}>
+                        <span className="field__label">What the buyer sees next to the discount</span>
+                        <input type="text" value={gratisTekst} placeholder="Free shipping"
+                               onChange={(e) => setGratisTekst(e.currentTarget.value)} />
+                        <span className="field__hint">
+                          Free shipping shows up as a discount line in the checkout and on the
+                          order, not as a rate that happens to be zero.
+                        </span>
+                      </div>
+                    </div>
+                  ) : ckSoort === "verzending" ? (
                     <CkVerzending
                       methoden={verzendmethoden}
                       hernoem={vzHernoem} setHernoem={setVzHernoem}
@@ -2018,7 +2052,8 @@ export function Wizard({
                     {split}% of traffic ·{" "}
                     {type === "price" ? "different price"
                       : type === "image" ? "photo " + foto + " shown first"
-                      : type === "checkout" ? (ckSoort === "verzending" ? "different shipping options" : "in the checkout")
+                      : type === "checkout" ? (ckSoort === "gratisverzending" ? "free shipping"
+                          : ckSoort === "verzending" ? "different shipping options" : "in the checkout")
                       : type === "template" ? "?view=" + suffix
                       : type === "url" ? "sent from the other URL"
                       : "every page"}

@@ -1,0 +1,25 @@
+# De invoer van de Function.
+#
+# Net als bij experli-verzending kan hier geen sleutel samengesteld worden: dit
+# bestand wordt bij het bouwen vastgelegd, dus "_pt_" + testId bestaat niet. Het
+# thema schrijft daarom bij elke kassatest een vast paar kenmerken weg, en het
+# id ernaast zodat de Function kan zien dat dit cohort van háár test komt.
+#
+# discountClasses zit erbij omdat Shopify dezelfde Function voor meerdere
+# kortingssoorten kan aanroepen. Zonder die controle zou deze code ook draaien
+# als er om een productkorting gevraagd wordt.
+query RunInput {
+  discount {
+    discountClasses
+    metafield(namespace: "experli", key: "config") {
+      jsonValue
+    }
+  }
+  cart {
+    cohort: attribute(key: "_pt_ck") { value }
+    vanTest: attribute(key: "_pt_ck_test") { value }
+    deliveryGroups {
+      id
+    }
+  }
+}

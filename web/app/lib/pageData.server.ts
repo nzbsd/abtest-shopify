@@ -1,5 +1,9 @@
 import supabase from "~/db.server";
-import { verzendtestAan, verzendtestUit, verzendMethoden, type VerzendMethode } from "./verzending.server";
+import {
+  verzendtestAan, verzendtestUit, verzendMethoden,
+  gratisVerzendingAan, gratisVerzendingUit,
+  type VerzendMethode,
+} from "./verzending.server";
 import { configProbleem } from "./config.server";
 import {
   lijstProducten, loadTests, matchVariants, resolveProduct, type ProductInfo, type PriceTest,
@@ -268,7 +272,7 @@ export async function testsAction(
            doet mee, ongeacht wat er in de wagen zit. Vandaar geen product en
            geen pad - net als bij een themetest. */
         const soort = String(form.get("checkoutSoort") || "");
-        if (!["banner", "trust", "faq", "shipbar", "upsell", "verzending"].includes(soort)) {
+        if (!["banner", "trust", "faq", "shipbar", "upsell", "verzending", "gratisverzending"].includes(soort)) {
           throw new Error("Unknown kind of checkout test.");
         }
 
@@ -279,7 +283,10 @@ export async function testsAction(
           throw new Error("The checkout settings could not be read.");
         }
 
-        if (soort === "verzending") {
+        if (soort === "gratisverzending") {
+          /* Niets te valideren: de mechaniek is de test. Wat je hooguit instelt
+             is de tekst die de koper naast de kortingsregel ziet. */
+        } else if (soort === "verzending") {
           /* Zonder operatie krijgt de testgroep exact dezelfde lijst als de
              controlegroep. Het scherm laat dat niet toe, maar het formulier kan
              van elders komen - en dit is de soort fout die pas na een week aan
@@ -303,7 +310,9 @@ export async function testsAction(
           control_product_id: null,
           test_product_id: null,
         };
-        bericht = soort === "verzending"
+        bericht = soort === "gratisverzending"
+          ? "Test saved: the test group gets free shipping."
+          : soort === "verzending"
           ? "Test saved: the test group gets different shipping options."
           : "Test saved: " + soort + " in the checkout for the test group.";
       } else if (type === "url") {
@@ -539,9 +548,12 @@ export async function testsAction(
         .eq("id", id).eq("shop", shop)
         .maybeSingle<{ checkout_variant: string | null; checkout_config: any }>();
       const isVerzending = soortRij?.checkout_variant === "verzending";
+      const isGratis = soortRij?.checkout_variant === "gratisverzending";
 
-      if (isVerzending && intent === "start") {
-        const r = await verzendtestAan(admin, shop, id, soortRij?.checkout_config ?? {});
+      if (intent === "start" && (isVerzending || isGratis)) {
+        const r = isGratis
+          ? await gratisVerzendingAan(admin, shop, id, soortRij?.checkout_config ?? {})
+          : await verzendtestAan(admin, shop, id, soortRij?.checkout_config ?? {});
         if (!r.ok) return { ok: false, bericht: r.bericht ?? "Not started." };
       }
 
@@ -549,10 +561,14 @@ export async function testsAction(
       if (error) throw new Error(error.message);
 
       let staart = "";
-      if (isVerzending && intent === "stop") {
-        const r = await verzendtestUit(admin, shop, id);
+      if (intent === "stop" && (isVerzending || isGratis)) {
+        const r = isGratis
+          ? await gratisVerzendingUit(admin, shop, id)
+          : await verzendtestUit(admin, shop, id);
         if (!r.ok) return { ok: true, bericht: r.bericht ?? "Test stopped." };
-        staart = " The shipping options are back to normal.";
+        staart = isGratis
+          ? " Everyone pays for shipping again."
+          : " The shipping options are back to normal.";
       }
 
       return {

@@ -262,3 +262,151 @@ export async function verzendtestUit(
     };
   }
 }
+
+/* ── gratis verzending ────────────────────────────────────────────────────────
+
+   Een tweede Function, en een tweede manier om hem aan Shopify te hangen.
+
+   experli-verzending is een delivery customization: die zit onder Instellingen,
+   Verzending, Aanpassingen. Gratis verzending is een korting, dus die hangt aan
+   een automatische app-korting onder Kortingen. Zelfde patroon - Experli maakt
+   hem aan bij starten en haalt hem weg bij stoppen - maar andere mutaties.
+
+   Weghalen en niet uitzetten, anders dan bij de delivery customization. Een
+   uitgeschakelde korting blijft in de kortingenlijst staan, en een lijst met
+   uitgezette Experli-kortingen van tests van vorige maand is precies het soort
+   rommel waarvan later niemand meer durft te zeggen wat weg mag.              */
+
+const KORTINGSFUNCTIES = `#graphql
+  query ExperliKortingsFunctie {
+    shopifyFunctions(first: 50, apiType: "discount") {
+      nodes { id title }
+    }
+  }
+`;
+
+const KORTING_MAKEN = `#graphql
+  mutation ExperliKortingMaken($input: DiscountAutomaticAppInput!) {
+    discountAutomaticAppCreate(automaticAppDiscount: $input) {
+      automaticAppDiscount { discountId }
+      userErrors { field message }
+    }
+  }
+`;
+
+const KORTING_WEG = `#graphql
+  mutation ExperliKortingWeg($id: ID!) {
+    discountAutomaticDelete(id: $id) {
+      deletedAutomaticDiscountId
+      userErrors { field message }
+    }
+  }
+`;
+
+/**
+ * Gratis verzending aanzetten voor de testgroep.
+ *
+ * De korting draait op elke wagen, maar de Function geeft alleen iets terug als
+ * het cohort in die wagen "test" is en bij deze test hoort. De controlegroep
+ * ziet dus geen kortingsregel - niet eentje van nul, maar geen.
+ */
+export async function gratisVerzendingAan(
+  admin: any, shop: string, testId: number, config: any,
+): Promise<{ ok: boolean; bericht?: string }> {
+  let fid: string | null = null;
+  try {
+    const d = await vraag(admin, KORTINGSFUNCTIES);
+    const nodes = d?.shopifyFunctions?.nodes ?? [];
+    /* Op naam zoeken en niet blind de eerste pakken: een winkel kan meer apps
+       met een kortingsfunctie hebben, en de verkeerde aansturen zou hun
+       kortingen overschrijven. */
+    const mijn = nodes.find((n: any) =>
+      String(n?.title ?? "").toLowerCase().includes("free shipping") ||
+      String(n?.title ?? "").toLowerCase().includes("gratis"));
+    fid = mijn?.id ?? null;
+  } catch (e: any) {
+    return { ok: false, bericht: "Not started — " + (e?.message ?? "could not read the functions.") };
+  }
+
+  if (!fid) {
+    return {
+      ok: false,
+      bericht:
+        "Not started — Shopify does not know the Experli free shipping function yet. " +
+        "Deploy the app once, then try again.",
+    };
+  }
+
+  try {
+    const d = await vraag(admin, KORTING_MAKEN, {
+      input: {
+        title: "Experli free shipping — test #" + testId,
+        functionId: fid,
+        startsAt: new Date().toISOString(),
+        discountClasses: ["SHIPPING"],
+        /* Combineren toestaan. Zonder dit blokkeert deze korting de codes die
+           klanten zelf invoeren, en dan meet de test niet "helpt gratis
+           verzending" maar "wat gebeurt er als hun kortingscode het niet doet". */
+        combinesWith: { orderDiscounts: true, productDiscounts: true, shippingDiscounts: false },
+        metafields: [{
+          namespace: "experli", key: "config", type: "json",
+          value: JSON.stringify({ ...config, testId }),
+        }],
+      },
+    });
+    const fout = eersteFout(d?.discountAutomaticAppCreate);
+    if (fout) return { ok: false, bericht: "Not started — " + fout };
+
+    const id = d?.discountAutomaticAppCreate?.automaticAppDiscount?.discountId ?? null;
+    if (!id) return { ok: false, bericht: "Not started — Shopify returned no discount." };
+
+    await supabase.from("price_tests")
+      .update({ checkout_customization_id: id }).eq("id", testId).eq("shop", shop);
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, bericht: "Not started — " + (e?.message ?? "Shopify refused the discount.") };
+  }
+}
+
+/**
+ * En weer weg.
+ *
+ * Mislukt dit, dan blijft de test in Experli gewoon gestopt - stoppen mag nooit
+ * blijven hangen op een fout. Maar het komt wél terug als bericht, want een
+ * korting die blijft draaien nadat de test gestopt is deelt gratis verzending
+ * uit aan iedereen met een oud kenmerk in zijn wagen, en dat kost geld zonder
+ * dat er nog iets gemeten wordt.
+ */
+export async function gratisVerzendingUit(
+  admin: any, shop: string, testId: number,
+): Promise<{ ok: boolean; bericht?: string }> {
+  const { data: rij } = await supabase
+    .from("price_tests").select("checkout_customization_id")
+    .eq("id", testId).eq("shop", shop).maybeSingle<{ checkout_customization_id: string | null }>();
+
+  const id = rij?.checkout_customization_id;
+  if (!id) return { ok: true };
+
+  try {
+    const d = await vraag(admin, KORTING_WEG, { id });
+    const fout = eersteFout(d?.discountAutomaticDelete);
+    if (fout) {
+      return {
+        ok: false,
+        bericht:
+          "Stopped in Experli, but the free shipping discount is still live in Shopify: " + fout +
+          " Remove it under Discounts.",
+      };
+    }
+    await supabase.from("price_tests")
+      .update({ checkout_customization_id: null }).eq("id", testId).eq("shop", shop);
+    return { ok: true };
+  } catch (e: any) {
+    return {
+      ok: false,
+      bericht:
+        "Stopped in Experli, but the free shipping discount could not be removed: " +
+        (e?.message ?? "unknown error") + " Remove it under Discounts.",
+    };
+  }
+}

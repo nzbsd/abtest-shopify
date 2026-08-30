@@ -1,0 +1,26 @@
+api_version = "2025-10"
+
+[[extensions]]
+name = "t:name"
+description = "t:description"
+handle = "experli-gratis-verzending"
+uid = "4930132c-6d46-cfe4-e1d0-cb00b54561541c62ccb4"
+type = "function"
+
+# Waarom dit een tweede Function is en niet een uitbreiding van experli-verzending:
+# die draait op cart.delivery-options.transform.run en kent maar drie bewerkingen -
+# hernoemen, herordenen, verbergen. Een prijs veranderen zit er niet in.
+#
+# Gratis verzending is in Shopify een korting, geen verzendinstelling. Dat is een
+# ander functietype, met een eigen target en een eigen koppeling in de admin
+# (een automatische app-korting in plaats van een delivery customization).
+  [[extensions.targeting]]
+  target = "cart.delivery-options.discounts.generate.run"
+  input_query = "src/run.graphql"
+  # Kebab-case: de TOML noemt de Wasm-export, en de camelCase-functie in JS wordt
+  # daar automatisch op afgebeeld.
+  export = "cart-delivery-options-discounts-generate-run"
+
+  [extensions.build]
+  command = ""
+  path = "dist/function.wasm"
