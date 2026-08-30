@@ -39,3 +39,21 @@ create or replace view public.price_test_daily as
     count(*) filter (where event_type = 'checkout') as checkouts
    from price_test_events e
   group by shop, test_id, cohort, ((created_at at time zone 'UTC')::date);
+
+-- En de grendel op event_type erbij.
+--
+-- Die stond op ('view','atc','purchase') en hield de nieuwe soort tegen. Van
+-- buiten was daar niets van te zien: het eindpunt geeft altijd 200 terug -
+-- met opzet, want anders blijft sendBeacon het opnieuw proberen - dus het
+-- snippet meldde netjes, de server antwoordde netjes, en de rij verdween.
+--
+-- Dit is dezelfde soort fout als product_id die op NOT NULL stond: een
+-- afspraak uit de begintijd die niemand meer ziet tot er iets nieuws bijkomt.
+-- Het loont om bij een nieuwe gebeurtenissoort of een nieuw testtype eerst
+-- hier te kijken.
+alter table public.price_test_events
+  drop constraint if exists price_test_events_event_type_check;
+
+alter table public.price_test_events
+  add constraint price_test_events_event_type_check
+  check (event_type in ('view', 'atc', 'checkout', 'purchase'));
