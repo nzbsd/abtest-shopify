@@ -72,21 +72,31 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           const soort = String(row.checkout_variant || "");
           const cfg = row.checkout_config || {};
 
-          /* Een verzendtest komt hier niet uit. Die wordt niet door de
-             kassa-extensie uitgevoerd maar door een Shopify Function, en die
-             leest haar instellingen uit een metafield op de delivery
-             customization - niet uit dit eindpunt. Hem toch meesturen zou de
-             extensie een test laten zien waar ze niets mee kan, en dan meldt
-             ze een view voor een blok dat ze niet tekent. */
-          if (soort === "verzending") return null;
+          /* EEN VERZENDTEST MOET HIER WÉL UITKOMEN, en dat was eerst niet zo.
+             Die tekent geen blok in de kassa - het werk gebeurt in een Shopify
+             Function - dus leek het logisch om hem hier over te slaan. Dat was
+             fout, en stil fout.
 
-          /* Zonder inhoud voor de testgroep is er niets te tonen, en zouden
-             beide groepen hetzelfde zien: een test die dagen loopt en per
-             definitie nul verschil meet. */
-          if (!cfg.test) return null;
+             Het thema deelt bezoekers namelijk alleen in bij tests die uit dit
+             eindpunt komen. Sloeg ik hem over, dan kwam er geen _pt_ck in de
+             winkelwagen, en dan kijkt de Function naar een kenmerk dat er niet
+             is en doet niets. De korting stond klaar in Shopify, de test stond
+             op "running", en er gebeurde precies niets - bij niemand.
 
-          return { id: row.id, type, splitPct, doelgroep, soort,
-                   test: cfg.test, control: cfg.control ?? null };
+             Dus komt hij er nu uit, maar zonder inhoud: het thema kan indelen
+             en taggen, de kassa-extensie meldt de view en tekent niets. */
+          const isVerzend = soort === "verzending" || soort === "gratisverzending";
+
+          /* Voor een bloktest geldt nog steeds: zonder inhoud voor de testgroep
+             valt er niets te tonen en zien beide groepen hetzelfde - een test
+             die dagen loopt en per definitie nul verschil meet. */
+          if (!isVerzend && !cfg.test) return null;
+
+          return {
+            id: row.id, type, splitPct, doelgroep, soort,
+            test: isVerzend ? null : cfg.test,
+            control: isVerzend ? null : (cfg.control ?? null),
+          };
         }
 
         if (type === "theme") {
