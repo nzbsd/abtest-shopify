@@ -278,10 +278,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         { onConflict: "shop,test_id,order_id", ignoreDuplicates: true },
       );
     }
-  } catch (_e) {
-    // Never return a non-200: Shopify would keep retrying and that only
-    // produces more duplicate rows. The order is placed; nothing here is
-    // recoverable.
+  } catch (e: any) {
+    /**
+     * Never return a non-200: Shopify would keep retrying and that only
+     * produces more duplicate rows. The order is placed; nothing here is
+     * recoverable.
+     *
+     * MAAR WEL LOGGEN, en dat ontbrak. Deze catch heeft een echte fout
+     * dagenlang onzichtbaar gehouden: product_id stond op NOT NULL, een
+     * kassatest heeft geen product, dus elke toegewezen order sloeg hier stuk
+     * en verdween zonder spoor. Het scherm zei nul aankopen, de orders droegen
+     * gewoon hun cohort, en er was nergens iets te zien dat ergens op wees.
+     *
+     * Stil doorgaan is hier het juiste gedrag; stil verdwijnen niet.
+     */
+    console.error("orders/create", shop, (payload as any)?.id, e?.message ?? e);
   }
 
   return new Response(null, { status: 200 });
