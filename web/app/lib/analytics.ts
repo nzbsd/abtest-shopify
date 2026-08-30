@@ -20,6 +20,12 @@ export type StatRij = {
      getal als views - die test meet daar immers pas - maar bij een prijs- of
      templatetest is het de stap die tussen winkelwagen en order ontbrak. */
   checkouts: number;
+  /* Unieke bezoekers per stap. De tellingen hierboven tellen gebeurtenissen,
+     en die komen per persoon meer dan eens voor - dan staan er meer
+     add-to-carts dan bezoekers en is de trechter onleesbaar. */
+  atc_visitors: number;
+  checkout_visitors: number;
+  order_visitors: number;
   orders: number;
   revenue_cents: number;
   visitors: number;
@@ -86,6 +92,10 @@ export type Groep = CohortCijfers & {
   cr: number;
   /** Hoeveel bezoekers de kassa bereikten. */
   checkouts: number;
+  /* Unieke bezoekers per stap, voor de trechter. */
+  atcBezoekers: number;
+  kassaBezoekers: number;
+  orderBezoekers: number;
   /** Aandeel bezoekers dat iets in de cart legde, in procenten. */
   atcRatio: number;
   /** Gemiddelde orderwaarde. */
@@ -112,6 +122,9 @@ export function telOp(rijen: StatRij[], cohort: string): Groep {
     views: som("views"),
     atc,
     checkouts,
+    atcBezoekers: som("atc_visitors"),
+    kassaBezoekers: som("checkout_visitors"),
+    orderBezoekers: som("order_visitors"),
     rpv: visitors ? revenueCents / 100 / visitors : 0,
     cr: visitors ? (orders / visitors) * 100 : 0,
     atcRatio: visitors ? (atc / visitors) * 100 : 0,

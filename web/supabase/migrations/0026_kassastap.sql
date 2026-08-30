@@ -57,3 +57,30 @@ alter table public.price_test_events
 alter table public.price_test_events
   add constraint price_test_events_event_type_check
   check (event_type in ('view', 'atc', 'checkout', 'purchase'));
+
+-- Unieke bezoekers per trechterstap.
+--
+-- De trechter liep omhoog: 166 bezoekers en 283 add-to-carts. De eerste stap
+-- telde unieke mensen (count distinct visitor_id), de rest telde gebeurtenissen.
+-- Iemand die drie keer iets in zijn wagen legt telde dus drie keer mee.
+--
+-- De gebeurtenistellingen blijven staan - die horen bij de kaarten, waar het
+-- juist om het aantal gaat en niet om het aantal mensen. Voor de trechter zijn
+-- deze drie erbij gekomen.
+create or replace view public.price_test_stats as
+ select shop, test_id, cohort, market,
+    count(*) filter (where event_type = 'view')     as views,
+    count(*) filter (where event_type = 'atc')      as add_to_carts,
+    count(*) filter (where event_type = 'purchase') as orders,
+    coalesce(sum(revenue_cents) filter (where event_type = 'purchase'), 0::numeric) as revenue_cents,
+    count(distinct visitor_id) filter (where event_type = 'view') as visitors,
+    max(created_at) as last_event_at,
+    coalesce(sum(revenue_cents::numeric * revenue_cents::numeric)
+             filter (where event_type = 'purchase'), 0::numeric) as revenue_sq_cents,
+    min(created_at) as first_event_at,
+    count(*) filter (where event_type = 'checkout') as checkouts,
+    count(distinct visitor_id) filter (where event_type = 'atc')      as atc_visitors,
+    count(distinct visitor_id) filter (where event_type = 'checkout') as checkout_visitors,
+    count(distinct visitor_id) filter (where event_type = 'purchase') as order_visitors
+   from price_test_events e
+  group by shop, test_id, cohort, market;

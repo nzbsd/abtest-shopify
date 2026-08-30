@@ -1,4 +1,4 @@
-import { testNaam } from "~/lib/testTypes";
+import { testNaam, conversieNoemer, conversieWaarschuwing } from "~/lib/testTypes";
 import { useState } from "react";
 import { useSearchParams } from "@remix-run/react";
 import { PageHead } from "~/components/shell";
@@ -314,6 +314,41 @@ export function AnalyticsView({
   const variantNamen = Object.keys(ord?.perVariant ?? {}).sort();
   const heeftOrders = oc.orders + ot.orders > 0;
 
+  /**
+   * De stappen van de trechter.
+   *
+   * TWEE DINGEN GINGEN HIER MIS.
+   *
+   * Er stonden meer add-to-carts dan bezoekers: de eerste stap telde unieke
+   * mensen, de rest telde gebeurtenissen. Iemand die drie keer iets in zijn
+   * wagen legt telde drie keer mee, en een trechter die omhoog loopt is geen
+   * trechter. Nu telt elke stap unieke bezoekers.
+   *
+   * En bij een kassatest stond "Visitors" bovenaan terwijl dat de op een na
+   * laatste stap is. Het thema meldt bij dat testtype namelijk geen view - die
+   * komt uit de kassa-extensie, en die tekent pas in de kassa. Add-to-cart
+   * gebeurt daarvoor, op de winkel. De trechter begint daar dus met de
+   * winkelwagen, en de view is de kassastap.
+   */
+  const trechterStappen = (() => {
+    const kassatest = test.test_type === "checkout";
+    const uit: { label: string; control: number; test: number }[] = [];
+
+    if (!kassatest) uit.push({ label: "Visitors", control: c.visitors, test: t.visitors });
+    if (c.atcBezoekers + t.atcBezoekers > 0) {
+      uit.push({ label: "Added to cart", control: c.atcBezoekers, test: t.atcBezoekers });
+    }
+    if (kassatest) {
+      uit.push({ label: "Reached checkout", control: c.visitors, test: t.visitors });
+    } else if (c.kassaBezoekers + t.kassaBezoekers > 0) {
+      uit.push({ label: "Reached checkout", control: c.kassaBezoekers, test: t.kassaBezoekers });
+    }
+    uit.push({ label: "Orders", control: c.orderBezoekers, test: t.orderBezoekers });
+    return uit;
+  })();
+
+
+
   return (
     <main className="page">
       <PageHead
@@ -582,15 +617,19 @@ export function AnalyticsView({
 
         <div className="grid grid--2">
           <Vergelijk
-            label="Conversion"
+            label={test.test_type === "checkout" ? "Checkout conversion" : "Conversion"}
             control={procent(c.cr)}
             test={procent(t.cr)}
             delta={convTest.lift}
             goedAls="geen"
             ruw={{ control: c.cr, test: t.cr }}
-            noot={convTest.bruikbaar
-              ? pTekst(convTest.p) + " · a higher price nearly always lowers this; the question is whether revenue follows"
-              : "Too few orders to compare yet."}
+            /* De noemer erbij, want die verschilt per testtype en is nergens
+               anders af te lezen. Zonder dat leest de 45% van een kassatest als
+               een winkel die spectaculair converteert, in plaats van als het
+               aandeel van wie de kassa al gehaald had. */
+            noot={(convTest.bruikbaar
+              ? pTekst(convTest.p) + " · " + conversieWaarschuwing(test.test_type)
+              : "Too few orders to compare yet.") + " · " + conversieNoemer(test.test_type)}
           />
           <Vergelijk
             label="Average order value"
@@ -617,21 +656,12 @@ export function AnalyticsView({
         <Card>
           <CardHead
             title="Where the difference happens"
-            sub="Visitors who saw the page, then added to cart, then reached the checkout, then bought. Hover a step to isolate it; on the right the share that made it from the step above, control / test."
+            sub="Each step counts unique people, so it can only go down. On a checkout test it starts at the cart: the storefront is identical for both groups, so nothing before that can differ. Hover a step to isolate it; on the right the share that made it from the step above, control / test."
           />
           <div className="card__body">
             <div style={{ marginBottom: 16 }}><Legend /></div>
             <Trechter
-              stappen={[
-                { label: "Visitors", control: c.visitors, test: t.visitors },
-                ...(c.atc + t.atc > 0
-                  ? [{ label: "Added to cart", control: c.atc, test: t.atc }]
-                  : []),
-                ...(c.checkouts + t.checkouts > 0
-                  ? [{ label: "Reached checkout", control: c.checkouts, test: t.checkouts }]
-                  : []),
-                { label: "Orders", control: c.orders, test: t.orders },
-              ]}
+              stappen={trechterStappen}
             />
           </div>
         </Card>
@@ -643,7 +673,7 @@ export function AnalyticsView({
           {/* ── funnel ─────────────────────────────────────────────────── */}
           <Card>
             <CardHead title="Where people drop off"
-                       sub="Visitors who saw the page, then added to cart, then reached the checkout, then bought. On the right the share that made it from the step above: control / test." />
+                       sub="Each step counts unique people, so it can only go down. On a checkout test it starts at the cart: the storefront is identical for both groups, so nothing before that can differ. On the right the share that made it from the step above: control / test." />
             <div className="card__body">
               <div style={{ marginBottom: 16 }}><Legend /></div>
               {/* The cart step only appears when it is actually measured. This
@@ -651,16 +681,7 @@ export function AnalyticsView({
                   stays at zero; a row of zeroes would read as "nobody adds to
                   cart" rather than "we do not know". */}
               <Trechter
-                stappen={[
-                  { label: "Visitors", control: c.visitors, test: t.visitors },
-                  ...(c.atc + t.atc > 0
-                    ? [{ label: "Added to cart", control: c.atc, test: t.atc }]
-                    : []),
-                  ...(c.checkouts + t.checkouts > 0
-                    ? [{ label: "Reached checkout", control: c.checkouts, test: t.checkouts }]
-                    : []),
-                  { label: "Orders", control: c.orders, test: t.orders },
-                ]}
+                stappen={trechterStappen}
               />
               {c.atc + t.atc === 0 && (
                 <p className="small muted" style={{ marginTop: 16 }}>

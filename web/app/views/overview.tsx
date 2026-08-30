@@ -331,8 +331,10 @@ export function OverviewView({
 
         <Banner tone="info">
           <strong>When reading these:</strong> revenue per visitor is the verdict, conversion is
-          context. A higher price nearly always lowers conversion — the question is whether the
-          higher margin makes up for it.
+          context. On a price test a higher price nearly always lowers conversion — the question is
+          whether the higher margin makes up for it. And mind what conversion is a share of: it
+          counts everyone who saw the tested page, except on a checkout test, where it counts
+          everyone who reached the checkout — which is why those percentages are so much higher.
         </Banner>
       </div>
     </main>

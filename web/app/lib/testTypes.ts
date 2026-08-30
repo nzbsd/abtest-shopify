@@ -208,3 +208,40 @@ export function testNaam(t: {
 
   return soort + " test" + (t.id ? " #" + t.id : "");
 }
+
+/**
+ * Waar de conversie van dit testtype een percentage ván is.
+ *
+ * De conversie is altijd orders gedeeld door bezoekers, maar "bezoekers" is
+ * per testtype iets anders - het zijn de mensen die een view genereerden, en
+ * die view komt niet overal vandaan.
+ *
+ * Bij een prijs-, afbeeldings-, template- of urltest meldt het thema de view
+ * op de geteste pagina: de noemer is dus iedereen die die pagina zag, en het
+ * percentage ligt in de buurt van je winkelconversie.
+ *
+ * Bij een kassatest meldt de kassa-extensie hem, en die tekent pas ín de
+ * kassa. De noemer is dan iedereen die de kassa bereikte, en het percentage
+ * ligt tientallen keren hoger. Dat is geen fout maar een andere vraag, en
+ * zonder dit erbij leest 45% als een winkel die spectaculair goed converteert.
+ */
+export function conversieNoemer(type: string | null | undefined): string {
+  switch (type ?? "price") {
+    case "checkout": return "of everyone who reached the checkout";
+    case "theme":    return "of everyone who browsed the test theme";
+    case "url":      return "of everyone who landed on the tested page";
+    default:         return "of everyone who saw the tested page";
+  }
+}
+
+/** Waar je bij dit testtype op moet letten als je de conversie leest. */
+export function conversieWaarschuwing(type: string | null | undefined): string {
+  switch (type ?? "price") {
+    case "price":
+      return "a higher price nearly always lowers this; the question is whether revenue follows";
+    case "checkout":
+      return "everything before the checkout is identical for both groups, so this is the one step this test can move";
+    default:
+      return "revenue per visitor is the verdict; this is context";
+  }
+}
