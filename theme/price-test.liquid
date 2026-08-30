@@ -633,6 +633,19 @@
      * verzendopties vechten, en dan meet geen van beide iets. */
     teTaggen._pt_ck = cohort;
     teTaggen._pt_ck_test = String(t.id);
+
+    /* WEL DE ADD-TO-CART MEETEN, GEEN VIEW.
+     *
+     * gemeten voedt twee dingen: het is de lijst waarvoor watchAddToCart de
+     * haken zet, en meet() vult hem. Omdat een kassatest bewust geen view
+     * meldt - zie hierboven - kwam hij ook nooit in die lijst, en dus werden
+     * er voor dit testtype nul add-to-carts geteld. Test 13 had er 533, test
+     * 20 en 21 geen enkele, en dat verschil zat hier.
+     *
+     * Rechtstreeks toevoegen in plaats van meet() aanroepen: dat laatste zou
+     * de view alsnog melden en precies de noemer opblazen die we wilden
+     * vermijden. */
+    gemeten.push([t.id, cohort]);
     return false;
   }
 
