@@ -954,6 +954,25 @@
       if (gemeldSignaal[soort]) return;
       gemeldSignaal[soort] = true;
       stuur({ shop: SHOP, sid: sessie.id, vid: visitor, t: soort });
+
+      /* DE KASSASTAP OOK PER TEST MELDEN.
+       *
+       * Deze detectie bestond al, maar ging alleen naar de site-analytics -
+       * daar telt hij mee in de trechter van de hele winkel en nergens per
+       * testgroep. Daardoor sprong elke trechter van "winkelwagen" recht naar
+       * "order", terwijl juist daartussen de meeste mensen afhaken.
+       *
+       * Alleen "checkout": een add-to-cart wordt hierboven al door
+       * watchAddToCart per test gemeld, en die twee keer sturen zou het
+       * aantal verdubbelen.
+       *
+       * gemeten is op dit moment gevuld - handle() draait voordat iemand kan
+       * klikken - en gemeldSignaal zorgt dat dit per sessie één keer gebeurt. */
+      if (soort === "checkout") {
+        for (var i = 0; i < gemeten.length; i++) {
+          report(gemeten[i][0], gemeten[i][1], "checkout");
+        }
+      }
     }
 
     (function () {

@@ -16,6 +16,10 @@ export type StatRij = {
   market: string | null;
   views: number;
   add_to_carts: number;
+  /* Hoeveel bezoekers de kassa bereikten. Bij een kassatest is dit hetzelfde
+     getal als views - die test meet daar immers pas - maar bij een prijs- of
+     templatetest is het de stap die tussen winkelwagen en order ontbrak. */
+  checkouts: number;
   orders: number;
   revenue_cents: number;
   visitors: number;
@@ -80,6 +84,8 @@ export type Groep = CohortCijfers & {
   rpv: number;
   /** Conversie in procenten. */
   cr: number;
+  /** Hoeveel bezoekers de kassa bereikten. */
+  checkouts: number;
   /** Aandeel bezoekers dat iets in de cart legde, in procenten. */
   atcRatio: number;
   /** Gemiddelde orderwaarde. */
@@ -96,6 +102,7 @@ export function telOp(rijen: StatRij[], cohort: string): Groep {
   const orders = som("orders");
   const revenueCents = som("revenue_cents");
   const atc = som("add_to_carts");
+  const checkouts = som("checkouts");
 
   return {
     visitors,
@@ -104,6 +111,7 @@ export function telOp(rijen: StatRij[], cohort: string): Groep {
     revenueSqCents: som("revenue_sq_cents"),
     views: som("views"),
     atc,
+    checkouts,
     rpv: visitors ? revenueCents / 100 / visitors : 0,
     cr: visitors ? (orders / visitors) * 100 : 0,
     atcRatio: visitors ? (atc / visitors) * 100 : 0,

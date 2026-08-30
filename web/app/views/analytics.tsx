@@ -616,7 +616,7 @@ export function AnalyticsView({
         <Card>
           <CardHead
             title="Where the difference happens"
-            sub="Visitors who saw the page, then added to cart, then bought. Hover a step to isolate it; on the right the share that made it from the step above, control / test."
+            sub="Visitors who saw the page, then added to cart, then reached the checkout, then bought. Hover a step to isolate it; on the right the share that made it from the step above, control / test."
           />
           <div className="card__body">
             <div style={{ marginBottom: 16 }}><Legend /></div>
@@ -625,6 +625,9 @@ export function AnalyticsView({
                 { label: "Visitors", control: c.visitors, test: t.visitors },
                 ...(c.atc + t.atc > 0
                   ? [{ label: "Added to cart", control: c.atc, test: t.atc }]
+                  : []),
+                ...(c.checkouts + t.checkouts > 0
+                  ? [{ label: "Reached checkout", control: c.checkouts, test: t.checkouts }]
                   : []),
                 { label: "Orders", control: c.orders, test: t.orders },
               ]}
@@ -639,7 +642,7 @@ export function AnalyticsView({
           {/* ── funnel ─────────────────────────────────────────────────── */}
           <Card>
             <CardHead title="Where people drop off"
-                       sub="Visitors who saw the page, then added to cart, then bought. On the right the share that made it from the step above: control / test." />
+                       sub="Visitors who saw the page, then added to cart, then reached the checkout, then bought. On the right the share that made it from the step above: control / test." />
             <div className="card__body">
               <div style={{ marginBottom: 16 }}><Legend /></div>
               {/* The cart step only appears when it is actually measured. This
@@ -651,6 +654,9 @@ export function AnalyticsView({
                   { label: "Visitors", control: c.visitors, test: t.visitors },
                   ...(c.atc + t.atc > 0
                     ? [{ label: "Added to cart", control: c.atc, test: t.atc }]
+                    : []),
+                  ...(c.checkouts + t.checkouts > 0
+                    ? [{ label: "Reached checkout", control: c.checkouts, test: t.checkouts }]
                     : []),
                   { label: "Orders", control: c.orders, test: t.orders },
                 ]}

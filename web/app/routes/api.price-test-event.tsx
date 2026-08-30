@@ -118,7 +118,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     if (!["control", "test"].includes(cohort)) throw new Error("bad cohort");
     // 'purchase' hoort hier niet: die komt uit de ondertekende webhook. Wie
     // hem hier zou proberen te sturen, kan de omzetcijfers vervuilen.
-    if (!["view", "atc"].includes(eventType)) throw new Error("bad event");
+    if (!["view", "atc", "checkout"].includes(eventType)) throw new Error("bad event");
     if (!Number.isFinite(testId)) throw new Error("bad test");
 
     const visitorId = body?.visitorId ? String(body.visitorId).slice(0, 64) : null;
