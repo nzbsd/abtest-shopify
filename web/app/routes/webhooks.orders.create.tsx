@@ -103,7 +103,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   try {
     const { data: alleTests } = await supabase
       .from("price_tests")
-      .select("id, control_product_id, test_product_id, started_at, stopped_at")
+      .select("id, test_type, control_product_id, test_product_id, started_at, stopped_at")
       .eq("shop", shop)
       .in("status", ["running", "stopped"]);
 
@@ -153,21 +153,42 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       let variantTitle: string | null = null;
       let cohort: "control" | "test" | null = null;
 
-      for (const li of lineItems) {
-        const pid = String(li?.product_id);
-        const isControl = pid === controlNum;
-        const isTest = pid === testNum;
-        if (!isControl && !isTest) continue;
+      /**
+       * Telt deze test één product, of de hele bestelling?
+       *
+       * Prijs-, afbeeldings- en templatetests gaan over één artikel: dan horen
+       * alleen de regels van dat artikel mee, anders schrijf je de rest van de
+       * winkelwagen toe aan een test die er niets mee te maken had.
+       *
+       * Een url-, kassa- of themetest verandert de winkel, niet een product.
+       * De bezoeker kan daarna van alles kopen en dat hoort er allemaal bij.
+       *
+       * DIT ONTBRAK, EN HET KOSTTE ELKE KASSATEST ZIJN OMZET. Bij zo'n test is
+       * er geen control- en geen test_product_id, dus matchte geen enkele regel
+       * en bleven bedrag, aantal en regels op nul staan. De orders werden wel
+       * geteld - de gemiddelde orderwaarde kwam daardoor uit op nul euro over
+       * zeven bestellingen, wat er als een kapot scherm uitziet en het niet was.
+       */
+      const productGebonden =
+        t.test_type === "price" || t.test_type === "image" || t.test_type === "template";
 
-        // An order containing both products belongs to neither group: there is
-        // no telling which price drove the behaviour. Skipping is more honest
-        // than guessing.
-        const thisGroup = isTest ? "test" : "control";
-        if (cohort && cohort !== thisGroup) {
-          cohort = null;
-          break;
+      for (const li of lineItems) {
+        if (productGebonden) {
+          const pid = String(li?.product_id);
+          const isControl = pid === controlNum;
+          const isTest = pid === testNum;
+          if (!isControl && !isTest) continue;
+
+          // An order containing both products belongs to neither group: there is
+          // no telling which price drove the behaviour. Skipping is more honest
+          // than guessing.
+          const thisGroup = isTest ? "test" : "control";
+          if (cohort && cohort !== thisGroup) {
+            cohort = null;
+            break;
+          }
+          cohort = thisGroup;
         }
-        cohort = thisGroup;
 
         const qty = Number(li?.quantity) || 0;
 
@@ -206,7 +227,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
        * _pt_<testId>. Dat is hier de enige bron die klopt, want die zegt wat de
        * bezoeker daadwerkelijk te zien heeft gekregen.
        */
-      if (!t.test_product_id) {
+      if (!productGebonden || !t.test_product_id) {
         const gemeld = attrs["_pt_" + t.id];
         cohort = gemeld === "control" || gemeld === "test" ? gemeld : null;
       }
