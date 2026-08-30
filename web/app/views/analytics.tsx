@@ -1,3 +1,4 @@
+import { testNaam } from "~/lib/testTypes";
 import { useState } from "react";
 import { useSearchParams } from "@remix-run/react";
 import { PageHead } from "~/components/shell";
@@ -317,7 +318,7 @@ export function AnalyticsView({
     <main className="page">
       <PageHead
         titel="Analytics"
-        sub={(test.control_title || test.control_product_id) +
+        sub={testNaam(test) +
           (days !== null ? " · running for " + days + " days" : "")}
         actie={
           /* De periodekiezer hoort hier en niet in de grafiekkaart.
@@ -332,7 +333,7 @@ export function AnalyticsView({
               <select value={String(test.id)} onChange={(e) => setTestId(Number(e.target.value))}
                       style={{ width: "auto", minWidth: 220 }}>
                 {tests.map((x) => (
-                  <option key={x.id} value={x.id}>{x.control_title || x.control_product_id}</option>
+                  <option key={x.id} value={x.id}>{testNaam(x)}</option>
                 ))}
               </select>
             )}

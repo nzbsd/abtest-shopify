@@ -173,3 +173,38 @@ export function normaliseerPad(invoer: string): string {
     return s.startsWith("/") ? s.replace(/\/+$/, "") : "/" + s.replace(/\/+$/, "");
   }
 }
+
+/**
+ * Hoe een test heet op het scherm.
+ *
+ * De naam die je zelf intypte gaat voor. Staat die er niet, dan het product,
+ * want dat was jarenlang het enige waar een test aan hing.
+ *
+ * WAAROM DIT EEN FUNCTIE IS EN NIET DRIE KEER EEN OR-KETEN.
+ * Het resultatenscherm deed `control_title || control_product_id`, en dat gaat
+ * op twee manieren mis. Een kassa- of themetest heeft geen van beide, dus stond
+ * er letterlijk "null" in de kop en een lege regel in de keuzelijst. En twee
+ * tests op hetzelfde product kregen precies hetzelfde label, waardoor je in die
+ * lijst niet kon zien welke je koos.
+ *
+ * Vandaar de toevoeging van het type bij een naamloze test: "Oregano+ · Price"
+ * en "Oregano+ · Page design" zijn wél uit elkaar te houden. Heeft hij ook geen
+ * product, dan het type met het nummer - lelijk, maar het verwijst tenminste
+ * naar iets.
+ */
+export function testNaam(t: {
+  id?: number;
+  naam?: string | null;
+  test_type?: string | null;
+  control_title?: string | null;
+  control_product_id?: string | null;
+}): string {
+  const eigen = (t.naam ?? "").trim();
+  if (eigen) return eigen;
+
+  const soort = typeInfo(t.test_type).naam;
+  const product = (t.control_title ?? "").trim();
+  if (product) return product + " · " + soort;
+
+  return soort + " test" + (t.id ? " #" + t.id : "");
+}
