@@ -369,7 +369,18 @@ export function SiteView({
           </Banner>
         )}
 
-        {!k.sessies ? (
+        {/* Een mislukte vraag is geen winkel zonder bezoekers. Zolang dit
+            onderscheid er niet was, las een storing als een geruststelling. */}
+        {data.fout && (
+          <Banner tone="error">
+            <strong>These numbers could not be loaded.</strong> {data.fout}
+            {/^.*statement timeout.*$/i.test(data.fout)
+              ? " The query took longer than the database allows for one request. A shorter range usually still works."
+              : ""}
+          </Banner>
+        )}
+
+        {!k.sessies && !data.fout ? (
           <Card>
             <Leeg>
               <div style={{ maxWidth: 420 }}>

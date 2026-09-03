@@ -102,6 +102,20 @@ export type SiteData = {
   routes: { route: string; sessies: number; orders: number }[];
   /** Komt dit uit sessies (filterbaar, dertig dagen) of uit dagtotalen? */
   uitSessies: boolean;
+  /**
+   * Ging het ophalen mis?
+   *
+   * Dit ontbrak, en dat heeft een echte storing dagen verstopt. De RPC liep
+   * over de tijdslimiet van de API - acht seconden - en de fout werd nergens
+   * gelezen: overzicht.data was null, o werd een leeg object, en kern.sessies
+   * kwam op nul. Het scherm concludeerde daaruit "Nothing measured yet" en
+   * legde vriendelijk uit dat de eerste cijfers vanzelf zouden verschijnen.
+   *
+   * Er waren 116.000 sessies. Een leeg scherm dat zegt dat er niets gemeten is
+   * en een leeg scherm omdat de vraag mislukte zien er hetzelfde uit, en dat
+   * verschil is nu juist het enige dat je wilt weten.
+   */
+  fout: string | null;
   detailTot: string | null;
   /** Alle landen met bezoek, voor de bol. Niet afgekapt op twaalf zoals de
    *  lijst: een globe met twaalf stippen is een lijst met extra stappen. */
@@ -249,6 +263,13 @@ export async function siteData(
 
   const o = (overzicht.data ?? {}) as any;
 
+  /* De boodschap van Postgres eerst, want die zegt precies wat er mis is -
+     "canceling statement due to statement timeout" is een diagnose, "er ging
+     iets mis" is dat niet. */
+  const fout = overzicht.error
+    ? String((overzicht.error as any).message ?? overzicht.error)
+    : null;
+
   /** snake_case uit Postgres naar de vorm die het scherm leest. */
   const naarKern = (r: any): Kern => ({
     bezoekers: Number(r?.bezoekers) || 0,
@@ -368,6 +389,7 @@ export async function siteData(
       orders: Number(r.orders) || 0,
     })),
     uitSessies,
+    fout,
     globe: ((o.globe ?? []) as any[]).map((r) => ({
       land: String(r.land),
       sessies: Number(r.sessies) || 0,
