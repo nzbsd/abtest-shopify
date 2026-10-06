@@ -3936,3 +3936,9 @@ thead th:last-child, tbody td:last-child, tfoot td:last-child { padding-right: 2
 .live-leeg { padding: 0 24px 20px; color: var(--ink-2); font-size: 13px; }
 .live-voet { font-size: 12px; color: var(--ink-2); max-width: 760px; }
 @media (max-width: 600px) { .live-armen { padding: 0 16px 16px; } }
+
+/* Knop naar Live tests vanaf Analytics en Overview. */
+.live-knop { gap: 7px; color: var(--up); font-weight: 600; }
+.live-knop:hover { color: var(--up); }
+.live-knop .dot { animation: live-puls 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .live-knop .dot { animation: none; } }

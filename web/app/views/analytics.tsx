@@ -1,6 +1,6 @@
 import { testNaam, conversieNoemer, conversieWaarschuwing } from "~/lib/testTypes";
 import { useState } from "react";
-import { useSearchParams } from "@remix-run/react";
+import { Link, useSearchParams } from "@remix-run/react";
 import { PageHead } from "~/components/shell";
 import { Lijn, Matrix, Sparkline, Trechter } from "~/components/charts";
 import {
@@ -366,6 +366,13 @@ export function AnalyticsView({
              venster dat ze niet doorhebben. */
           <div className="paginabalk">
             <Badge status={test.status} />
+            {/* Het menu in de Shopify-zijbalk valt makkelijk buiten beeld;
+                vanaf een lopende test is "wie is er nu" één klik. */}
+            {test.status === "running" && (
+              <Link className="btn live-knop" to="/app/ab-live">
+                <span className="dot" /> Live
+              </Link>
+            )}
             {tests.length > 1 && (
               <select value={String(test.id)} onChange={(e) => setTestId(Number(e.target.value))}
                       style={{ width: "auto", minWidth: 220 }}>

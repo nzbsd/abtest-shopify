@@ -119,7 +119,14 @@ export function OverviewView({
       <PageHead
         titel="Overview"
         sub="What is running, how far along it is, and whether anything needs your attention."
-        actie={<Link className="btn btn--iris" to={basis + "/tests"}>New test</Link>}
+        actie={
+          <div className="paginabalk">
+            {lopend.length > 0 && (
+              <Link className="btn live-knop" to={basis + "/ab-live"}><span className="dot" /> Live</Link>
+            )}
+            <Link className="btn btn--iris" to={basis + "/tests"}>New test</Link>
+          </div>
+        }
       />
 
       <div className="stack">
