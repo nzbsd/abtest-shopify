@@ -3891,3 +3891,48 @@ thead th:last-child, tbody td:last-child, tfoot td:last-child { padding-right: 2
 /* De reden waarom opslaan mislukte, boven de knoppen. Binnen de paneelmarges
    zodat hij bij de velden hoort en niet bij de navigatie eronder. */
 .wizard__fout { padding: 0 24px 4px; }
+
+/* ── live tests ──────────────────────────────────────────────────────────
+   Twee armen naast elkaar, op een telefoon onder elkaar. De kleur van de
+   arm is de vaste control/test-codering van de rest van het dashboard. */
+.live-stip {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600; color: var(--up);
+  white-space: nowrap;
+}
+.live-stip .dot { animation: live-puls 1.6s ease-in-out infinite; }
+.live-stip--oud { color: var(--ink-2); }
+.live-stip--oud .dot { animation: none; }
+@keyframes live-puls { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .live-stip .dot { animation: none; } }
+
+.live-armen {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px; padding: 0 24px 18px;
+}
+.live-arm { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.live-arm--control { border-top: 3px solid var(--control); }
+.live-arm--test    { border-top: 3px solid var(--test); }
+.live-arm__kop { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.live-arm__cijfers { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; }
+.live-cijfer { display: flex; flex-direction: column; min-width: 0; }
+.live-cijfer__label { font-size: 12px; color: var(--ink-2); }
+.live-cijfer__waarde { font-size: 22px; font-weight: 700; line-height: 1.2; }
+.live-cijfer__sub { font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
+
+.live-tabel td { vertical-align: middle; }
+.live-pad { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-stap {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; background: var(--wash); color: var(--ink-2);
+  white-space: nowrap;
+}
+.live-stap--cart { background: var(--test-pale); color: var(--test); }
+.live-stap--kassa, .live-stap--contact, .live-stap--verzending, .live-stap--betaling {
+  background: var(--control-pale); color: var(--control);
+}
+.live-stap--gekocht { background: var(--up-bg); color: var(--up); }
+.live-bedrag { font-size: 12px; color: var(--ink-2); }
+.live-leeg { padding: 0 24px 20px; color: var(--ink-2); font-size: 13px; }
+.live-voet { font-size: 12px; color: var(--ink-2); max-width: 760px; }
+@media (max-width: 600px) { .live-armen { padding: 0 16px 16px; } }

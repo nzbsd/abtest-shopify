@@ -1,6 +1,6 @@
 /**
- * Rate limiting for the two publicly reachable doors: the measurement endpoint
- * and the dashboard login.
+ * Rate limiting for the publicly reachable doors: the measurement endpoints
+ * (/api/price-test-event and /api/site).
  *
  * In-process and therefore per serverless instance. That is a real limitation
  * and worth naming: an attacker spread across many cold starts gets a higher
@@ -13,7 +13,15 @@
  * event route, which is counted in Postgres.
  */
 
-type Bucket = { tijden: number[] };
+/**
+ * Twee tellers per sleutel: dit venster en het vorige.
+ *
+ * Hiervoor stond hier een lijst met elk tijdstip. Voor een daglimiet van
+ * 500.000 betekende dat tot een half miljoen getallen per winkel, en die werden
+ * bij ELK verzoek opnieuw gefilterd - zelf een manier om de server plat te
+ * leggen. Twee tellers schatten hetzelfde glijdende venster in vaste ruimte.
+ */
+type Bucket = { start: number; nu: number; vorige: number; venster: number };
 
 const buckets = new Map<string, Bucket>();
 let laatsteOpruiming = Date.now();
@@ -21,45 +29,41 @@ let laatsteOpruiming = Date.now();
 /**
  * Is this key still allowed, given max hits per window?
  *
- * Sliding window over kept timestamps rather than a fixed counter: a fixed
- * window lets someone send double the allowance across a window boundary.
+ * Sliding window estimate: the previous window's count weighted by how much of
+ * it still overlaps, plus this window's count. A fixed window would let
+ * someone send double the allowance across a window boundary.
  */
 export function magNog(sleutel: string, max: number, vensterMs: number): boolean {
-  const nu = Date.now();
+  const tijd = Date.now();
 
-  // Opportunistic cleanup so a long-lived instance does not grow a map for
-  // every IP it has ever seen.
-  if (nu - laatsteOpruiming > 60_000) {
-    laatsteOpruiming = nu;
+  // Opruimen met het venster van elke emmer zelf. Eerder gebruikte dit het
+  // venster van wie toevallig aanriep, en dan wiste een minuutlimiet de
+  // daglimieten.
+  if (tijd - laatsteOpruiming > 60_000) {
+    laatsteOpruiming = tijd;
     for (const [k, b] of buckets) {
-      if (!b.tijden.length || nu - b.tijden[b.tijden.length - 1] > vensterMs * 2) buckets.delete(k);
+      if (tijd - b.start > b.venster * 2) buckets.delete(k);
     }
   }
 
   let b = buckets.get(sleutel);
   if (!b) {
-    b = { tijden: [] };
+    b = { start: tijd, nu: 0, vorige: 0, venster: vensterMs };
     buckets.set(sleutel, b);
   }
 
-  const grens = nu - vensterMs;
-  b.tijden = b.tijden.filter((t) => t > grens);
-  if (b.tijden.length >= max) return false;
+  const verstreken = tijd - b.start;
+  if (verstreken >= vensterMs * 2) {
+    b.start = tijd; b.vorige = 0; b.nu = 0;
+  } else if (verstreken >= vensterMs) {
+    b.start += vensterMs; b.vorige = b.nu; b.nu = 0;
+  }
 
-  b.tijden.push(nu);
+  const overlap = 1 - (tijd - b.start) / vensterMs;
+  if (b.vorige * overlap + b.nu >= max) return false;
+
+  b.nu += 1;
   return true;
-}
-
-/** Aantal treffers in het venster, zonder er een toe te voegen. */
-export function tellingVan(sleutel: string, vensterMs: number): number {
-  const b = buckets.get(sleutel);
-  if (!b) return 0;
-  const grens = Date.now() - vensterMs;
-  return b.tijden.filter((t) => t > grens).length;
-}
-
-export function wisSleutel(sleutel: string) {
-  buckets.delete(sleutel);
 }
 
 /**

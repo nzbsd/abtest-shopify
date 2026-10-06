@@ -140,9 +140,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       test_id: testId,
       cohort,
       event_type: eventType,
-      product_id: String(body?.productId ?? ""),
-      market: body?.market ? String(body.market) : null,
-      currency: body?.currency ? String(body.currency) : null,
+      // Alles uit de browser kort houden: dit endpoint is publiek, en zonder
+      // grens kon iemand megabytes per rij in een gedeelde database schrijven.
+      // Geen product (kassatest) is null, niet "" - zie 0025.
+      product_id: body?.productId ? String(body.productId).slice(0, 64) : null,
+      market: body?.market ? String(body.market).slice(0, 16) : null,
+      currency: body?.currency ? String(body.currency).slice(0, 8) : null,
       // Afgedwongen op een vaste lijst, want dit veld komt uit de browser en
       // gaat ongefilterd een groepering in. Alles wat er niet in past wordt
       // "unknown" in plaats van een eigen kolomwaarde in de uitsplitsing.

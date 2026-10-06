@@ -35,6 +35,7 @@ export default function EmbeddedLayout() {
           Sinds het losse dashboard weg is, is dit het enige menu dat er nog is. */}
       <ui-nav-menu>
         <a href="/app" rel="home">Visitors</a>
+        <a href="/app/ab-live">Live tests</a>
         <a href="/app/overview">Overview</a>
         <a href="/app/tests">Tests</a>
         <a href="/app/analytics">Analytics</a>

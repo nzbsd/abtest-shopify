@@ -25,9 +25,15 @@ api_version = "2026-07"
   topics = [ "orders/create" ]
   uri = "/webhooks/orders/create"
 
+  # Verplichte privacy-webhooks. Het bezoekers-id van een ingelogde klant is
+  # "c" + klantnummer, dus dat is persoonsgegeven en moet te wissen zijn.
+  [[webhooks.subscriptions]]
+  compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
+  uri = "/webhooks/compliance"
+
 [access_scopes]
-# Alleen lezen. De app wijzigt geen prijzen en schrijft geen kortingen: de
-# testprijs staat op het duplicaat, dat jij zelf in Shopify beheert.
+# Vooral lezen. De app wijzigt geen prijzen: de testprijs staat op het
+# duplicaat, dat jij zelf in Shopify beheert. De schrijfrechten staan hieronder.
 # read_products om producten en varianten te koppelen, read_orders voor de
 # omzet per testgroep.
 # write_pixels en read_customer_events zijn voor de web pixel: die meet wat er
