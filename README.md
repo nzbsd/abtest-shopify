@@ -1,107 +1,105 @@
 # Herbies Experli
 
-A/B-tests op de storefront, als **aparte** Shopify-app naast Email Pop up, met
-een eigen dashboard op Vercel.
+A/B-tests op de storefront en in de kassa, als **aparte** Shopify-app naast
+Email Pop up, met een eigen dashboard ingebed in de Shopify-admin.
 
 ## Waarom apart van de bestaande app
 
 **Deploy-koppeling.** `shopify app deploy` hercompileert en herreleaset alle
 extensies van een app tegelijk. De Email Pop up-app bevat `bundle-bxgy`, de
-Discount Function achter de bundels. Tijdens één middag popup-werk zag ik die
-function vier keer meegereleased worden zonder dat er een regel aan veranderd
-was. Testen daar toevoegen zou dat aantal deploys verhogen, met de
-bundelkorting als stille passagier.
+Discount Function achter de bundels. Testen daar toevoegen zou die function bij
+elke deploy stil meenemen.
 
 **Scope.** Deze app leest producten en orders. Die rechten horen niet bij de
 popup-app thuis.
 
 ## Wat je kunt testen
 
-Drie types. De machinerie eronder is voor alle drie hetzelfde — bezoeker in een
-groep, groep in de cart, orders toewijzen op dat kaartje — alleen wat de
-testgroep te zien krijgt verschilt.
+Zes types. De machinerie eronder is voor allemaal hetzelfde: bezoeker in een
+groep, groep in de cart, orders toewijzen op dat kaartje.
 
-| Type | Wat verschilt | Hoe |
-|---|---|---|
-| **Price** | de prijs | testgroep gaat naar een duplicaat-product met een andere prijs |
-| **Page design** | de productpagina | testgroep krijgt `?view=<suffix>`, een alternatief template |
-| **Page versus page** | twee willekeurige pagina's | testgroep wordt van de ene URL naar de andere gestuurd |
+| Type | Wat de testgroep krijgt |
+|---|---|
+| **Price** | doorgestuurd naar een duplicaat-product met een andere prijs |
+| **Product images** | een andere eerste foto in de galerij |
+| **Page design** | `?view=<suffix>`, een alternatief template |
+| **Page versus page** | doorgestuurd van de ene URL naar de andere |
+| **Theme** | `?preview_theme_id=`, een ander thema |
+| **Checkout** | een blok in de kassa, of verzendopties verbergen/hernoemen/gratis via Shopify Functions |
 
-Aanmaken gaat via een wizard in vier stappen: type, opzet, verdeling, controle.
-Wat je per type in Shopify moet klaarzetten staat in stap 1 bij het type zelf.
+Aanmaken gaat via een wizard in vijf stappen: type, opzet, doel, doelgroep,
+controle.
 
 ## Hoe de prijstest werkt
 
 Shopify kent één prijs per variant en kan die niet per bezoeker verhogen.
-Daarom draait de prijstest op **twee echte producten**:
-
-| | Product | Prijs |
-|---|---|---|
-| Controlegroep | het origineel | huidige prijs |
-| Testgroep | een duplicaat | de prijs die je wilt testen |
-
-De bezoeker komt binnen op de URL van het origineel; zit hij in de testgroep,
-dan stuurt het thema hem door naar het duplicaat. Vanaf dat moment is alles
-echt: de prijs op de pagina, de staffelkorting, het abonnement, en het bedrag
-in de kassa.
-
-### Waarom doorsturen en niet de prijs herschrijven
-
-Een eerdere versie herschreef de prijs op de pagina. Op een echt thema betekent
-dat: staffels, abonnementskorting en marktprijzen namaken in JavaScript, en dat
-voor altijd goed houden — met een stil verkeerde prijs als faalwijze. Deze app
-wijzigt daarom **geen** prijzen. Doorsturen naar een echte pagina geeft dat
-allemaal terug aan Shopify, dat het al goed doet.
-
-### Wat er gebeurt als iets misgaat
+Daarom draait de prijstest op **twee echte producten**: het origineel voor de
+controlegroep, een duplicaat met de testprijs voor de testgroep. Het thema
+stuurt de testgroep door naar het duplicaat. Vanaf dan is alles echt: prijs,
+staffels, abonnement en het bedrag in de kassa.
 
 Is de app onbereikbaar of ontbreekt het duplicaat, dan doet het thema
-**niets** en ziet de bezoeker de originele pagina tegen de originele prijs. Er
-is geen pad waarin iemand een prijs ziet die de kassa niet rekent.
+**niets** en ziet de bezoeker de originele pagina tegen de originele prijs.
 
-Ter waarschuwing, een nog eerdere opzet: die verhoogde de echte prijs en gaf de
-controlegroep het verschil terug via een Discount Function. Daar viel de fout de
-verkeerde kant op — bij uitval betaalde *iedereen* te veel.
+### Wat je zelf aan het duplicaat moet koppelen
 
-## Wat je zelf aan het duplicaat moet koppelen
-
-Een duplicaat krijgt een nieuw product-id, en daar hangt van alles aan:
-
-- **de bundelconfig** — die keyt op product-id, dus het duplicaat staat er niet
-  automatisch in
-- **het selling plan** — anders kan de testgroep geen abonnement afsluiten
-- **reviews**, als je die per product toont
-
-Vergeet je er een, dan meet je dát verschil in plaats van de prijs. De controle
-vóór het starten kijkt hierop en weigert te starten als het duplicaat geen
-selling plan heeft, niet in de bundelconfig staat, of nog op DRAFT staat.
+Bundelconfig, selling plan, reviews. De controle vóór het starten weigert te
+starten als het duplicaat geen selling plan heeft, niet in de bundelconfig
+staat, of nog op DRAFT staat.
 
 ## Hoe orders worden toegewezen
 
-Op het **kaartje in de cart**, niet op het product. Het origineel wordt ook
-verkocht via ads, e-mail en upsells; die bezoekers zaten nooit in de test. Op
-product toewijzen gaf 13,9% conversie — meer orders dan gemeten bezoekers.
+In de `orders/create`-webhook, en een order telt alleen als:
 
-Rebills tellen niet mee (`sourceName != "web"`). Het origineel heeft een
-bestaand abonneebestand en het duplicaat niet, dus terugkerende betalingen
-zouden de controlegroep gratis omzet geven die niets met de test te maken heeft.
+1. hij uit de **webwinkel** komt (`source_name = "web"`). Abonnements-
+   verlengingen (`subscription_contract_checkout_one`) tellen **niet** - die
+   nemen de cart-attributen van de eerste bestelling mee, inclusief bezoeker en
+   cohort, en gaven de controlgroep zo tientallen orders die niets met de test
+   te maken hadden. De **eerste** order van een abonnement komt wel via "web"
+   en telt mee, gemarkeerd als abonnement.
+2. de bezoeker aantoonbaar **in de test zat**: het cohort staat op de cart
+   (`_pt_<testId>`), of hij liet een view op die test achter.
+3. bij een producttest het **product in de order zit**. Zit alleen het andere
+   artikel erin, of beide (origineel én duplicaat), dan telt de order niet.
+
+Bij een prijstest bepaalt daarna het product de groep (de prijs die echt
+betaald is), bij de andere types het cohort van de cart.
+
+Of een orderregel een abonnement is, komt uit één GraphQL-vraag per order: de
+REST-payload van de webhook heeft geen selling plan.
 
 ## Dashboard
 
-Instellen en cijfers staan op `/dashboard` van de eigen deploy, en dezelfde
-pagina's draaien ingebed in de Shopify-admin. Buiten Shopify zit er een
-wachtwoord voor (`DASHBOARD_PASSWORD`); staat dat niet ingesteld, dan komt
-niemand binnen.
+Alleen ingebed in de Shopify-admin; er is geen los dashboard meer.
 
-Op de analyticspagina staat **omzet per bezoeker** vooraan en conversie
-ernaast. Conversie alleen misleidt bij een prijstest: een hogere prijs drukt de
-conversie bijna altijd, terwijl de omzet kan stijgen.
+- **Visitors**: bezoekersanalytics van de hele winkel, met live wereldbol.
+- **Live tests**: per lopende test en per variant wie er nu is (5 min), wie
+  iets in de cart legde, wie in de kassa zit en wie kocht (15 min), plus de
+  orders van vandaag. Bezoekers staan er als korte code, nooit met naam of
+  klantnummer. Ververst elke 10 seconden.
+- **Overview**, **Tests** (wizard, starten, stoppen, besluitlog) en
+  **Analytics** (uitslag, orders, segmenten, LTV-forecast).
 
-De Forecast-tab rekent door naar de klantlevensduur. Bij een abonnementsproduct
-wint niet per se de prijs met de hoogste omzet vandaag: een hogere prijs die
-minder abonnees oplevert kan over 1,6 maanden gemiddelde levensduur alsnog
-verliezen. Daar staat ook bij hoeveel levensduur er nodig is om het om te
-draaien.
+Op de analyticspagina staat **omzet per bezoeker** vooraan. Conversie alleen
+misleidt bij een prijstest. Add-to-cart telt unieke bezoekers, niet klikken.
+
+Let op: de significantie wordt bij elke keer kijken opnieuw berekend, zonder
+correctie voor tussentijds kijken. Kies vooraf hoe lang de test loopt (de
+wizard rekent de benodigde steekproef uit) en beslis pas daarna.
+
+## Beveiliging
+
+- De database is gedeeld met de popup-app. Alles van deze app (tabellen,
+  views, functies) is alleen bereikbaar voor `service_role`; `anon` en
+  `authenticated` hebben er geen rechten op (migratie 0028). Maak een view
+  altijd met `with (security_invoker = true)`: `create or replace view` zonder
+  die optie zet hem stil terug op "draait als eigenaar".
+- Het Shopify-token staat versleuteld (AES-256-GCM) in `price_test_sessions`.
+- De publieke meetpunten (`/api/price-test-event`, `/api/site`) accepteren
+  alleen bekende velden met een maximale lengte, en hebben limieten per IP,
+  per bezoeker en per winkel.
+- Bij de-installatie worden lopende tests gestopt. De privacy-webhooks
+  (`customers/redact`, `shop/redact`) wissen de gegevens.
 
 ## Omgevingsvariabelen
 
@@ -109,16 +107,21 @@ draaien.
 SHOPIFY_API_KEY
 SHOPIFY_API_SECRET
 SHOPIFY_APP_URL           de URL van de Vercel-deploy
-SCOPES=read_products,read_orders,read_themes
-SUPABASE_URL              https://qeozjlrswqummkcasewb.supabase.co
-SUPABASE_SERVICE_ROLE_KEY dezelfde als de Email Pop up-app
-DASHBOARD_PASSWORD        toegang tot /dashboard
-SESSION_SECRET            optioneel; valt anders terug op SHOPIFY_API_SECRET
-SHOP_DOMAIN               optioneel; anders afgeleid uit de opgeslagen sessie
+SCOPES                    zie shopify.app.toml
+SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
+SHOP_DOMAIN               optioneel; voor de bundelcontrole
 BUNDLE_CONFIG_URL         optioneel; zonder deze slaat de bundelcontrole over
 ```
 
-De database is gedeeld met de popup-app, maar de sessies niet: die staan in een
-eigen tabel `price_test_sessions`. Shopify geeft elke offline sessie het id
-`offline_<shop>`, identiek voor alle apps — dezelfde tabel delen zou bij
-installatie het access token van de popup-app overschrijven.
+Sessies staan in een eigen tabel `price_test_sessions`: Shopify geeft elke
+offline sessie het id `offline_<shop>`, identiek voor alle apps.
+
+## Bekende gaten
+
+- Migraties 0013–0015 zijn nooit in de repo beland. Wat ze (en de losse
+  Supabase-migraties van de bezoekersanalytics) aanmaakten, staat nu in
+  `0007a_ontbrekende_ddl.sql`, uitgelezen uit de live database.
+- Aankoop-rijen in `price_test_events` van vóór de rebill-fix bevatten nog
+  verlengingen, en hebben `is_subscription = false` ook waar het wél een
+  abonnement was. Die zijn nog niet opgeschoond.

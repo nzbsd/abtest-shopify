@@ -8,13 +8,13 @@ Aanvulling op `README.md`.
 |---|---|
 | `theme/price-test.liquid` | cohorttoewijzing en het doorsturen per testtype |
 | `web/app/lib/testTypes.ts` | de drie testtypes: uitleg, voorbereiding, wat er ontbreekt |
-| `web/app/views/wizard.tsx` | aanmaken in vier stappen |
+| `web/app/views/wizard.tsx` | aanmaken in vijf stappen |
 | `web/app/views/tests.tsx` | overzicht, starten, stoppen |
 | `web/app/views/analytics.tsx` | uitslag, orders, segmenten, forecast |
 | `web/app/lib/stats.ts` | Welch, twee-proporties-z, benodigde steekproef |
 | `web/app/lib/forecast.ts` | doorrekenen naar klantlevensduur |
 | `web/app/lib/orders.server.ts` | orders ophalen en toewijzen aan een groep |
-| `web/app/lib/preflight.server.ts` | controle vóór starten (alleen prijstests) |
+| `web/app/lib/preflight.server.ts` | controle vóór starten |
 | `web/app/lib/health.ts` | draait de test, of is het thema stil |
 | `web/app/lib/rateLimit.server.ts` | limieten op het publieke meetpunt |
 | `web/app/routes/api.price-test.tsx` | publieke config voor het thema |
