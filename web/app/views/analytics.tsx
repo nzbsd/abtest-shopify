@@ -1,6 +1,7 @@
 import { testNaam, conversieNoemer, conversieWaarschuwing } from "~/lib/testTypes";
 import { useState } from "react";
-import { Link, useSearchParams } from "@remix-run/react";
+import { useSearchParams } from "@remix-run/react";
+import { LiveBlok } from "~/views/testlive";
 import { PageHead } from "~/components/shell";
 import { Lijn, Matrix, Sparkline, Trechter } from "~/components/charts";
 import {
@@ -65,7 +66,7 @@ export function AnalyticsView({
   const [gekozen, setGekozen] = useState<number | null>(null);
   const testId = gekozen ?? uitUrl ?? tests[0]?.id ?? null;
   const setTestId = (id: number) => { setGekozen(id); setParams({ test: String(id) }, { replace: true }); };
-  type Tab = "verdict" | "orders" | "segments" | "forecast";
+  type Tab = "verdict" | "live" | "orders" | "segments" | "forecast";
   const [tab, setTab] = useState<Tab>("verdict");
   const [metric, setMetric] = useState<Metric>("rpv");
   const [dim, setDim] = useState<SegmentDimensie>("device");
@@ -366,13 +367,6 @@ export function AnalyticsView({
              venster dat ze niet doorhebben. */
           <div className="paginabalk">
             <Badge status={test.status} />
-            {/* Het menu in de Shopify-zijbalk valt makkelijk buiten beeld;
-                vanaf een lopende test is "wie is er nu" één klik. */}
-            {test.status === "running" && (
-              <Link className="btn live-knop" to="/app/ab-live">
-                <span className="dot" /> Live
-              </Link>
-            )}
             {tests.length > 1 && (
               <select value={String(test.id)} onChange={(e) => setTestId(Number(e.target.value))}
                       style={{ width: "auto", minWidth: 220 }}>
@@ -401,6 +395,8 @@ export function AnalyticsView({
           onChange={setTab}
           options={[
             { key: "verdict" as Tab, label: "Verdict" },
+            // Alleen bij een lopende test: bij een gestopte is er niemand.
+            ...(test.status === "running" ? [{ key: "live" as Tab, label: "Live" }] : []),
             { key: "orders" as Tab, label: "Orders", telling: oc.orders + ot.orders },
             { key: "segments" as Tab, label: "Segments" },
             ...(test.is_subscription ? [{ key: "forecast" as Tab, label: "Forecast" }] : []),
@@ -408,7 +404,9 @@ export function AnalyticsView({
         />
       </div>
 
-      {tab === "forecast" ? (
+      {tab === "live" ? (
+        <LiveBlok testId={test.id} basis="/app" />
+      ) : tab === "forecast" ? (
         <ForecastView
           test={test}
           controlVisitors={c.visitors}

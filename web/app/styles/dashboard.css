@@ -3893,52 +3893,109 @@ thead th:last-child, tbody td:last-child, tfoot td:last-child { padding-right: 2
 .wizard__fout { padding: 0 24px 4px; }
 
 /* ── live tests ──────────────────────────────────────────────────────────
-   Twee armen naast elkaar, op een telefoon onder elkaar. De kleur van de
-   arm is de vaste control/test-codering van de rest van het dashboard. */
-.live-stip {
-  display: inline-flex; align-items: center; gap: 8px;
-  font-size: 13px; font-weight: 600; color: var(--up);
-  white-space: nowrap;
-}
-.live-stip .dot { animation: live-puls 1.6s ease-in-out infinite; }
-.live-stip--oud { color: var(--ink-2); }
-.live-stip--oud .dot { animation: none; }
-@keyframes live-puls { 50% { opacity: .25; } }
-@media (prefers-reduced-motion: reduce) { .live-stip .dot { animation: none; } }
+   Volgens de dashboard-skill: één cijferpaar als held (online nu, 30px zoals
+   "twee cijfers in één kaart"), de trechter als rijen met balken, en kleur
+   alleen waar hij control of test betekent. Geen doorlopende puls: een scherm
+   waar iemand naar zit te kijken moet stilstaan - de tijd naast "Live" laat
+   zien dat het ververst. */
 
-.live-armen {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 14px; padding: 0 24px 18px;
+.live-status {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12.5px; font-weight: 600; color: var(--ink-2); white-space: nowrap;
 }
-.live-arm { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
-.live-arm--control { border-top: 3px solid var(--control); }
-.live-arm--test    { border-top: 3px solid var(--test); }
-.live-arm__kop { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-.live-arm__cijfers { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; }
-.live-cijfer { display: flex; flex-direction: column; min-width: 0; }
-.live-cijfer__label { font-size: 12px; color: var(--ink-2); }
-.live-cijfer__waarde { font-size: 22px; font-weight: 700; line-height: 1.2; }
-.live-cijfer__sub { font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
+.live-status__stip { width: 7px; height: 7px; border-radius: 999px; background: var(--up); }
+.live-status__tijd { color: var(--ink-3); font-weight: 500; }
+.live-status--oud .live-status__stip { background: var(--ink-4); }
 
-.live-tabel td { vertical-align: middle; }
-.live-pad { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.live-stap {
-  display: inline-block; padding: 2px 8px; border-radius: 999px;
-  font-size: 12px; font-weight: 600; background: var(--wash); color: var(--ink-2);
-  white-space: nowrap;
-}
-.live-stap--cart { background: var(--test-pale); color: var(--test); }
-.live-stap--kassa, .live-stap--contact, .live-stap--verzending, .live-stap--betaling {
-  background: var(--control-pale); color: var(--control);
-}
-.live-stap--gekocht { background: var(--up-bg); color: var(--up); }
-.live-bedrag { font-size: 12px; color: var(--ink-2); }
-.live-leeg { padding: 0 24px 20px; color: var(--ink-2); font-size: 13px; }
-.live-voet { font-size: 12px; color: var(--ink-2); max-width: 760px; }
-@media (max-width: 600px) { .live-armen { padding: 0 16px 16px; } }
+.live-label { font-size: 12px; font-weight: 600; color: var(--ink-3); }
 
-/* Knop naar Live tests vanaf Analytics en Overview. */
-.live-knop { gap: 7px; color: var(--up); font-weight: 600; }
-.live-knop:hover { color: var(--up); }
-.live-knop .dot { animation: live-puls 1.6s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) { .live-knop .dot { animation: none; } }
+.live-kaart__boven {
+  display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 18px; padding: 4px 24px 18px;
+}
+
+.live-online, .live-trechter {
+  border: 1px solid var(--line); border-radius: var(--r-md); padding: 18px 20px;
+}
+.live-online__paar { display: flex; gap: 32px; margin-top: 12px; flex-wrap: wrap; }
+.live-online__kant { min-width: 96px; }
+.live-online__cijfer {
+  font-size: 30px; font-weight: 700; letter-spacing: -.035em; line-height: 1.05; margin-top: 6px;
+}
+.live-online__noot { font-size: 11.5px; color: var(--ink-3); margin-top: 4px; }
+
+.live-trechter .live-label { display: block; margin-bottom: 8px; }
+.live-rij {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 28px minmax(0, 1fr) 28px;
+  align-items: center; gap: 10px; padding: 7px 0;
+}
+.live-rij + .live-rij { border-top: 1px solid var(--line); }
+.live-rij__naam { font-size: 13px; color: var(--ink-2); }
+.live-rij__getal { font-size: 15px; font-weight: 700; text-align: right; }
+.live-rij__balk { display: block; height: 6px; border-radius: 999px; background: var(--wash); overflow: hidden; }
+.live-rij__balk span { display: block; height: 100%; border-radius: 999px; transition: width .5s var(--ease-out); }
+
+.live-vandaag {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 22px;
+  margin: 0 24px 6px; padding: 12px 0; border-top: 1px solid var(--line);
+  font-size: 13px; color: var(--ink-2);
+}
+.live-vandaag__kant { display: inline-flex; align-items: center; gap: 8px; }
+
+.live-kaart__mensen {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px; padding: 12px 24px 22px;
+}
+.live-groep__kop {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--line);
+}
+.live-groep__aantal { font-size: 11.5px; color: var(--ink-3); }
+
+.live-lijst { list-style: none; margin: 0; padding: 0; }
+.live-mens {
+  display: grid;
+  grid-template-columns: 34px 92px minmax(0, 1fr) auto;
+  align-items: center; gap: 10px;
+  padding: 9px 0; font-size: 13px;
+}
+.live-mens + .live-mens { border-top: 1px solid var(--line); }
+.live-mens__stap { font-weight: 600; color: var(--ink); white-space: nowrap; }
+.live-mens__bedrag { font-weight: 600; color: var(--up); margin-right: 10px; }
+.live-mens__pagina { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-mens__meta { font-size: 12px; color: var(--ink-3); white-space: nowrap; text-align: right; }
+.live-mens__tijd { display: inline-block; min-width: 30px; margin-left: 10px; text-align: right; }
+
+/* Vier streepjes in plaats van een gekleurde pil per stap: de stap is een
+   voortgang, geen categorie, en zes pilkleuren in één lijst is kermis. */
+.live-meter { display: inline-flex; gap: 2px; }
+.live-meter span { width: 6px; height: 12px; border-radius: 2px; background: var(--line-loud); }
+.live-meter span.aan { background: var(--ink-2); }
+.live-meter--gekocht span.aan { background: var(--up); }
+
+.live-meer {
+  margin-top: 6px; padding: 6px 0; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 12.5px; font-weight: 600; color: var(--iris);
+}
+.live-meer:hover { text-decoration: underline; }
+
+.live-leeg { padding: 14px 0; color: var(--ink-3); font-size: 13px; }
+.live-kaart .live-leeg { padding: 14px 0 4px; }
+.live-voet { font-size: 11.5px; color: var(--ink-3); max-width: 720px; line-height: 1.55; }
+
+/* Knop naar Live tests vanaf Analytics en Overview. Stil, zoals de rest. */
+.live-knop { gap: 7px; font-weight: 600; }
+.live-knop .dot { color: var(--up); }
+
+@media (max-width: 900px) {
+  .live-kaart__boven, .live-kaart__mensen { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 700px) {
+  .live-kaart__boven, .live-kaart__mensen { padding-left: 16px; padding-right: 16px; }
+  .live-vandaag { margin-left: 16px; margin-right: 16px; }
+  .live-online__cijfer { font-size: 26px; }
+  .live-rij { grid-template-columns: 76px minmax(0, 1fr) 24px minmax(0, 1fr) 24px; gap: 8px; }
+  .live-mens { grid-template-columns: 30px 80px minmax(0, 1fr); }
+  .live-mens__meta { grid-column: 2 / -1; text-align: left; }
+}

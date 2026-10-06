@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "@remix-run/react";
 import { PageHead } from "~/components/shell";
 import { Banner, Card, CardHead, Leeg } from "~/components/ui";
@@ -8,6 +8,11 @@ import type { LiveGroep, LiveMens, LiveStap, LiveTest, TestLiveData } from "~/li
 /**
  * Live per A/B-test: wie zit er nu in welke variant, en hoe ver is hij.
  *
+ * Opbouw volgens de dashboard-skill: één cijferpaar als held (nu online), de
+ * trechter als rijen met balken in plaats van vijf losse cijfers, en de mensen
+ * per variant naast elkaar. Kleur alleen waar hij control of test betekent; de
+ * stappen zijn een neutrale meter, behalve "gekocht", dat is status.
+ *
  * Tien seconden tussen rondes. Op de achtergrond niets vragen; bij terugkomst
  * meteen. Een gemiste ronde laat het vorige beeld staan in plaats van het
  * scherm leeg te maken - een gat in de verbinding is geen leeg winkelbezoek.
@@ -15,8 +20,12 @@ import type { LiveGroep, LiveMens, LiveStap, LiveTest, TestLiveData } from "~/li
 
 const TUSSENPOOS = 10_000;
 
-function usePeilen(basis: string, begin: TestLiveData): { d: TestLiveData; vers: boolean } {
-  const [d, setD] = useState<TestLiveData>(begin);
+/**
+ * Zonder `begin` (de tab op Analytics heeft geen eigen loader) wordt er
+ * meteen opgehaald in plaats van na tien seconden.
+ */
+function usePeilen(basis: string, begin: TestLiveData | null): { d: TestLiveData | null; vers: boolean } {
+  const [d, setD] = useState<TestLiveData | null>(begin);
   const [vers, setVers] = useState(true);
   const gestopt = useRef(false);
 
@@ -30,7 +39,7 @@ function usePeilen(basis: string, begin: TestLiveData): { d: TestLiveData; vers:
           headers: { Accept: "application/json" },
           credentials: "same-origin",
         });
-        if (!r.ok) { setVers(false); return; }
+        if (!r.ok) { if (!gestopt.current) setVers(false); return; }
         const nieuw = (await r.json()) as TestLiveData;
         if (!gestopt.current) { setD(nieuw); setVers(true); }
       } catch {
@@ -46,6 +55,7 @@ function usePeilen(basis: string, begin: TestLiveData): { d: TestLiveData; vers:
     };
     const opZicht = () => { if (!document.hidden) haal(); };
     document.addEventListener("visibilitychange", opZicht);
+    if (!begin) haal();
     plan();
 
     return () => {
@@ -53,52 +63,67 @@ function usePeilen(basis: string, begin: TestLiveData): { d: TestLiveData; vers:
       clearTimeout(klok);
       document.removeEventListener("visibilitychange", opZicht);
     };
+    // `begin` alleen bij het eerste renderen; daarna is de hook de bron.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [basis]);
 
   return { d, vers };
 }
 
-const STAP: Record<LiveStap, { label: string; rang: number }> = {
-  bekijkt:    { label: "Browsing",        rang: 0 },
-  cart:       { label: "Added to cart",   rang: 1 },
-  kassa:      { label: "In checkout",     rang: 2 },
-  contact:    { label: "Checkout · contact",  rang: 3 },
-  verzending: { label: "Checkout · shipping", rang: 4 },
-  betaling:   { label: "Checkout · payment",  rang: 5 },
-  gekocht:    { label: "Purchased",       rang: 6 },
+/* ── stappen ─────────────────────────────────────────────────────────────── */
+
+const STAP: Record<LiveStap, { label: string; meter: number }> = {
+  bekijkt:    { label: "Browsing",      meter: 0 },
+  cart:       { label: "In cart",       meter: 1 },
+  kassa:      { label: "Checkout",      meter: 2 },
+  contact:    { label: "Contact",       meter: 2 },
+  verzending: { label: "Shipping",      meter: 3 },
+  betaling:   { label: "Payment",       meter: 3 },
+  gekocht:    { label: "Purchased",     meter: 4 },
 };
 
 function geleden(sec: number): string {
-  if (sec < 60) return sec + "s ago";
-  const m = Math.floor(sec / 60);
-  return m + "m ago";
+  if (sec < 60) return "now";
+  return Math.floor(sec / 60) + "m";
 }
+
+function tijdVan(op: string): string {
+  return new Date(op).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+function Status({ op, vers }: { op: string; vers: boolean }) {
+  return (
+    <span className={"live-status" + (vers ? "" : " live-status--oud")}
+          title={vers ? "Updates every 10 seconds" : "Connection lost — showing the last data"}>
+      <span className="live-status__stip" />
+      {vers ? "Live" : "Paused"} <span className="live-status__tijd num">{tijdVan(op)}</span>
+    </span>
+  );
+}
+
+/* ── de pagina ───────────────────────────────────────────────────────────── */
 
 export function TestLiveView({ begin, basis }: { begin: TestLiveData; basis: string }) {
   const { d, vers } = usePeilen(basis, begin);
-  const tijd = new Date(d.op).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const data = d ?? begin;
 
   return (
     <main className="page">
       <PageHead
         titel="Live tests"
-        sub="Who is in which variant right now — browsing, cart, checkout, purchased. Updates every 10 seconds."
-        actie={
-          <span className={"live-stip" + (vers ? "" : " live-stip--oud")} title={vers ? "Live" : "Connection lost — showing last data"}>
-            <span className="dot" /> {vers ? "Live" : "Paused"} · {tijd}
-          </span>
-        }
+        sub="Who is in which variant right now, and how far they got."
+        actie={<Status op={data.op} vers={vers} />}
       />
 
       <div className="stack">
-        {d.fout && (
+        {data.fout && (
           <Banner tone="error">
             <strong>Live data unavailable.</strong>
-            <div style={{ marginTop: 6 }}><code>{d.fout}</code></div>
+            <div style={{ marginTop: 6 }}><code>{data.fout}</code></div>
           </Banner>
         )}
 
-        {!d.fout && !d.tests.length && (
+        {!data.fout && !data.tests.length && (
           <Card>
             <Leeg>
               <div style={{ maxWidth: 380 }}>
@@ -114,110 +139,215 @@ export function TestLiveView({ begin, basis }: { begin: TestLiveData; basis: str
           </Card>
         )}
 
-        {d.tests.map((t) => <TestKaart key={t.id} t={t} />)}
+        {data.tests.map((t) => <TestKaart key={t.id} t={t} />)}
 
-        <p className="live-voet">
-          “Now” means active in the last 5 minutes; cart, checkout and purchased cover the last
-          15 minutes. Checkout steps come from the web pixel and only appear for visitors who
-          allowed analytics. Purchases are web-store orders only — subscription renewals are not
-          counted. Visitors are shown as a short code, never by name or customer number.
-        </p>
+        <Voetnoot />
       </div>
     </main>
   );
 }
 
-function TestKaart({ t }: { t: LiveTest }) {
+/**
+ * Het live-blok van één test, voor de tab op Analytics. Haalt zelf op; de
+ * analytics-loader rekent al genoeg.
+ */
+export function LiveBlok({ testId, basis }: { testId: number; basis: string }) {
+  const { d, vers } = usePeilen(basis, null);
+  if (!d) return <Card><p className="live-leeg">Loading live data…</p></Card>;
+  if (d.fout) {
+    return (
+      <Banner tone="error">
+        <strong>Live data unavailable.</strong>
+        <div style={{ marginTop: 6 }}><code>{d.fout}</code></div>
+      </Banner>
+    );
+  }
+  const t = d.tests.find((x) => x.id === testId);
+  if (!t) {
+    return <Card><Leeg>This test is not running, so there is nobody to show.</Leeg></Card>;
+  }
+  return (
+    <div className="stack stack--strak">
+      <TestKaart t={t} status={<Status op={d.op} vers={vers} />} />
+      <Voetnoot />
+    </div>
+  );
+}
+
+function Voetnoot() {
+  return (
+    <p className="live-voet">
+      “Online” is the last 5 minutes; cart, checkout and purchased the last 15. Checkout steps
+      come from the web pixel and only show for visitors who allowed analytics. Purchases are
+      web-store orders only — subscription renewals are not counted. Visitors are a short code,
+      never a name or customer number.
+    </p>
+  );
+}
+
+/* ── één test ────────────────────────────────────────────────────────────── */
+
+function TestKaart({ t, status }: { t: LiveTest; status?: ReactNode }) {
   const c = t.groepen.control;
   const te = t.groepen.test;
   return (
-    <Card className="live-test">
+    <Card className="live-kaart">
       <CardHead
         title={t.naam}
-        sub={t.type + " test · " + t.split + "% in the test group" +
-          (t.paden.length ? " · " + t.paden.join(" vs ") : "")}
+        sub={t.type + " test · " + t.split + "% in the test group"}
+        action={status}
       />
-      <div className="live-armen">
-        <Arm naam="Control" kleur="control" g={c} />
-        <Arm naam="Test" kleur="test" g={te} />
+
+      <div className="live-kaart__boven">
+        <Online c={c} t={te} />
+        <Trechter c={c} t={te} />
       </div>
-      <Mensen mensen={t.mensen} />
+
+      <Vandaag c={c} t={te} />
+
+      <div className="live-kaart__mensen">
+        <Mensen groep="control" naam="Control" mensen={t.mensen} paden={t.paden} />
+        <Mensen groep="test" naam="Test" mensen={t.mensen} paden={t.paden} />
+      </div>
     </Card>
   );
 }
 
-function Arm({ naam, kleur, g }: { naam: string; kleur: "control" | "test"; g: LiveGroep }) {
-  const rij = (label: string, waarde: string, sub?: string) => (
-    <div className="live-cijfer">
-      <span className="live-cijfer__label">{label}</span>
-      <span className="live-cijfer__waarde num">{waarde}</span>
-      {sub && <span className="live-cijfer__sub">{sub}</span>}
+/** Het cijferpaar dat de vraag beantwoordt waarvoor je hier komt. */
+function Online({ c, t }: { c: LiveGroep; t: LiveGroep }) {
+  const kant = (naam: string, kleur: "control" | "test", g: LiveGroep) => (
+    <div className="live-online__kant">
+      <span className="legend__item"><span className={"swatch swatch--" + kleur} />{naam}</span>
+      <p className="live-online__cijfer num">{heel(g.nu)}</p>
+      <p className="live-online__noot">{heel(g.opPagina)} on the test page</p>
     </div>
   );
   return (
-    <section className={"live-arm live-arm--" + kleur}>
-      <header className="live-arm__kop">
-        <span className={"swatch swatch--" + kleur} />
-        <strong>{naam}</strong>
-      </header>
-      <div className="live-arm__cijfers">
-        {rij("Online now", heel(g.nu), heel(g.opPagina) + " on the test page")}
-        {rij("Added to cart", heel(g.cart), "last 15 min")}
-        {rij("In checkout", heel(g.kassa), "last 15 min")}
-        {rij("Purchased", heel(g.gekocht), g.gekocht ? geld(g.omzet / 100) + " · last 15 min" : "last 15 min")}
-        {rij("Today", heel(g.vandaagOrders) + " orders",
-          geld(g.vandaagOmzet / 100) + (g.vandaagAbo ? " · " + heel(g.vandaagAbo) + " with subscription" : ""))}
+    <section className="live-online">
+      <p className="live-label">Online now</p>
+      <div className="live-online__paar">
+        {kant("Control", "control", c)}
+        {kant("Test", "test", t)}
       </div>
     </section>
   );
 }
 
-function Mensen({ mensen }: { mensen: LiveMens[] }) {
-  if (!mensen.length) {
-    return <p className="live-leeg">Nobody in this test in the last 15 minutes.</p>;
-  }
-  const gesorteerd = [...mensen].sort(
-    (a, b) => STAP[b.stap].rang - STAP[a.stap].rang || a.sec - b.sec,
-  );
+/** Cart, kassa, gekocht: per stap twee balken op dezelfde schaal. */
+function Trechter({ c, t }: { c: LiveGroep; t: LiveGroep }) {
+  const rijen = [
+    { label: "In cart", c: c.cart, t: t.cart, toon: heel },
+    { label: "In checkout", c: c.kassa, t: t.kassa, toon: heel },
+    { label: "Purchased", c: c.gekocht, t: t.gekocht, toon: heel },
+  ];
   return (
-    <div className="table-scroll">
-      <table className="live-tabel">
-        <thead>
-          <tr>
-            <th>Visitor</th>
-            <th>Variant</th>
-            <th>Where</th>
-            <th>Page</th>
-            <th>Device</th>
-            <th>Last seen</th>
-          </tr>
-        </thead>
-        <tbody>
-          {gesorteerd.map((m) => (
-            <tr key={m.wie + m.groep}>
-              <td>
-                <code>{m.wie}</code>
-                {m.klant && <span className="pill pill--draft" style={{ marginLeft: 6 }}>customer</span>}
-              </td>
-              <td>
-                <span className="cell-series">
-                  <span className={"swatch swatch--" + m.groep} />
-                  {m.groep === "test" ? "Test" : "Control"}
-                </span>
-              </td>
-              <td>
-                <span className={"live-stap live-stap--" + m.stap}>{STAP[m.stap]?.label ?? m.stap}</span>
-                {m.stap === "gekocht" && m.cents > 0 && (
-                  <span className="live-bedrag num"> {geld(m.cents / 100)}{m.abo ? " · sub" : ""}</span>
-                )}
-              </td>
-              <td className="live-pad" title={m.pagina ?? ""}>{m.pagina ?? "—"}</td>
-              <td>{[m.land, m.device].filter(Boolean).join(" · ") || "—"}</td>
-              <td className="num">{geleden(m.sec)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <section className="live-trechter">
+      <p className="live-label">Last 15 minutes</p>
+      {rijen.map((r) => {
+        const top = Math.max(r.c, r.t, 1);
+        return (
+          <div className="live-rij" key={r.label}>
+            <span className="live-rij__naam">{r.label}</span>
+            <span className="live-rij__balk">
+              <span style={{ width: (r.c / top) * 100 + "%", background: "var(--control)" }} />
+            </span>
+            <span className="live-rij__getal num">{r.toon(r.c)}</span>
+            <span className="live-rij__balk">
+              <span style={{ width: (r.t / top) * 100 + "%", background: "var(--test)" }} />
+            </span>
+            <span className="live-rij__getal num">{r.toon(r.t)}</span>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
+function Vandaag({ c, t }: { c: LiveGroep; t: LiveGroep }) {
+  const deel = (g: LiveGroep) =>
+    heel(g.vandaagOrders) + " orders · " + geld(g.vandaagOmzet / 100) +
+    (g.vandaagAbo ? " · " + heel(g.vandaagAbo) + " with subscription" : "");
+  return (
+    <div className="live-vandaag">
+      <span className="live-label">Today</span>
+      <span className="live-vandaag__kant">
+        <span className="swatch swatch--control" />{deel(c)}
+      </span>
+      <span className="live-vandaag__kant">
+        <span className="swatch swatch--test" />{deel(t)}
+      </span>
     </div>
+  );
+}
+
+/* ── wie er is ───────────────────────────────────────────────────────────── */
+
+const ZICHTBAAR_KIJKEND = 5;
+
+function paginaNaam(pad: string | null, paden: string[]): string {
+  if (!pad) return "—";
+  if (paden[0] && (pad === paden[0] || pad.endsWith(paden[0]))) return "Original page";
+  if (paden[1] && (pad === paden[1] || pad.endsWith(paden[1]))) return "Test page";
+  if (pad === "/") return "Home";
+  if (pad.startsWith("/cart")) return "Cart";
+  return pad.replace(/^\/(products|pages|collections|blogs)\//, "");
+}
+
+function Mensen({
+  groep, naam, mensen, paden,
+}: { groep: "control" | "test"; naam: string; mensen: LiveMens[]; paden: string[] }) {
+  const [alles, setAlles] = useState(false);
+  const eigen = mensen
+    .filter((m) => m.groep === groep)
+    .sort((a, b) => STAP[b.stap].meter - STAP[a.stap].meter || a.sec - b.sec);
+
+  // Wie verder is dan kijken staat er altijd; van de kijkers een handvol. Zestig
+  // regels "Browsing" duwen de drie mensen in de kassa uit beeld.
+  const actief = eigen.filter((m) => m.stap !== "bekijkt");
+  const kijkers = eigen.filter((m) => m.stap === "bekijkt");
+  const toon = alles ? kijkers : kijkers.slice(0, ZICHTBAAR_KIJKEND);
+  const verborgen = kijkers.length - toon.length;
+
+  return (
+    <section className="live-groep">
+      <header className="live-groep__kop">
+        <span className="legend__item"><span className={"swatch swatch--" + groep} />{naam}</span>
+        <span className="live-groep__aantal num">{heel(eigen.length)} in the last 15 min</span>
+      </header>
+
+      {!eigen.length && <p className="live-leeg">Nobody right now.</p>}
+
+      <ul className="live-lijst">
+        {[...actief, ...toon].map((m) => (
+          <li key={m.wie} className="live-mens">
+            <Meter n={STAP[m.stap].meter} gekocht={m.stap === "gekocht"} />
+            <span className="live-mens__stap">{STAP[m.stap].label}</span>
+            <span className="live-mens__pagina" title={m.pagina ?? ""}>{paginaNaam(m.pagina, paden)}</span>
+            <span className="live-mens__meta num">
+              {m.stap === "gekocht" && m.cents > 0 && (
+                <span className="live-mens__bedrag">{geld(m.cents / 100)}{m.abo ? " · sub" : ""}</span>
+              )}
+              {[m.land, m.device].filter(Boolean).join(" · ")}
+              <span className="live-mens__tijd">{geleden(m.sec)}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      {verborgen > 0 && (
+        <button type="button" className="live-meer" onClick={() => setAlles(true)}>
+          + {heel(verborgen)} more browsing
+        </button>
+      )}
+    </section>
+  );
+}
+
+/** Vier streepjes: cart, kassa, betalen, gekocht. Neutraal, behalve gekocht. */
+function Meter({ n, gekocht }: { n: number; gekocht: boolean }) {
+  return (
+    <span className={"live-meter" + (gekocht ? " live-meter--gekocht" : "")} aria-hidden>
+      {[1, 2, 3, 4].map((i) => <span key={i} className={i <= n ? "aan" : ""} />)}
+    </span>
   );
 }
