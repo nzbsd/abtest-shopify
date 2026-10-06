@@ -70,7 +70,7 @@ export const METRICS: MetricInfo[] = [
       "other. The right default for anything that touches price. It is also the slowest to " +
       "settle: most visitors buy nothing, so the spread is enormous.",
     vorm: "geld",
-    toetsnaam: "Welch t-test on per-visitor revenue",
+    toetsnaam: "Welch z-test on per-visitor revenue",
     waarde: (g) => deel(g.revenueCents, g.visitors) / 100,
     toets: (c, t, b) => toetsOmzetPerBezoeker(c, t, b),
     duur: "lang",
@@ -98,7 +98,7 @@ export const METRICS: MetricInfo[] = [
       "bundles, tiers and upsells; dangerous alone, because chasing away the cheap orders raises " +
       "it while revenue falls.",
     vorm: "geld",
-    toetsnaam: "Welch t-test on order values",
+    toetsnaam: "Welch z-test on order values",
     waarde: (g) => deel(g.revenueCents, g.orders) / 100,
     toets: (c, t, b) =>
       toetsGemiddelde(

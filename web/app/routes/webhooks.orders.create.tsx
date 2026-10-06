@@ -5,13 +5,19 @@ import supabase from "~/db.server";
 /**
  * Revenue and order composition per test group.
  *
- * The group is derived from WHICH PRODUCT was bought, not from the cart
- * attributes. The original is the control, the duplicate is the test, and that
- * is fixed in the order and cannot drift. A cart attribute can be missing if
- * the visitor arrived another way, or stale if the cart was reused; a product
- * id cannot.
+ * Een order telt alleen mee als hij aantoonbaar van een bezoeker in de test
+ * komt: het cohort staat op de cart (`_pt_<testId>`), of de bezoeker liet een
+ * view op deze test achter. Wie het origineel via een rebill, upsell of
+ * conceptorder kocht, zat nooit in de test en telt niet.
  *
- * The attributes are still used for context: market and visitor.
+ * Bij een prijstest bepaalt daarna het PRODUCT de groep: de prijs die echt
+ * betaald is. Bij de andere types het cohort van de cart.
+ *
+ * Alleen orders uit de webwinkel (`source_name = "web"`). Een
+ * abonnementsverlenging is maanden geleden afgesproken en zou de controlgroep -
+ * die een bestaand abonneebestand heeft - gratis omzet geven. De EERSTE order
+ * van een abonnement komt wel via "web" en telt dus gewoon mee, gemarkeerd met
+ * is_subscription.
  *
  * Beyond the amount we now also record how the order was composed —
  * subscription or one-off, how many units, which variant. For a price test
@@ -23,7 +29,7 @@ import supabase from "~/db.server";
  * group's revenue and flip the verdict.
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { shop, payload, topic } = await authenticate.webhook(request);
+  const { shop, payload, topic, admin } = await authenticate.webhook(request);
   if (topic !== "ORDERS_CREATE") return new Response(null, { status: 200 });
 
   /**
@@ -101,6 +107,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   try {
+    // Rebills, POS en conceptorders: geen bezoek, dus geen test. Zie boven.
+    if (String((payload as any)?.source_name || "") !== "web") {
+      return new Response(null, { status: 200 });
+    }
+
     const { data: alleTests } = await supabase
       .from("price_tests")
       .select("id, test_type, control_product_id, test_product_id, started_at, stopped_at")
@@ -136,6 +147,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const num = (gid: string) => String(gid).split("/").pop();
     const lineItems: any[] = (payload as any)?.line_items || [];
 
+    /**
+     * Welke regels een abonnement zijn.
+     *
+     * De REST-payload van deze webhook heeft geen selling plan op de regel -
+     * `selling_plan_allocation` bestaat daar niet. is_subscription stond
+     * daardoor bij elke order op false, ook bij de vele eerste orders met
+     * "Same as total". Eén GraphQL-vraag per order haalt het wél op.
+     */
+    const aboRegels = await abonnementsRegels(admin, (payload as any)?.admin_graphql_api_id);
+
     const attrs: Record<string, string> = {};
     for (const a of (payload as any)?.note_attributes || []) {
       if (a?.name) attrs[String(a.name)] = String(a.value ?? "");
@@ -152,6 +173,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       let variantId: string | null = null;
       let variantTitle: string | null = null;
       let cohort: "control" | "test" | null = null;
+      let gemengd = false;
 
       /**
        * Telt deze test één product, of de hele bestelling?
@@ -184,7 +206,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           // than guessing.
           const thisGroup = isTest ? "test" : "control";
           if (cohort && cohort !== thisGroup) {
-            cohort = null;
+            gemengd = true;
             break;
           }
           cohort = thisGroup;
@@ -205,7 +227,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         // A selling plan on any line makes this a subscription order. Shopify
         // puts it on the line, not the order, because a cart can mix both.
-        if (li?.selling_plan_allocation?.selling_plan?.id) subscription = true;
+        if (li?.selling_plan_allocation?.selling_plan?.id || aboRegels.has(String(li?.id))) {
+          subscription = true;
+        }
 
         // First matching line decides the variant shown in the breakdown.
         // Multiple lines of the same product are rare here and would only
@@ -227,10 +251,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
        * _pt_<testId>. Dat is hier de enige bron die klopt, want die zegt wat de
        * bezoeker daadwerkelijk te zien heeft gekregen.
        */
-      if (!productGebonden || !t.test_product_id) {
-        const gemeld = attrs["_pt_" + t.id];
-        cohort = gemeld === "control" || gemeld === "test" ? gemeld : null;
-      }
+      // Beide producten in één order: geen te zeggen welke prijs het deed.
+      // Vroeger viel zo'n order alsnog via de bezoeker in een groep, met de
+      // helft van zijn bedrag.
+      if (gemengd) continue;
+
+      // Een producttest waarvan het product niet in de order zit: er is niets
+      // gekocht wat getest werd. Dit werd een "aankoop" van nul euro, wat de
+      // conversie opblies en de orderwaarde drukte.
+      if (productGebonden && lines === 0) continue;
+
+      const gemeld = attrs["_pt_" + t.id];
+      let toegewezen: "control" | "test" | null =
+        gemeld === "control" || gemeld === "test" ? gemeld : null;
 
       /**
        * Staat het kenmerk er niet, dan de bezoeker opzoeken.
@@ -249,7 +282,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
        * dat scherm zijn cijfers uit deze tabel leest is een order die de
        * webhook overslaat een order die nergens meer opduikt.
        */
-      if (!cohort) {
+      if (!toegewezen) {
         const bezoeker = attrs["_pt_visitor"];
         if (bezoeker) {
           const { data: gezien } = await supabase
@@ -261,9 +294,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             .eq("visitor_id", bezoeker)
             .limit(1);
           const c = gezien?.[0]?.cohort;
-          if (c === "control" || c === "test") cohort = c;
+          if (c === "control" || c === "test") toegewezen = c;
         }
       }
+
+      // Nooit in de test gezien: een koper via ads-landingspagina zonder
+      // snippet, een upsell, een oude winkelwagen. Die hoort er niet bij, ook
+      // al kocht hij het origineel.
+      if (!toegewezen) continue;
+
+      // Bij een prijstest wint het product (de prijs die echt betaald is),
+      // anders het cohort van de bezoeker.
+      if (!productGebonden || !t.test_product_id) cohort = toegewezen;
 
       if (!cohort) continue;
 
@@ -318,3 +360,31 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   return new Response(null, { status: 200 });
 };
+
+/**
+ * De ids van de orderregels met een selling plan, als REST-id (zoals
+ * `line_items[].id` in de payload). Leeg als het niet lukt: dan valt
+ * is_subscription terug op wat de payload zelf zegt, en verder gaat alles door.
+ */
+async function abonnementsRegels(admin: any, orderGid: string | undefined): Promise<Set<string>> {
+  const uit = new Set<string>();
+  if (!admin || !orderGid) return uit;
+  try {
+    const antwoord = await admin.graphql(
+      `#graphql
+       query ExperliOrderAbo($id: ID!) {
+         order(id: $id) {
+           lineItems(first: 100) { nodes { id sellingPlan { sellingPlanId } } }
+         }
+       }`,
+      { variables: { id: orderGid } },
+    );
+    const body = await antwoord.json();
+    for (const r of body?.data?.order?.lineItems?.nodes ?? []) {
+      if (r?.sellingPlan) uit.add(String(r.id).split("/").pop() ?? "");
+    }
+  } catch (e: any) {
+    console.error("orders/create abonnementen", orderGid, e?.message ?? e);
+  }
+  return uit;
+}

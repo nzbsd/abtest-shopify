@@ -127,7 +127,8 @@ export function telOp(rijen: StatRij[], cohort: string): Groep {
     orderBezoekers: som("order_visitors"),
     rpv: visitors ? revenueCents / 100 / visitors : 0,
     cr: visitors ? (orders / visitors) * 100 : 0,
-    atcRatio: visitors ? (atc / visitors) * 100 : 0,
+    // Bezoekers, niet klikken: anders kan dit boven de 100% uitkomen.
+    atcRatio: visitors ? (som("atc_visitors") / visitors) * 100 : 0,
     aov: orders ? revenueCents / 100 / orders : 0,
   };
 }

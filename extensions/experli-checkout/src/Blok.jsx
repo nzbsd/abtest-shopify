@@ -66,6 +66,7 @@ function Blok() {
       .then((data) => {
         if (!levend) return;
 
+        let getoond = false;
         for (const t of (data && data.tests) || []) {
           if (t.type !== "checkout") continue;
 
@@ -82,13 +83,17 @@ function Blok() {
              conversie met niets. */
           meld(app, winkel, t.id, cohort, attrs["_pt_visitor"]);
 
+          /* Verder met de volgende test als deze hier niets toont. Dit was een
+             `return`, en dan werd een tweede kassatest nooit gemeten of
+             getoond zodra de eerste een ander slot had of niets liet zien. */
+          if (getoond) continue;
           const z = cohort === "test" ? t.test : t.control;
-          if (!z) return;
-          if (String(z.slot || "a").toLowerCase() !== mijnSlot) return;
+          if (!z) continue;
+          if (String(z.slot || "a").toLowerCase() !== mijnSlot) continue;
 
           setSoort(t.soort);
           setKant(z);
-          return;
+          getoond = true;
         }
       })
       .catch(() => { /* geen config, geen blok */ });

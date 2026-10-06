@@ -192,10 +192,10 @@ export function OverviewView({
            */
           const doel = metricInfo(t.primary_metric);
           const betrouwbaar = t.confidence_pct ?? 95;
-          const cIn = { visitors: c.visitors, atc: c.atc, orders: c.orders,
+          const cIn = { visitors: c.visitors, atc: c.atcBezoekers, orders: c.orders,
                         revenueCents: c.revenueCents, revenueSqCents: c.revenueSqCents,
                         subOrders: (o?.control ?? GEEN).subOrders };
-          const tIn = { visitors: te.visitors, atc: te.atc, orders: te.orders,
+          const tIn = { visitors: te.visitors, atc: te.atcBezoekers, orders: te.orders,
                         revenueCents: te.revenueCents, revenueSqCents: te.revenueSqCents,
                         subOrders: (o?.test ?? GEEN).subOrders };
           const toets = doel.toets(cIn, tIn, betrouwbaar);

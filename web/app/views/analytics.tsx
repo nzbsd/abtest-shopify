@@ -105,7 +105,9 @@ export function AnalyticsView({
    */
   const doel = metricInfo(test.primary_metric);
   const invoer = (g: typeof c, o: OrderCijfers) => ({
-    visitors: g.visitors, atc: g.atc, orders: g.orders,
+    // Unieke bezoekers met een add-to-cart, geen events: één bezoeker die drie
+    // keer klikt telde drie keer, en de verhouding kwam boven de 100% uit.
+    visitors: g.visitors, atc: g.atcBezoekers, orders: g.orders,
     revenueCents: g.revenueCents, revenueSqCents: g.revenueSqCents,
     subOrders: o.subOrders,
   });

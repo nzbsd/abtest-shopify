@@ -499,6 +499,9 @@ export async function testsAction(
               // het scherm ze naast de gestarte test kan tonen.
               const nieuw = {
                 status: "running", started_at: new Date().toISOString(), stopped_at: null,
+                // Net als bij gewoon starten: het besluit van de vorige ronde
+                // hoort niet bij de nieuwe cijfers.
+                besluit: null, besluit_notitie: null, besluit_at: null,
               };
               const { error } = await supabase
                 .from("price_tests").update(nieuw).eq("id", id).eq("shop", shop);
@@ -549,6 +552,31 @@ export async function testsAction(
         .maybeSingle<{ checkout_variant: string | null; checkout_config: any }>();
       const isVerzending = soortRij?.checkout_variant === "verzending";
       const isGratis = soortRij?.checkout_variant === "gratisverzending";
+
+      /**
+       * Eén verzendtest tegelijk.
+       *
+       * De Shopify Functions lezen het cohort uit één vaste sleutel op de
+       * wagen (_pt_ck / _pt_ck_test), en elke kassatest overschrijft die. Twee
+       * tegelijk betekent dat de laatste wint en de andere stil niets doet -
+       * een test die netjes nul verschil meet. Ook niet met "toch starten".
+       */
+      if (intent === "start" && (isVerzending || isGratis)) {
+        const { data: anderen } = await supabase
+          .from("price_tests").select("id, naam")
+          .eq("shop", shop).eq("status", "running")
+          .in("checkout_variant", ["verzending", "gratisverzending"])
+          .neq("id", id);
+        if (anderen?.length) {
+          return {
+            ok: false,
+            bericht:
+              "Not started — another shipping test is running (" +
+              (anderen[0].naam || "#" + anderen[0].id) + "). Both read the same marker on the " +
+              "cart, so only one of them would actually do anything. Stop that one first.",
+          };
+        }
+      }
 
       if (intent === "start" && (isVerzending || isGratis)) {
         const r = isGratis
