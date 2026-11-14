@@ -323,35 +323,61 @@
     if (sessieVoorCart) attributen._pt_sess = sessieVoorCart;
     attributen._pt_market = MARKET;
     attributen._pt_visitor = visitor;
-    if (!attributen._pt_sess && !Object.keys(teTaggen).length) return;  /* niets zinnigs te melden */
+    if (!attributen._pt_sess && !Object.keys(teTaggen).length) return Promise.resolve();  /* niets zinnigs te melden */
 
-    try {
-      /* Per token één keer, maar de stempel draagt nu ook wát we schrijven.
-         Zonder dat blokkeerde de eerste aanroep alle volgende, ook als die meer
-         te melden hadden: tagCart wordt aangeroepen zodra de sessie bestaat én
-         opnieuw zodra handle() het cohort heeft toegewezen. Op een verse pagina
-         bestaat de wagen dan nog niet, dus was het token in beide gevallen leeg
-         en zag de tweede aanroep dezelfde stempel - hij schreef niets, en het
-         cohort bleef achter.
+    var inhoud = Object.keys(attributen).sort().map(function (k) {
+      return k + "=" + attributen[k];
+    }).join(",");
 
-         Met de inhoud erin schrijven we opnieuw zodra er iets bijkomt, en nog
-         steeds niets als er niets veranderd is. Een pageview kost dus nog altijd
-         geen verzoek. */
-      var stempel = cartToken() + "|" + Object.keys(attributen).sort().map(function (k) {
-        return k + "=" + attributen[k];
-      }).join(",");
-      if (sessionStorage.getItem("_pt_getagd") === stempel) return;
-      sessionStorage.setItem("_pt_getagd", stempel);
-    } catch (e) { /* geen opslag: dan maar elke keer schrijven */ }
+    /* ACHTER ELKAAR, EN DE STEMPEL PAS NA HET ANTWOORD.
+     *
+     * Een nieuwe bezoeker heeft nog geen wagen. tagCart wordt dan twee keer vlak
+     * na elkaar aangeroepen (sessie, dan cohort), en andere apps schrijven op
+     * hetzelfde moment ook kenmerken. Elk verzoek zonder cart-cookie maakt een
+     * eigen wagen aan; de cookie die het laatst terugkomt wint. Het cohort stond
+     * dan in een wagen die niemand meer gebruikte, terwijl de stempel (met een
+     * leeg token) zei dat het geschreven was. Gevolg bij een kassatest: Experli
+     * telde de bezoeker als testgroep, maar de Function zag geen _pt_ck en gaf
+     * geen gratis verzending.
+     *
+     * Nu gaan onze verzoeken in een rij, zodat het tweede de wagen van het
+     * eerste gebruikt, en noteert de stempel het token uit het antwoord: de wagen
+     * waar het écht in staat. Wint daarna de cookie van een andere app, dan
+     * verschilt die van de stempel en schrijven we bij de volgende aanroep
+     * opnieuw - uiterlijk na de add-to-cart, zie watchAddToCart. */
+    schrijfRij = schrijfRij.then(function () {
+      var stempel = tokenKern(cartToken()) + "|" + inhoud;
+      try {
+        if (tokenKern(cartToken()) && sessionStorage.getItem("_pt_getagd") === stempel) return;
+      } catch (e) { /* geen opslag: dan maar elke keer schrijven */ }
 
-    try {
-      fetch("/cart/update.js", {
+      return ruweFetch("/cart/update.js", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ attributes: attributen })
-      }).catch(function () {});
-    } catch (e) {}
+      })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (cart) {
+          if (!cart || !cart.token) return;
+          try { sessionStorage.setItem("_pt_getagd", tokenKern(cart.token) + "|" + inhoud); } catch (e) {}
+        })
+        .catch(function () {});
+    });
+    return schrijfRij;
   }
+
+  /* Het token zonder ?key=... en zonder codering, zodat de cookie en het
+     antwoord van /cart/update.js met elkaar te vergelijken zijn. */
+  function tokenKern(t) {
+    t = String(t || "");
+    try { t = decodeURIComponent(t); } catch (e) {}
+    return t.split("?")[0];
+  }
+
+  /* fetch zoals hij was vóór onze haken, zodat ons eigen /cart/update.js niet
+     door watchAddToCart of de site-analytics als bezoekersgedrag geteld wordt. */
+  var ruweFetch = window.fetch ? window.fetch.bind(window) : function () { return Promise.reject(); };
+  var schrijfRij = Promise.resolve();
 
   /**
    * Notice an add-to-cart.
@@ -387,11 +413,32 @@
     var of = window.fetch;
     if (typeof of === "function") {
       window.fetch = function (input) {
+        var add = false;
         try {
           var u = typeof input === "string" ? input : (input && input.url) || "";
-          if (isAdd(u)) meld();
+          add = isAdd(u);
+          if (add) meld();
         } catch (e) {}
-        return of.apply(this, arguments);
+        var p = of.apply(this, arguments);
+        if (!add || !Object.keys(teTaggen).length) return p;
+
+        /* NA DE ADD EERST DE KENMERKEN, DAN PAS HET ANTWOORD.
+         *
+         * Wie meteen naar de kassa gaat (de bundelknop met skip-cart doet
+         * location.href = "/checkout" zodra de add klaar is) gaf ons geen tijd:
+         * de tagCart van meld() wacht 400 ms en de pagina was dan al weg. Kwam
+         * de wagen pas bij deze add tot stand, dan ging hij zonder cohort de
+         * kassa in. Nu houden we het antwoord vast tot de kenmerken op de wagen
+         * met de producten staan. Dat kost één klein verzoek, en faalt dat, dan
+         * gaat het antwoord gewoon door. */
+        return p.then(function (res) {
+          if (!res || !res.ok) return res;
+          var klaar = function () { return res; };
+          return Promise.race([
+            tagCart(),
+            new Promise(function (r) { setTimeout(r, 1500); })
+          ]).then(klaar, klaar);
+        });
       };
     }
 
