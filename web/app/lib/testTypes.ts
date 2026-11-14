@@ -68,18 +68,19 @@ export const TYPES: TypeInfo[] = [
   },
   {
     key: "checkout",
-    naam: "Checkout",
-    kort: "A message in the checkout, for one group",
+    naam: "Checkout & shipping",
+    kort: "A block, free shipping or other delivery options, for one group",
     uitleg:
-      "The test group sees an extra block in the checkout — reassurance about shipping, a " +
-      "returns promise, a note about the guarantee. Everything before the checkout is identical, " +
-      "so this measures the one place most tests never reach: the gap between reaching the " +
-      "checkout and finishing it.",
+      "Everything before the checkout is identical; only the checkout changes for the test " +
+      "group. Either an extra block (reassurance about shipping, a returns promise, a note about " +
+      "the guarantee), free shipping, or renamed, reordered or hidden delivery options. You pick " +
+      "which in the next step. This measures the one place most tests never reach: the gap " +
+      "between reaching the checkout and finishing it.",
     voorbereiding:
-      "The Experli block has to be placed once in the checkout editor, wherever you want the " +
-      "message to appear. After that every checkout test uses that same spot — you do not touch " +
-      "the editor again.",
-    mechaniek: "Test group sees the block; the control group sees nothing there.",
+      "Only for a block: place the Experli block once in the checkout editor, wherever you want " +
+      "the message to appear. After that every block test uses that same spot. Free shipping and " +
+      "delivery options need no setup; Experli creates the Shopify discount or function itself.",
+    mechaniek: "Test group gets the block, free shipping or the other delivery options; the control group gets the checkout as it is.",
   },
   {
     key: "url",
