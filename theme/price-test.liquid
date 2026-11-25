@@ -663,6 +663,21 @@
     var cohort = bucket(visitor + ":" + t.id) < t.splitPct ? "test" : "control";
     noteerCohort(t.id, cohort);
 
+    /* CART IN PLAATS VAN SKIP-CART.
+     *
+     * Geen Function en geen kassablok: Herbies Bundles leest bij het
+     * toevoegen window.bundlesSkipCart, en false betekent "niet meteen naar
+     * de kassa". De testgroep krijgt dan de slide-out cart van het thema.
+     *
+     * Bewust NIET onder de vaste sleutel _pt_ck: daar leest een verzendtest
+     * uit, en die mag tegelijk blijven lopen. Het cohort gaat alleen als
+     * _pt_<id> mee naar de order, en dat is genoeg voor de uitslag. */
+    if (t.soort === "cart") {
+      if (cohort === "test") window.bundlesSkipCart = false;
+      gemeten.push([t.id, cohort]);
+      return false;
+    }
+
     /* EN NOG EEN KEER ONDER EEN VASTE SLEUTEL.
      *
      * Een verzendtest wordt niet door de kassa-extensie uitgevoerd maar door

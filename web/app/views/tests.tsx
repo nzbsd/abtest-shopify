@@ -249,6 +249,8 @@ export function TestsView({
       case "trust":   return (c.test?.items?.length ?? 0) + " reassurance lines";
       case "faq":     return (c.test?.vragen?.length ?? 0) + " questions";
       case "shipbar": return "free shipping bar";
+      case "cart":    return "cart instead of skip-cart";
+      case "gratisverzending": return "free shipping";
       case "upsell":  return kort(c.test?.titel) || "add-on offer";
       default:        return kort(c.test?.tekst) || "a message";
     }

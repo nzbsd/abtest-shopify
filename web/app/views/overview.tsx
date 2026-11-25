@@ -23,7 +23,9 @@ import { benodigd, metricInfo, noemer, noemerNaam } from "~/lib/metrics";
 function watVarieert(t: PriceTest): string {
   switch (t.test_type) {
     case "image":    return "photo " + (t.image_positie ?? "?") + " first in the gallery";
-    case "checkout": return t.checkout_variant === "verzending"
+    case "checkout": return t.checkout_variant === "cart"
+                            ? "cart instead of skip-cart"
+                            : t.checkout_variant === "verzending"
                             ? "different shipping options"
                             : t.checkout_config?.control
                               ? "two versions in the checkout"

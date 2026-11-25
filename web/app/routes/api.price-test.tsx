@@ -85,7 +85,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
              Dus komt hij er nu uit, maar zonder inhoud: het thema kan indelen
              en taggen, de kassa-extensie meldt de view en tekent niets. */
-          const isVerzend = soort === "verzending" || soort === "gratisverzending";
+          /* "cart" (cart in plaats van skip-cart) heeft ook geen inhoud: het
+             thema leest alleen het cohort en zet skip-cart uit voor de
+             testgroep. */
+          const isVerzend = soort === "verzending" || soort === "gratisverzending" || soort === "cart";
 
           /* Voor een bloktest geldt nog steeds: zonder inhoud voor de testgroep
              valt er niets te tonen en zien beide groepen hetzelfde - een test

@@ -283,7 +283,10 @@ export async function testsAction(
           throw new Error("The checkout settings could not be read.");
         }
 
-        if (soort === "gratisverzending") {
+        if (soort === "cart") {
+          /* Niets te valideren: de testgroep krijgt de cart in plaats van
+             skip-cart, en dat doet het thema zelf. */
+        } else if (soort === "gratisverzending") {
           /* Niets te valideren: de mechaniek is de test. Wat je hooguit instelt
              is de tekst die de koper naast de kortingsregel ziet. */
         } else if (soort === "verzending") {
@@ -310,7 +313,9 @@ export async function testsAction(
           control_product_id: null,
           test_product_id: null,
         };
-        bericht = soort === "gratisverzending"
+        bericht = soort === "cart"
+          ? "Test saved: the test group sees the cart instead of going straight to checkout."
+          : soort === "gratisverzending"
           ? "Test saved: the test group gets free shipping."
           : soort === "verzending"
           ? "Test saved: the test group gets different shipping options."

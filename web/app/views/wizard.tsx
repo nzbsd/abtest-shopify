@@ -786,6 +786,16 @@ const CK_SOORTEN = [
       "Experli sets up and removes the Shopify discount for you.",
   },
   {
+    key: "cart",
+    naam: "Cart instead of skip-cart",
+    kort: "The test group sees the cart before checkout",
+    uitleg:
+      "For stores where Herbies Bundles sends add to cart straight to checkout. The control group " +
+      "keeps doing that; the test group gets the slide-out cart instead, with its upsells and the " +
+      "subscribe and 3-month switches. Measures whether a cart step earns more than it costs in " +
+      "people who stop there.",
+  },
+  {
     key: "verzending",
     naam: "Shipping options",
     kort: "Rename, reorder or hide delivery methods",
@@ -1328,7 +1338,7 @@ export function Wizard({
     // Tekst voor de testgroep is genoeg; de controlekant mag leeg. Wel moeten
     // de twee verschillen als er allebei iets staat.
     : type === "checkout"
-        ? (ckSoort === "gratisverzending" ? true
+        ? (ckSoort === "gratisverzending" || ckSoort === "cart" ? true
            : ckSoort === "verzending" ? vzIets
            : Boolean(ckTestCfg) && !ckGelijk)
     : type === "theme" ? Boolean(thema)
@@ -1359,6 +1369,8 @@ export function Wizard({
       fd.set("checkoutConfig", JSON.stringify(
         ckSoort === "gratisverzending"
           ? { bericht: gratisTekst.trim() || "Free shipping" }
+          : ckSoort === "cart"
+          ? {}
           : ckSoort === "verzending"
           ? { hernoem: vzHernoem.filter((r) => r.naar.trim()), verberg: vzVerberg, bovenaan: vzBovenaan }
           : { test: ckTestCfg, control: ckControlCfg },
@@ -1568,6 +1580,15 @@ export function Wizard({
                           order, not as a rate that happens to be zero.
                         </span>
                       </div>
+                    </div>
+                  ) : ckSoort === "cart" ? (
+                    <div style={{ marginTop: 16 }}>
+                      <Banner tone="info">
+                        Nothing to configure. The control group goes straight to checkout as
+                        Herbies Bundles does today; the test group gets the cart drawer after add
+                        to cart. Skip-cart must be on in Herbies Bundles, or both groups see the
+                        cart and the test measures nothing.
+                      </Banner>
                     </div>
                   ) : ckSoort === "verzending" ? (
                     <CkVerzending
@@ -2053,6 +2074,7 @@ export function Wizard({
                     {type === "price" ? "different price"
                       : type === "image" ? "photo " + foto + " shown first"
                       : type === "checkout" ? (ckSoort === "gratisverzending" ? "free shipping"
+                          : ckSoort === "cart" ? "cart instead of skip-cart"
                           : ckSoort === "verzending" ? "different shipping options" : "in the checkout")
                       : type === "template" ? "?view=" + suffix
                       : type === "url" ? "sent from the other URL"
