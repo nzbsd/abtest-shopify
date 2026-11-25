@@ -272,7 +272,7 @@ export async function testsAction(
            doet mee, ongeacht wat er in de wagen zit. Vandaar geen product en
            geen pad - net als bij een themetest. */
         const soort = String(form.get("checkoutSoort") || "");
-        if (!["banner", "trust", "faq", "shipbar", "upsell", "verzending", "gratisverzending"].includes(soort)) {
+        if (!["banner", "trust", "faq", "shipbar", "upsell", "verzending", "gratisverzending", "cart"].includes(soort)) {
           throw new Error("Unknown kind of checkout test.");
         }
 
