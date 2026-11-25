@@ -674,8 +674,13 @@
      * _pt_<id> mee naar de order, en dat is genoeg voor de uitslag. */
     if (t.soort === "cart") {
       if (cohort === "test") window.bundlesSkipCart = false;
-      gemeten.push([t.id, cohort]);
-      return false;
+      /* WEL een view, en hier in de winkel. Bij de andere kassatests telt de
+       * kassa-extensie de view (wie de kassa bereikt). Maar deze test gaat
+       * juist over de stap ervóór: de controlegroep gaat meteen naar de
+       * kassa, de testgroep eerst naar de cart. Met kassaviews als noemer
+       * telde de controlegroep alleen wie al in de kassa stond, en stonden
+       * er meer add-to-carts dan bezoekers. Elke ingedeelde bezoeker telt. */
+      return meet(t.id, cohort);
     }
 
     /* EN NOG EEN KEER ONDER EEN VASTE SLEUTEL.
